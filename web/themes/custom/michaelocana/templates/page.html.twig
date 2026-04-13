@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <head-placeholder token="{{ placeholder_token }}">
+    <title>{{ head_title|safe_join(' | ') }}</title>
+    <css-placeholder token="{{ placeholder_token }}">
+    <js-placeholder token="{{ placeholder_token }}">
+  </head>
+  <body>
+    <header class="container">
+      <nav>
+        {{ page.primary_menu }}
+      </nav>
+    </header>
+
+    <main class="container">
+      {{ page.content }}
+    </main>
+
+    <footer>
+      <p>© {{ "now"|date("Y") }} {{ site_name }}</p>
+    </footer>
+
+    <js-bottom-placeholder token="{{ placeholder_token }}">
+  </body>
+</html>

@@ -1,0 +1,208 @@
+.styles-module_wrapper__1I_qj {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  position: fixed;
+  padding: 0px 60px 0px 60px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  box-sizing: border-box;
+}
+
+.styles-module_content__2jwZj {
+  margin: auto;
+  padding: 0; 
+  width: 90%;
+  height: 100%;
+  max-height: 100%;
+  text-align: center;
+}
+
+.styles-module_slide__1zrfk {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.styles-module_image__2hdkJ {
+  max-height: 100%;
+  max-width: 100%;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+}
+
+.styles-module_close__2I1sI {
+  color: white;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 40px;
+  font-weight: bold;
+  opacity: 0.2;
+  cursor: pointer;
+}
+
+.styles-module_close__2I1sI:hover {
+  opacity: 1;
+}
+
+.styles-module_navigation__1pqAE {
+  height: 80%;
+  color: white;
+  cursor: pointer;
+  position: absolute;
+  font-size: 60px;
+  line-height: 60px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  opacity: 0.2;
+  padding: 0 15px;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+}
+
+.styles-module_navigation__1pqAE:hover {
+  opacity: 1;
+}
+
+.nfc-landing {
+  #list_title h1, h2 {
+    margin-block: 0;
+  }
+  #list_title h1 {
+    color: #F58700;
+  }
+}
+
+/* Container styling */
+.nfc-cta-primary {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  width: 100%;
+}
+
+/* Base button styles */
+.nfc-cta-primary .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  flex: 1; /* Makes buttons equal width */
+  font-family: "GT Walsheim Pro", sans-serif;
+  font-size: 1rem;
+}
+
+/* Primary Button (Save Contact) */
+.btn-primary {
+  background-color: #007aff; /* iOS style Blue */
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+}
+
+.btn-primary:hover {
+  background-color: #0063ce;
+  transform: translateY(-2px);
+}
+
+/* Secondary Button (Call) */
+.btn-secondary {
+  background-color: #f2f2f7;
+  color: #1c1c1e;
+  border: 1px solid #d1d1d6;
+}
+
+.btn-secondary:hover {
+  background-color: #e5e5ea;
+  transform: translateY(-2px);
+}
+
+/* Active/Tap state for mobile */
+.nfc-cta-primary .btn:active {
+  transform: scale(0.96);
+}
+
+/* Container */
+.nfc-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+
+  /* Limit to 5 rows (4 cols × 5 rows = 20 items) */
+  max-height: calc((100vw / 4) * 5 + 24px);
+  overflow: hidden;
+}
+
+/* Each item */
+.nfc-gallery-item {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1; /* perfect square */
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+/* Image */
+.nfc-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.more-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+@media (max-width: 480px) {
+  .nfc-gallery {
+    gap: 4px;
+  }
+}
+
+/* Optional hover (desktop only) */
+@media (hover: hover) {
+  .nfc-gallery-item:hover img {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+  }
+}
+
+@media (hover: none) {
+  .styles-module_navigation__1pqAE:hover {
+    opacity: 0.2;
+  }
+}
+
+.styles-module_prev__KqFRp {
+  left: 0;
+}
+
+.styles-module_next__1uQwZ {
+  right: 0;
+}
+
+@media (max-width: 900px) {
+  .styles-module_wrapper__1I_qj {
+    padding: 0;
+  }
+}

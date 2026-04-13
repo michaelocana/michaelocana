@@ -22,3 +22,6 @@
 /sites/simpletest
 
 .DS_Store
+# Ignore Drupal's generated assets
+web/sites/default/files/css/*
+web/sites/default/files/js/*
