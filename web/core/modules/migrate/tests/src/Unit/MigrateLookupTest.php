@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Unit;
 
+use Drupal\Component\Plugin\Exception\PluginException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\migrate\MigrateLookup;
 use Drupal\migrate\Plugin\MigrateDestinationInterface;
@@ -23,7 +26,7 @@ class MigrateLookupTest extends MigrateTestCase {
    *
    * @covers ::lookup
    */
-  public function testLookup() {
+  public function testLookup(): void {
     $source_ids = ['id' => '1'];
 
     $destination_ids = [[2]];
@@ -47,14 +50,63 @@ class MigrateLookupTest extends MigrateTestCase {
   }
 
   /**
-   * Tests that an appropriate message is logged if a PluginException is thrown.
+   * Tests message logged when a single migration is not found.
+   *
+   * @dataProvider providerExceptionOnMigrationNotFound
    */
-  public function testExceptionOnMigrationNotFound() {
+  public function testExceptionOnMigrationNotFound($migrations, $message): void {
     $migration_plugin_manager = $this->prophesize(MigrationPluginManagerInterface::class);
-    $migration_plugin_manager->createInstances('bad_plugin')->willReturn([]);
+    $migration_plugin_manager->createInstances($migrations)->willReturn([]);
     $this->expectException(PluginNotFoundException::class);
+    $this->expectExceptionMessage($message);
     $lookup = new MigrateLookup($migration_plugin_manager->reveal());
-    $lookup->lookup('bad_plugin', [1]);
+    $lookup->lookup($migrations, [1]);
+  }
+
+  /**
+   * Provides data for testExceptionOnMigrationNotFound.
+   */
+  public static function providerExceptionOnMigrationNotFound() {
+    return [
+      'string' => [
+        'bad_plugin',
+        "Plugin ID 'bad_plugin' was not found.",
+      ],
+      'array one item' => [
+        ['bad_plugin'],
+        "Plugin ID 'bad_plugin' was not found.",
+      ],
+    ];
+  }
+
+  /**
+   * Tests message logged when multiple migrations are not found.
+   *
+   * @dataProvider providerExceptionOnMultipleMigrationsNotFound
+   */
+  public function testExceptionOnMultipleMigrationsNotFound($migrations, $message): void {
+    $migration_plugin_manager = $this->prophesize(MigrationPluginManagerInterface::class);
+    $migration_plugin_manager->createInstances($migrations)->willReturn([]);
+    $this->expectException(PluginException::class);
+    $this->expectExceptionMessage($message);
+    $lookup = new MigrateLookup($migration_plugin_manager->reveal());
+    $lookup->lookup($migrations, [1]);
+  }
+
+  /**
+   * Provides data for testExceptionOnMultipleMigrationsNotFound.
+   */
+  public static function providerExceptionOnMultipleMigrationsNotFound() {
+    return [
+      'array two items' => [
+        ['foo', 'bar'],
+        "Plugin IDs 'foo', 'bar' were not found.",
+      ],
+      'empty array' => [
+        [],
+        "Plugin IDs '' were not found.",
+      ],
+    ];
   }
 
 }

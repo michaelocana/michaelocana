@@ -2,14 +2,17 @@
 
 namespace Drupal\user\Form;
 
+use Drupal\Component\Utility\EmailValidatorInterface;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\WorkspaceSafeFormInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Render\Element\Email;
 use Drupal\user\UserInterface;
 use Drupal\user\UserStorageInterface;
+use Drupal\user\UserNameValidator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -19,7 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @internal
  */
-class UserPasswordForm extends FormBase {
+class UserPasswordForm extends FormBase implements WorkspaceSafeFormInterface {
 
   /**
    * The user storage.
@@ -43,6 +46,13 @@ class UserPasswordForm extends FormBase {
   protected $flood;
 
   /**
+   * The email validator service.
+   *
+   * @var \Drupal\Component\Utility\EmailValidatorInterface
+   */
+  protected $emailValidator;
+
+  /**
    * Constructs a UserPasswordForm object.
    *
    * @param \Drupal\user\UserStorageInterface $user_storage
@@ -53,20 +63,24 @@ class UserPasswordForm extends FormBase {
    *   The config factory.
    * @param \Drupal\Core\Flood\FloodInterface $flood
    *   The flood service.
+   * @param \Drupal\user\UserNameValidator $userNameValidator
+   *   The user validator service.
+   * @param \Drupal\Component\Utility\EmailValidatorInterface $email_validator
+   *   The email validator service.
    */
-  public function __construct(UserStorageInterface $user_storage, LanguageManagerInterface $language_manager, ConfigFactory $config_factory = NULL, FloodInterface $flood = NULL) {
+  public function __construct(
+    UserStorageInterface $user_storage,
+    LanguageManagerInterface $language_manager,
+    ConfigFactory $config_factory,
+    FloodInterface $flood,
+    protected UserNameValidator $userNameValidator,
+    EmailValidatorInterface $email_validator,
+  ) {
     $this->userStorage = $user_storage;
     $this->languageManager = $language_manager;
-    if (!$config_factory) {
-      @trigger_error('Calling ' . __METHOD__ . ' without the $config_factory is deprecated in drupal:8.8.0 and is required before drupal:9.0.0. See https://www.drupal.org/node/1681832', E_USER_DEPRECATED);
-      $config_factory = \Drupal::configFactory();
-    }
     $this->configFactory = $config_factory;
-    if (!$flood) {
-      @trigger_error('Calling ' . __METHOD__ . ' without the $flood parameter is deprecated in drupal:8.8.0 and is required before drupal:9.0.0. See https://www.drupal.org/node/1681832', E_USER_DEPRECATED);
-      $flood = \Drupal::service('flood');
-    }
     $this->flood = $flood;
+    $this->emailValidator = $email_validator;
   }
 
   /**
@@ -77,7 +91,9 @@ class UserPasswordForm extends FormBase {
       $container->get('entity_type.manager')->getStorage('user'),
       $container->get('language_manager'),
       $container->get('config.factory'),
-      $container->get('flood')
+      $container->get('flood'),
+      $container->get('user.name_validator'),
+      $container->get('email.validator'),
     );
   }
 
@@ -103,6 +119,7 @@ class UserPasswordForm extends FormBase {
         'autocapitalize' => 'off',
         'spellcheck' => 'false',
         'autofocus' => 'autofocus',
+        'autocomplete' => 'username',
       ],
     ];
     // Allow logged in users to request this also.
@@ -141,7 +158,16 @@ class UserPasswordForm extends FormBase {
       return;
     }
     $this->flood->register('user.password_request_ip', $flood_config->get('ip_window'));
+    // First, see if the input is possibly valid as a username.
     $name = trim($form_state->getValue('name'));
+    $violations = $this->userNameValidator->validateName($name);
+    // Usernames have a maximum length shorter than email addresses. Only print
+    // this error if the input is not valid as a username or email address.
+    if ($violations->count() > 0 && !$this->emailValidator->isValid($name)) {
+      $form_state->setErrorByName('name', $this->t("The username or email address is invalid."));
+      return;
+    }
+
     // Try to load by email.
     $users = $this->userStorage->loadByProperties(['mail' => $name]);
     if (empty($users)) {
@@ -149,26 +175,17 @@ class UserPasswordForm extends FormBase {
       $users = $this->userStorage->loadByProperties(['name' => $name]);
     }
     $account = reset($users);
-    if ($account && $account->id()) {
-      // Blocked accounts cannot request a new password.
-      if (!$account->isActive()) {
-        $form_state->setErrorByName('name', $this->t('%name is blocked or has not been activated yet.', ['%name' => $name]));
+    // Blocked accounts cannot request a new password.
+    if ($account && $account->id() && $account->isActive()) {
+      // Register flood events based on the uid only, so they apply for any
+      // IP address. This allows them to be cleared on successful reset (from
+      // any IP).
+      $identifier = $account->id();
+      if (!$this->flood->isAllowed('user.password_request_user', $flood_config->get('user_limit'), $flood_config->get('user_window'), $identifier)) {
+        return;
       }
-      else {
-        // Register flood events based on the uid only, so they apply for any
-        // IP address. This allows them to be cleared on successful reset (from
-        // any IP).
-        $identifier = $account->id();
-        if (!$this->flood->isAllowed('user.password_request_user', $flood_config->get('user_limit'), $flood_config->get('user_window'), $identifier)) {
-          $form_state->setErrorByName('name', $this->t('Too many password recovery requests for this account. It is temporarily blocked. Try again later or contact the site administrator.'));
-          return;
-        }
-        $this->flood->register('user.password_request_user', $flood_config->get('user_window'), $identifier);
-        $form_state->setValueForElement(['#parents' => ['account']], $account);
-      }
-    }
-    else {
-      $form_state->setErrorByName('name', $this->t('%name is not recognized as a username or an email address.', ['%name' => $name]));
+      $this->flood->register('user.password_request_user', $flood_config->get('user_window'), $identifier);
+      $form_state->setValueForElement(['#parents' => ['account']], $account);
     }
   }
 
@@ -176,17 +193,32 @@ class UserPasswordForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $langcode = $this->languageManager->getCurrentLanguage()->getId();
-
     $account = $form_state->getValue('account');
-    // Mail one time login URL and instructions using current language.
-    $mail = _user_mail_notify('password_reset', $account, $langcode);
-    if (!empty($mail)) {
-      $this->logger('user')->notice('Password reset instructions mailed to %name at %email.', ['%name' => $account->getAccountName(), '%email' => $account->getEmail()]);
-      $this->messenger()->addStatus($this->t('Further instructions have been sent to your email address.'));
+    if ($account) {
+      // Mail one time login URL and instructions using current language.
+      $mail = _user_mail_notify('password_reset', $account);
+      if (!empty($mail)) {
+        $this->logger('user')
+          ->info('Password reset instructions mailed to %name at %email.', [
+            '%name' => $account->getAccountName(),
+            '%email' => $account->getEmail(),
+          ]);
+      }
     }
+    else {
+      $this->logger('user')
+        ->info('Password reset form was submitted with an unknown or inactive account: %name.', [
+          '%name' => $form_state->getValue('name'),
+        ]);
+    }
+    // Make sure the status text is displayed even if no email was sent. This
+    // message is deliberately the same as the success message for privacy.
+    $this->messenger()
+      ->addStatus($this->t('If %identifier is a valid account, an email will be sent with instructions to reset your password.', [
+        '%identifier' => $form_state->getValue('name'),
+      ]));
 
-    $form_state->setRedirect('user.page');
+    $form_state->setRedirect('<front>');
   }
 
 }

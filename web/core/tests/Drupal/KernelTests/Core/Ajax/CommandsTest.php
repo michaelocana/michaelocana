@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Ajax;
 
 use Drupal\Core\Ajax\AjaxResponse;
@@ -7,7 +9,7 @@ use Drupal\Core\Ajax\InsertCommand;
 use Drupal\Core\EventSubscriber\AjaxResponseSubscriber;
 use Drupal\KernelTests\KernelTestBase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
@@ -20,12 +22,17 @@ class CommandsTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['system', 'node', 'ajax_test', 'ajax_forms_test'];
+  protected static $modules = [
+    'system',
+    'node',
+    'ajax_test',
+    'ajax_forms_test',
+  ];
 
   /**
    * Regression test: Settings command exists regardless of JS aggregation.
    */
-  public function testAttachedSettings() {
+  public function testAttachedSettings(): void {
     $assert = function ($message) {
       $response = new AjaxResponse();
       $response->setAttachments([
@@ -34,11 +41,11 @@ class CommandsTest extends KernelTestBase {
       ]);
 
       $ajax_response_attachments_processor = \Drupal::service('ajax_response.attachments_processor');
-      $subscriber = new AjaxResponseSubscriber($ajax_response_attachments_processor);
-      $event = new FilterResponseEvent(
+      $subscriber = new AjaxResponseSubscriber(fn() => $ajax_response_attachments_processor);
+      $event = new ResponseEvent(
         \Drupal::service('http_kernel'),
         new Request(),
-        HttpKernelInterface::MASTER_REQUEST,
+        HttpKernelInterface::MAIN_REQUEST,
         $response
       );
       $subscriber->onResponse($event);
@@ -62,7 +69,7 @@ class CommandsTest extends KernelTestBase {
    *
    * @doesNotPerformAssertions
    */
-  public function testEmptyInsertCommand() {
+  public function testEmptyInsertCommand(): void {
     (new InsertCommand('foobar', []))->render();
   }
 
@@ -83,14 +90,16 @@ class CommandsTest extends KernelTestBase {
    * the actual command contains additional settings that aren't part of
    * $needle.
    *
-   * @param $haystack
+   * @param array $haystack
    *   An array of rendered Ajax commands returned by the server.
-   * @param $needle
+   * @param array $needle
    *   Array of info we're expecting in one of those commands.
-   * @param $message
+   * @param string $message
    *   An assertion message.
+   *
+   * @internal
    */
-  protected function assertCommand($haystack, $needle, $message) {
+  protected function assertCommand(array $haystack, array $needle, string $message): void {
     $found = FALSE;
     foreach ($haystack as $command) {
       // If the command has additional settings that we're not testing for, do

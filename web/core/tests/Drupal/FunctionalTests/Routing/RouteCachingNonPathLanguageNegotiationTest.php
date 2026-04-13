@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Routing;
 
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -17,11 +19,9 @@ class RouteCachingNonPathLanguageNegotiationTest extends BrowserTestBase {
   use PathAliasTestTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['language', 'block'];
+  protected static $modules = ['language', 'block'];
 
   /**
    * {@inheritdoc}
@@ -35,7 +35,10 @@ class RouteCachingNonPathLanguageNegotiationTest extends BrowserTestBase {
    */
   protected $adminUser;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create and log in user.
@@ -54,7 +57,8 @@ class RouteCachingNonPathLanguageNegotiationTest extends BrowserTestBase {
       'language_interface[enabled][language-url]' => FALSE,
       'language_interface[enabled][language-session]' => TRUE,
     ];
-    $this->drupalPostForm('admin/config/regional/language/detection', $edit, t('Save settings'));
+    $this->drupalGet('admin/config/regional/language/detection');
+    $this->submitForm($edit, 'Save settings');
 
     // A more common scenario is domain-based negotiation but that can not be
     // tested. Session negotiation by default is not considered by the URL
@@ -75,7 +79,7 @@ class RouteCachingNonPathLanguageNegotiationTest extends BrowserTestBase {
   /**
    * Tests aliases when the negotiated language is not in the path.
    */
-  public function testAliases() {
+  public function testAliases(): void {
     // Switch to French and try to access the now inaccessible block.
     $this->drupalGet('');
 

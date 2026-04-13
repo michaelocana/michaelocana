@@ -20,12 +20,12 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   /**
    * Information about the entity type.
    *
+   * @var \Drupal\Core\Entity\EntityTypeInterface
+   *
    * The following code returns the same object:
    * @code
    * \Drupal::entityTypeManager()->getDefinition($this->entityTypeId)
    * @endcode
-   *
-   * @var \Drupal\Core\Entity\EntityTypeInterface
    */
   protected $entityType;
 
@@ -60,11 +60,20 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   protected $uuidService;
 
   /**
-   * Name of the entity class.
+   * Name of the base entity class.
    *
-   * @var string
+   * This is a private property since it's not meant to be set by child classes.
+   * It holds the name of the entity class defined in the entity type that is
+   * passed in to the constructor when instantiating an entity storage class.
+   *
+   * Normally, the entity class is defined via an annotation when defining an
+   * entity type, via hook_entity_bundle_info() or via
+   * hook_entity_bundle_info_alter(). However, due to how this property works,
+   * the entity class can also be controlled via hook_entity_type_alter().
+   *
+   * @var string|null
    */
-  protected $entityClass;
+  private $baseEntityClass;
 
   /**
    * The memory cache.
@@ -74,7 +83,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   protected $memoryCache;
 
   /**
-   * The memory cache cache tag.
+   * The memory cache tag.
    *
    * @var string
    */
@@ -85,23 +94,25 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *   The entity type definition.
-   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface|null $memory_cache
+   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memory_cache
    *   The memory cache.
    */
-  public function __construct(EntityTypeInterface $entity_type, MemoryCacheInterface $memory_cache = NULL) {
+  public function __construct(EntityTypeInterface $entity_type, MemoryCacheInterface $memory_cache) {
     $this->entityTypeId = $entity_type->id();
     $this->entityType = $entity_type;
+    $this->baseEntityClass = $entity_type->getClass();
     $this->idKey = $this->entityType->getKey('id');
     $this->uuidKey = $this->entityType->getKey('uuid');
     $this->langcodeKey = $this->entityType->getKey('langcode');
-    $this->entityClass = $this->entityType->getClass();
-
-    if (!isset($memory_cache)) {
-      @trigger_error('The $memory_cache parameter was added in Drupal 8.6.x and will be required in 9.0.0. See https://www.drupal.org/node/2973262', E_USER_DEPRECATED);
-      $memory_cache = \Drupal::service('entity.memory_cache');
-    }
     $this->memoryCache = $memory_cache;
     $this->memoryCacheTag = 'entity.memory_cache:' . $this->entityTypeId;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntityClass(?string $bundle = NULL): string {
+    return $this->baseEntityClass;
   }
 
   /**
@@ -142,7 +153,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   /**
    * {@inheritdoc}
    */
-  public function resetCache(array $ids = NULL) {
+  public function resetCache(?array $ids = NULL) {
     if ($this->entityType->isStaticallyCacheable() && isset($ids)) {
       foreach ($ids as $id) {
         $this->memoryCache->delete($this->buildCacheId($id));
@@ -184,7 +195,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    */
   protected function setStaticCache(array $entities) {
     if ($this->entityType->isStaticallyCacheable()) {
-      foreach ($entities as $id => $entity) {
+      foreach ($entities as $entity) {
         $this->memoryCache->set($this->buildCacheId($entity->id()), $entity, MemoryCacheInterface::CACHE_PERMANENT, [$this->memoryCacheTag]);
       }
     }
@@ -210,7 +221,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * {@inheritdoc}
    */
   public function create(array $values = []) {
-    $entity_class = $this->entityClass;
+    $entity_class = $this->getEntityClass();
     $entity_class::preCreate($this, $values);
 
     // Assign a new UUID if there is none yet.
@@ -237,9 +248,11 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    *   An array of values to set, keyed by property name.
    *
    * @return \Drupal\Core\Entity\EntityInterface
+   *   The created entity.
    */
   protected function doCreate(array $values) {
-    return new $this->entityClass($values, $this->entityTypeId);
+    $entity_class = $this->getEntityClass();
+    return new $entity_class($values, $this->entityTypeId);
   }
 
   /**
@@ -248,13 +261,13 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   public function load($id) {
     assert(!is_null($id), sprintf('Cannot load the "%s" entity with NULL ID.', $this->entityTypeId));
     $entities = $this->loadMultiple([$id]);
-    return isset($entities[$id]) ? $entities[$id] : NULL;
+    return $entities[$id] ?? NULL;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function loadMultiple(array $ids = NULL) {
+  public function loadMultiple(?array $ids = NULL) {
     $entities = [];
     $preloaded_entities = [];
 
@@ -335,7 +348,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   Associative array of entities, keyed on the entity ID.
    */
-  abstract protected function doLoadMultiple(array $ids = NULL);
+  abstract protected function doLoadMultiple(?array $ids = NULL);
 
   /**
    * Gathers entities from a 'preload' step.
@@ -347,29 +360,46 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   Associative array of entities, keyed by the entity ID.
    */
-  protected function preLoad(array &$ids = NULL) {
+  protected function preLoad(?array &$ids = NULL) {
     return [];
   }
 
   /**
    * Attaches data to entities upon loading.
    *
+   * If there are multiple bundle classes involved, each one gets a sub array
+   * with only the entities of the same bundle. If there's only a single bundle,
+   * the entity's postLoad() method will get a copy of the original $entities
+   * array.
+   *
    * @param array $entities
    *   Associative array of query results, keyed on the entity ID.
    */
   protected function postLoad(array &$entities) {
-    $entity_class = $this->entityClass;
-    $entity_class::postLoad($this, $entities);
-    // Call hook_entity_load().
-    foreach ($this->moduleHandler()->getImplementations('entity_load') as $module) {
-      $function = $module . '_entity_load';
-      $function($entities, $this->entityTypeId);
+    $entities_by_class = $this->getEntitiesByClass($entities);
+
+    // Invoke entity class specific postLoad() methods. If there's only a single
+    // class involved, we want to pass in the original $entities array. For
+    // example, to provide backwards compatibility with the legacy behavior of
+    // the deprecated user_roles() method, \Drupal\user\Entity\Role::postLoad()
+    // sorts the array to enforce role weights. We have to let it manipulate the
+    // final array, not a subarray. However if there are multiple bundle classes
+    // involved, we only want to pass each one the entities that match.
+    if (count($entities_by_class) === 1) {
+      $entity_class = array_key_first($entities_by_class);
+      $entity_class::postLoad($this, $entities);
     }
-    // Call hook_TYPE_load().
-    foreach ($this->moduleHandler()->getImplementations($this->entityTypeId . '_load') as $module) {
-      $function = $module . '_' . $this->entityTypeId . '_load';
-      $function($entities);
+    else {
+      foreach ($entities_by_class as $entity_class => &$items) {
+        $entity_class::postLoad($this, $items);
+      }
     }
+    $this->moduleHandler()->invokeAllWith('entity_load', function (callable $hook, string $module) use (&$entities) {
+      $hook($entities, $this->entityTypeId);
+    });
+    $this->moduleHandler()->invokeAllWith($this->entityTypeId . '_load', function (callable $hook, string $module) use (&$entities) {
+      $hook($entities);
+    });
   }
 
   /**
@@ -384,7 +414,9 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
   protected function mapFromStorageRecords(array $records) {
     $entities = [];
     foreach ($records as $record) {
-      $entity = new $this->entityClass($record, $this->entityTypeId);
+      $entity_class = $this->getEntityClass();
+      /** @var \Drupal\Core\Entity\EntityInterface $entity */
+      $entity = new $entity_class($record, $this->entityTypeId);
       $entities[$entity->id()] = $entity;
     }
     return $entities;
@@ -399,6 +431,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    *   The entity being saved.
    *
    * @return bool
+   *   TRUE if this entity exists in storage, FALSE otherwise.
    */
   abstract protected function has($id, EntityInterface $entity);
 
@@ -411,27 +444,24 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
       return;
     }
 
-    // Ensure that the entities are keyed by ID.
-    $keyed_entities = [];
-    foreach ($entities as $entity) {
-      $keyed_entities[$entity->id()] = $entity;
-    }
+    $entities_by_class = $this->getEntitiesByClass($entities);
 
     // Allow code to run before deleting.
-    $entity_class = $this->entityClass;
-    $entity_class::preDelete($this, $keyed_entities);
-    foreach ($keyed_entities as $entity) {
-      $this->invokeHook('predelete', $entity);
-    }
+    foreach ($entities_by_class as $entity_class => &$items) {
+      $entity_class::preDelete($this, $items);
+      foreach ($items as $entity) {
+        $this->invokeHook('predelete', $entity);
+      }
 
-    // Perform the delete and reset the static cache for the deleted entities.
-    $this->doDelete($keyed_entities);
-    $this->resetCache(array_keys($keyed_entities));
+      // Perform the delete and reset the static cache for the deleted entities.
+      $this->doDelete($items);
+      $this->resetCache(array_keys($items));
 
-    // Allow code to run after deleting.
-    $entity_class::postDelete($this, $keyed_entities);
-    foreach ($keyed_entities as $entity) {
-      $this->invokeHook('delete', $entity);
+      // Allow code to run after deleting.
+      $entity_class::postDelete($this, $items);
+      foreach ($items as $entity) {
+        $this->invokeHook('delete', $entity);
+      }
     }
   }
 
@@ -468,8 +498,8 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The saved entity.
    *
-   * @return int|string
-   *   The processed entity identifier.
+   * @return int|string|null
+   *   The processed entity identifier, or null for new entities.
    *
    * @throws \Drupal\Core\Entity\EntityStorageException
    *   If the entity identifier is invalid.
@@ -491,8 +521,8 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
     }
 
     // Load the original entity, if any.
-    if ($id_exists && !isset($entity->original)) {
-      $entity->original = $this->loadUnchanged($id);
+    if ($id_exists && !$entity->getOriginal()) {
+      $entity->setOriginal($this->loadUnchanged($id));
     }
 
     // Allow code to run before saving.
@@ -539,7 +569,7 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
     // correctly identify the original entity.
     $entity->setOriginalId($entity->id());
 
-    unset($entity->original);
+    $entity->setOriginal(NULL);
   }
 
   /**
@@ -556,8 +586,9 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * @param \Drupal\Core\Entity\Query\QueryInterface $entity_query
    *   EntityQuery instance.
    * @param array $values
-   *   An associative array of properties of the entity, where the keys are the
-   *   property names and the values are the values those properties must have.
+   *   An associative array where the keys are the property names and the
+   *   values are the values those properties must have. If a property takes
+   *   multiple values, passing an array of values will produce an IN condition.
    */
   protected function buildPropertyQuery(QueryInterface $entity_query, array $values) {
     foreach ($values as $name => $value) {
@@ -592,8 +623,6 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * {@inheritdoc}
    */
   public function getQuery($conjunction = 'AND') {
-    // Access the service directly rather than entity.query factory so the
-    // storage's current entity type is used.
     return \Drupal::service($this->getQueryServiceName())->get($this->entityType, $conjunction);
   }
 
@@ -601,8 +630,6 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    * {@inheritdoc}
    */
   public function getAggregateQuery($conjunction = 'AND') {
-    // Access the service directly rather than entity.query factory so the
-    // storage's current entity type is used.
     return \Drupal::service($this->getQueryServiceName())->getAggregate($this->entityType, $conjunction);
   }
 
@@ -613,5 +640,22 @@ abstract class EntityStorageBase extends EntityHandlerBase implements EntityStor
    *   The name of the service for the query for this entity storage.
    */
   abstract protected function getQueryServiceName();
+
+  /**
+   * Indexes the given array of entities by their class name and ID.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface[] $entities
+   *   The array of entities to index.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface[][]
+   *   An array of the passed-in entities, indexed by their class name and ID.
+   */
+  protected function getEntitiesByClass(array $entities): array {
+    $entity_classes = [];
+    foreach ($entities as $entity) {
+      $entity_classes[get_class($entity)][$entity->id()] = $entity;
+    }
+    return $entity_classes;
+  }
 
 }

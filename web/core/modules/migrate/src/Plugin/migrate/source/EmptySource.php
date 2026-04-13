@@ -2,6 +2,8 @@
 
 namespace Drupal\migrate\Plugin\migrate\source;
 
+use Drupal\migrate\Attribute\MigrateSource;
+
 /**
  * Source returning a row based on the constants provided.
  *
@@ -15,14 +17,14 @@ namespace Drupal\migrate\Plugin\migrate\source;
  *     field_name: image
  * @endcode
  *
- * This will return a single row containing 'entity_type' and 'field_name'
- * elements, with values of 'user' and 'image', respectively.
+ * This will return a single row containing 'constants/entity_type' and
+ * 'constants/field_name' elements, with values of 'user' and 'image',
+ * respectively.
  *
- * @MigrateSource(
- *   id = "empty",
- *   source_module = "migrate"
- * )
+ * For additional configuration keys, refer to the parent class:
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  */
+#[MigrateSource('empty')]
 class EmptySource extends SourcePluginBase {
 
   /**
@@ -30,7 +32,7 @@ class EmptySource extends SourcePluginBase {
    */
   public function fields() {
     return [
-      'id' => t('ID'),
+      'id' => $this->t('ID'),
     ];
   }
 
@@ -59,7 +61,7 @@ class EmptySource extends SourcePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function count($refresh = FALSE) {
+  protected function doCount() {
     return 1;
   }
 

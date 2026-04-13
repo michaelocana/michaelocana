@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\basic_auth\Traits;
 
 /**
@@ -17,7 +19,7 @@ trait BasicAuthTestTrait {
    * @param string $password
    *   The password to use for basic authentication.
    * @param array $options
-   *   (optional) Options to be forwarded to the url generator.
+   *   (optional) Options to be forwarded to the URL generator.
    *
    * @return string
    *   The retrieved HTML string, also available as $this->getRawContent().
@@ -37,7 +39,7 @@ trait BasicAuthTestTrait {
    * @return array
    *   An array of raw request headers as used by curl_setopt().
    */
-  protected function getBasicAuthHeaders($username, $password) {
+  protected function getBasicAuthHeaders($username, $password): array {
     // Set up Curl to use basic authentication with the test user's credentials.
     return ['Authorization' => 'Basic ' . base64_encode("$username:$password")];
   }

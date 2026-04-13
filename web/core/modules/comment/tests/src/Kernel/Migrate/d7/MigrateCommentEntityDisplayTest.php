@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel\Migrate\d7;
 
 use Drupal\Core\Entity\Entity\EntityViewDisplay;
@@ -16,12 +18,12 @@ class MigrateCommentEntityDisplayTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['node', 'comment', 'text', 'menu_ui'];
+  protected static $modules = ['node', 'comment', 'text', 'menu_ui'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->migrateContentTypes();
     $this->migrateCommentTypes();
@@ -39,8 +41,10 @@ class MigrateCommentEntityDisplayTest extends MigrateDrupal7TestBase {
    *   The entity ID.
    * @param string $component_id
    *   The ID of the display component.
+   *
+   * @internal
    */
-  protected function assertDisplay($id, $component_id) {
+  protected function assertDisplay(string $id, string $component_id): void {
     $component = EntityViewDisplay::load($id)->getComponent($component_id);
     $this->assertIsArray($component);
     $this->assertSame('hidden', $component['label']);
@@ -51,7 +55,7 @@ class MigrateCommentEntityDisplayTest extends MigrateDrupal7TestBase {
   /**
    * Tests the migrated display configuration.
    */
-  public function testMigration() {
+  public function testMigration(): void {
     $this->assertDisplay('node.page.default', 'comment_node_page');
     $this->assertDisplay('node.article.default', 'comment_node_article');
     $this->assertDisplay('node.book.default', 'comment_node_book');

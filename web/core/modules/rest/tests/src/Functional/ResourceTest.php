@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\rest\Functional;
 
 use Drupal\Core\Session\AccountInterface;
@@ -19,11 +21,9 @@ use GuzzleHttp\RequestOptions;
 class ResourceTest extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['hal', 'rest', 'entity_test', 'rest_test'];
+  protected static $modules = ['rest', 'entity_test', 'rest_test'];
 
   /**
    * {@inheritdoc}
@@ -40,7 +40,7 @@ class ResourceTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     // Create an entity programmatic.
     $this->entity = EntityTest::create([
@@ -63,7 +63,7 @@ class ResourceTest extends BrowserTestBase {
   /**
    * Tests that a resource without formats cannot be enabled.
    */
-  public function testFormats() {
+  public function testFormats(): void {
     RestResourceConfig::create([
       'id' => 'entity.entity_test',
       'granularity' => RestResourceConfigInterface::METHOD_GRANULARITY,
@@ -77,45 +77,45 @@ class ResourceTest extends BrowserTestBase {
     ])->save();
 
     // Verify that accessing the resource returns 406.
-    $this->drupalGet($this->entity->toUrl()->setRouteParameter('_format', 'hal_json'));
+    $this->drupalGet($this->entity->toUrl()->setRouteParameter('_format', 'json'));
     // \Drupal\Core\Routing\RequestFormatRouteFilter considers the canonical,
     // non-REST route a match, but a lower quality one: no format restrictions
     // means there's always a match and hence when there is no matching REST
     // route, the non-REST route is used, but can't render into
-    // application/hal+json, so it returns a 406.
+    // application/json, so it returns a 406.
     $this->assertSession()->statusCodeEquals(406);
   }
 
   /**
    * Tests that a resource without authentication cannot be enabled.
    */
-  public function testAuthentication() {
+  public function testAuthentication(): void {
     RestResourceConfig::create([
       'id' => 'entity.entity_test',
       'granularity' => RestResourceConfigInterface::METHOD_GRANULARITY,
       'configuration' => [
         'GET' => [
           'supported_formats' => [
-            'hal_json',
+            'json',
           ],
         ],
       ],
     ])->save();
 
     // Verify that accessing the resource returns 401.
-    $this->drupalGet($this->entity->toUrl()->setRouteParameter('_format', 'hal_json'));
+    $this->drupalGet($this->entity->toUrl()->setRouteParameter('_format', 'json'));
     // \Drupal\Core\Routing\RequestFormatRouteFilter considers the canonical,
     // non-REST route a match, but a lower quality one: no format restrictions
     // means there's always a match and hence when there is no matching REST
     // route, the non-REST route is used, but can't render into
-    // application/hal+json, so it returns a 406.
+    // application/json, so it returns a 406.
     $this->assertSession()->statusCodeEquals(406);
   }
 
   /**
    * Tests that serialization_class is optional.
    */
-  public function testSerializationClassIsOptional() {
+  public function testSerializationClassIsOptional(): void {
     RestResourceConfig::create([
       'id' => 'serialization_test',
       'granularity' => RestResourceConfigInterface::METHOD_GRANULARITY,
@@ -151,12 +151,12 @@ class ResourceTest extends BrowserTestBase {
   /**
    * Tests that resource URI paths are formatted properly.
    */
-  public function testUriPaths() {
+  public function testUriPaths(): void {
     /** @var \Drupal\rest\Plugin\Type\ResourcePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.rest');
 
-    foreach ($manager->getDefinitions() as $resource => $definition) {
-      foreach ($definition['uri_paths'] as $key => $uri_path) {
+    foreach ($manager->getDefinitions() as $definition) {
+      foreach ($definition['uri_paths'] as $uri_path) {
         $this->assertStringNotContainsString('//', $uri_path, 'The resource URI path does not have duplicate slashes.');
       }
     }

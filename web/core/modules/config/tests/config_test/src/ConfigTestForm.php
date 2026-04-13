@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\config_test;
 
 use Drupal\Component\Render\FormattableMarkup;
@@ -79,11 +81,11 @@ class ConfigTestForm extends EntityForm {
     ];
     $form['size_wrapper']['size_submit'] = [
       '#type' => 'submit',
-      '#value' => t('Change size'),
+      '#value' => 'Change size',
       '#attributes' => [
         'class' => ['js-hide'],
       ],
-      '#submit' => [[get_class($this), 'changeSize']],
+      '#submit' => [[static::class, 'changeSize']],
     ];
     $form['size_wrapper']['size_value'] = [
       '#type' => 'select',
@@ -99,7 +101,7 @@ class ConfigTestForm extends EntityForm {
 
     $form['langcode'] = [
       '#type' => 'language_select',
-      '#title' => t('Language'),
+      '#title' => 'Language',
       '#languages' => LanguageInterface::STATE_ALL,
       '#default_value' => $entity->language()->getId(),
     ];
@@ -146,6 +148,7 @@ class ConfigTestForm extends EntityForm {
     }
 
     $form_state->setRedirectUrl($this->entity->toUrl('collection'));
+    return $status;
   }
 
   /**
@@ -164,7 +167,9 @@ class ConfigTestForm extends EntityForm {
   public function exists($entity_id, array $element, FormStateInterface $form_state) {
     /** @var \Drupal\Core\Config\Entity\ConfigEntityInterface $entity */
     $entity = $form_state->getFormObject()->getEntity();
-    return (bool) $this->entityTypeManager->getStorage($entity->getEntityTypeId())
+    /** @var \Drupal\Core\Config\Entity\ConfigEntityStorageInterface $storage */
+    $storage = $this->entityTypeManager->getStorage($entity->getEntityTypeId());
+    return (bool) $storage
       ->getQuery()
       ->condition($entity->getEntityType()->getKey('id'), $entity_id)
       ->execute();

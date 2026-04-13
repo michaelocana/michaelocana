@@ -2,6 +2,7 @@
 
 namespace Drupal\views\Plugin\views\argument;
 
+use Drupal\views\Attribute\ViewsArgument;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 
@@ -14,17 +15,23 @@ use Drupal\views\ViewExecutable;
  * - formula: The formula to use for this handler.
  *
  * @ingroup views_argument_handlers
- *
- * @ViewsArgument("formula")
- */
+  */
+#[ViewsArgument(
+  id: 'formula',
+)]
 class Formula extends ArgumentPluginBase {
 
+  /**
+   * An appropriate SQL string for the DB type and field type.
+   *
+   * @var string|null
+   */
   public $formula = NULL;
 
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
     if (!empty($this->definition['formula'])) {
@@ -32,12 +39,15 @@ class Formula extends ArgumentPluginBase {
     }
   }
 
+  /**
+   * Gets the prepared formula.
+   */
   public function getFormula() {
     return str_replace('***table***', $this->tableAlias, $this->formula);
   }
 
   /**
-   * Build the summary query based on a formula
+   * Build the summary query based on a formula.
    */
   protected function summaryQuery() {
     $this->ensureMyTable();
@@ -52,7 +62,7 @@ class Formula extends ArgumentPluginBase {
   }
 
   /**
-   * Build the query based upon the formula
+   * Build the query based upon the formula.
    */
   public function query($group_by = FALSE) {
     $this->ensureMyTable();

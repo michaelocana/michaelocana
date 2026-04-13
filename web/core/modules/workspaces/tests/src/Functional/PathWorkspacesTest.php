@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workspaces\Functional;
 
-use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\Tests\BrowserTestBase;
-use Drupal\workspaces\Entity\Workspace;
+use Drupal\Tests\content_translation\Traits\ContentTranslationTestTrait;
+use Drupal\Tests\WaitTerminateTestTrait;
 
 /**
  * Tests path aliases with workspaces.
@@ -14,7 +16,9 @@ use Drupal\workspaces\Entity\Workspace;
  */
 class PathWorkspacesTest extends BrowserTestBase {
 
+  use ContentTranslationTestTrait;
   use WorkspaceTestUtilities;
+  use WaitTerminateTestTrait;
 
   /**
    * {@inheritdoc}
@@ -25,6 +29,7 @@ class PathWorkspacesTest extends BrowserTestBase {
     'node',
     'path',
     'workspaces',
+    'workspaces_ui',
   ];
 
   /**
@@ -35,10 +40,10 @@ class PathWorkspacesTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
-    ConfigurableLanguage::createFromLangcode('ro')->save();
+    static::createLanguageFromLangcode('ro');
     $this->rebuildContainer();
 
     // Create a content type.
@@ -47,44 +52,52 @@ class PathWorkspacesTest extends BrowserTestBase {
       'type' => 'article',
     ]);
 
-    $this->drupalLogin($this->rootUser);
+    $permissions = [
+      'administer languages',
+      'administer nodes',
+      'administer url aliases',
+      'administer workspaces',
+      'create article content',
+      'create content translations',
+      'edit any article content',
+      'translate any entity',
+    ];
+    $this->drupalLogin($this->drupalCreateUser($permissions));
 
     // Enable URL language detection and selection.
     $edit = ['language_interface[enabled][language-url]' => 1];
-    $this->drupalPostForm('admin/config/regional/language/detection', $edit, 'Save settings');
+    $this->drupalGet('admin/config/regional/language/detection');
+    $this->submitForm($edit, 'Save settings');
 
     // Enable translation for article node.
-    $edit = [
-      'entity_types[node]' => 1,
-      'settings[node][article][translatable]' => 1,
-      'settings[node][article][fields][path]' => 1,
-      'settings[node][article][fields][body]' => 1,
-      'settings[node][article][settings][language][language_alterable]' => 1,
-    ];
-    $this->drupalPostForm('admin/config/regional/content-language', $edit, 'Save configuration');
-    \Drupal::entityTypeManager()->clearCachedDefinitions();
+    static::enableContentTranslation('node', 'article');
 
     $this->setupWorkspaceSwitcherBlock();
+
+    // The \Drupal\path_alias\AliasPrefixList service performs cache clears
+    // after Drupal has flushed the response to the client. We use
+    // WaitTerminateTestTrait to wait for Drupal to do this before continuing.
+    $this->setWaitForTerminate();
   }
 
   /**
    * Tests path aliases with workspaces.
    */
-  public function testPathAliases() {
+  public function testPathAliases(): void {
     // Create a published node in Live, without an alias.
     $node = $this->drupalCreateNode([
       'type' => 'article',
       'status' => TRUE,
     ]);
 
-    // Switch to Stage and create an alias for the node.
-    $stage = Workspace::load('stage');
-    $this->switchToWorkspace($stage);
+    // Activate a workspace and create an alias for the node.
+    $stage = $this->createAndActivateWorkspaceThroughUi('Stage', 'stage');
 
     $edit = [
       'path[0][alias]' => '/' . $this->randomMachineName(),
     ];
-    $this->drupalPostForm('node/' . $node->id() . '/edit', $edit, 'Save');
+    $this->drupalGet('node/' . $node->id() . '/edit');
+    $this->submitForm($edit, 'Save');
 
     // Check that the node can be accessed in Stage with the given alias.
     $path = $edit['path[0][alias]'];
@@ -109,21 +122,21 @@ class PathWorkspacesTest extends BrowserTestBase {
   /**
    * Tests path aliases with workspaces and user switching.
    */
-  public function testPathAliasesUserSwitch() {
+  public function testPathAliasesUserSwitch(): void {
     // Create a published node in Live, without an alias.
     $node = $this->drupalCreateNode([
       'type' => 'article',
       'status' => TRUE,
     ]);
 
-    // Switch to Stage and create an alias for the node.
-    $stage = Workspace::load('stage');
-    $this->switchToWorkspace($stage);
+    // Activate a workspace and create an alias for the node.
+    $stage = $this->createAndActivateWorkspaceThroughUi('Stage', 'stage');
 
     $edit = [
       'path[0][alias]' => '/' . $this->randomMachineName(),
     ];
-    $this->drupalPostForm('node/' . $node->id() . '/edit', $edit, 'Save');
+    $this->drupalGet('node/' . $node->id() . '/edit');
+    $this->submitForm($edit, 'Save');
 
     // Check that the node can be accessed in Stage with the given alias.
     $path = $edit['path[0][alias]'];
@@ -143,6 +156,7 @@ class PathWorkspacesTest extends BrowserTestBase {
     // Publish the workspace and check that the alias can be accessed in Live.
     $this->drupalLogin($this->rootUser);
     $stage->publish();
+
     $this->drupalLogout();
     $this->assertAccessiblePaths([$path]);
     $this->assertNotEmpty(\Drupal::cache('data')->get('preload-paths:/node/1'));
@@ -151,8 +165,8 @@ class PathWorkspacesTest extends BrowserTestBase {
   /**
    * Tests path aliases with workspaces for translatable nodes.
    */
-  public function testPathAliasesWithTranslation() {
-    $stage = Workspace::load('stage');
+  public function testPathAliasesWithTranslation(): void {
+    $stage = $this->createWorkspaceThroughUi('Stage', 'stage');
 
     // Create one node with a random alias.
     $default_node = $this->drupalCreateNode([
@@ -171,7 +185,7 @@ class PathWorkspacesTest extends BrowserTestBase {
       'status[value]' => TRUE,
       'path[0][alias]' => '/' . $this->randomMachineName(),
     ];
-    $this->drupalPostForm(NULL, $edit_translation, 'Save (this translation)');
+    $this->submitForm($edit_translation, 'Save (this translation)');
     // Confirm that the alias works.
     $this->drupalGet('ro' . $edit_translation['path[0][alias]']);
     $this->assertSession()->pageTextContains($edit_translation['body[0][value]']);
@@ -180,6 +194,9 @@ class PathWorkspacesTest extends BrowserTestBase {
     $translation_path = 'ro' . $edit_translation['path[0][alias]'];
 
     $this->assertAccessiblePaths([$default_path, $translation_path]);
+
+    // Verify the default alias is available in the live workspace.
+    $this->assertAccessiblePaths([$default_path]);
 
     $this->switchToWorkspace($stage);
 
@@ -190,7 +207,8 @@ class PathWorkspacesTest extends BrowserTestBase {
     $edit_new_translation_draft_with_alias = [
       'path[0][alias]' => '/' . $this->randomMachineName(),
     ];
-    $this->drupalPostForm('ro/node/' . $default_node->id() . '/edit', $edit_new_translation_draft_with_alias, 'Save (this translation)');
+    $this->drupalGet('ro/node/' . $default_node->id() . '/edit');
+    $this->submitForm($edit_new_translation_draft_with_alias, 'Save (this translation)');
     $stage_translation_path = 'ro' . $edit_new_translation_draft_with_alias['path[0][alias]'];
 
     // The new alias of the translation should be available in Stage, but not
@@ -213,7 +231,8 @@ class PathWorkspacesTest extends BrowserTestBase {
     $edit_new_translation_draft = [
       'body[0][value]' => $this->randomMachineName(),
     ];
-    $this->drupalPostForm('ro/node/' . $default_node->id() . '/edit', $edit_new_translation_draft, t('Save (this translation)'));
+    $this->drupalGet('ro/node/' . $default_node->id() . '/edit');
+    $this->submitForm($edit_new_translation_draft, 'Save (this translation)');
     // Confirm that the new draft revision was created.
     $this->assertSession()->pageTextContains($edit_new_translation_draft['body[0][value]']);
 
@@ -232,7 +251,8 @@ class PathWorkspacesTest extends BrowserTestBase {
     $edit_new_translation_draft_with_defaults_alias = [
       'path[0][alias]' => $default_node->path->alias,
     ];
-    $this->drupalPostForm('ro/node/' . $default_node->id() . '/edit', $edit_new_translation_draft_with_defaults_alias, 'Save (this translation)');
+    $this->drupalGet('ro/node/' . $default_node->id() . '/edit');
+    $this->submitForm($edit_new_translation_draft_with_defaults_alias, 'Save (this translation)');
 
     // Switch out of Stage and check that the initial path aliases still work.
     $this->switchToLive();
@@ -250,7 +270,8 @@ class PathWorkspacesTest extends BrowserTestBase {
       'body[0][value]' => $this->randomMachineName(),
       'path[0][alias]' => '',
     ];
-    $this->drupalPostForm('ro/node/' . $default_node->id() . '/edit', $edit_new_translation_draft_empty_alias, 'Save (this translation)');
+    $this->drupalGet('ro/node/' . $default_node->id() . '/edit');
+    $this->submitForm($edit_new_translation_draft_empty_alias, 'Save (this translation)');
 
     // Check that only one path alias (the original one) is available now.
     $this->switchToLive();
@@ -267,7 +288,8 @@ class PathWorkspacesTest extends BrowserTestBase {
       'body[0][value]' => $this->randomMachineName(),
       'path[0][alias]' => '/' . $this->randomMachineName(),
     ];
-    $this->drupalPostForm('ro/node/' . $default_node->id() . '/edit', $edit_new_translation, 'Save (this translation)');
+    $this->drupalGet('ro/node/' . $default_node->id() . '/edit');
+    $this->submitForm($edit_new_translation, 'Save (this translation)');
 
     // Confirm that the new revision was created.
     $this->assertSession()->pageTextContains($edit_new_translation['body[0][value]']);
@@ -289,6 +311,21 @@ class PathWorkspacesTest extends BrowserTestBase {
     $stage->publish();
     $this->assertAccessiblePaths([$default_path, $new_stage_translation_path]);
     $this->assertNotAccessiblePaths([$stage_translation_path]);
+
+    // Switch back to Stage.
+    $this->switchToWorkspace($stage);
+
+    // Edit the path alias to set its language to "Not specified".
+    $alias_edit_path = "admin/config/search/path/edit/{$default_node->id()}";
+    $this->drupalGet($alias_edit_path);
+    // Set the alias language to "Not specified".
+    $edit = [
+      'langcode[0][value]' => 'und',
+    ];
+    $this->submitForm($edit, 'Save');
+
+    // Verify the path alias is still available in the Stage workspace.
+    $this->assertAccessiblePaths([$default_path]);
   }
 
   /**
@@ -296,8 +333,10 @@ class PathWorkspacesTest extends BrowserTestBase {
    *
    * @param string[] $paths
    *   An array of paths to check for.
+   *
+   * @internal
    */
-  protected function assertAccessiblePaths(array $paths) {
+  protected function assertAccessiblePaths(array $paths): void {
     foreach ($paths as $path) {
       $this->drupalGet($path);
       $this->assertSession()->statusCodeEquals(200);
@@ -309,8 +348,10 @@ class PathWorkspacesTest extends BrowserTestBase {
    *
    * @param string[] $paths
    *   An array of paths to check for.
+   *
+   * @internal
    */
-  protected function assertNotAccessiblePaths(array $paths) {
+  protected function assertNotAccessiblePaths(array $paths): void {
     foreach ($paths as $path) {
       $this->drupalGet($path);
       $this->assertSession()->statusCodeEquals(404);

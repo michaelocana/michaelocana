@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel;
 
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\node\NodeInterface;
@@ -52,14 +53,12 @@ abstract class NodeAccessTestBase extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-    $this->installSchema('system', 'sequences');
     $this->installSchema('node', 'node_access');
     $this->installEntitySchema('user');
     $this->installEntitySchema('node');
-    $this->installConfig('filter');
-    $this->installConfig('node');
+    $this->installConfig(['filter', 'node', 'user']);
 
     $this->accessHandler = \Drupal::entityTypeManager()->getAccessControlHandler('node');
 
@@ -91,6 +90,8 @@ abstract class NodeAccessTestBase extends KernelTestBase {
    *   The node object to check.
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user account for which to check access.
+   *
+   * @internal
    */
   public function assertNodeAccess(array $ops, NodeInterface $node, AccountInterface $account) {
     foreach ($ops as $op => $result) {
@@ -111,8 +112,10 @@ abstract class NodeAccessTestBase extends KernelTestBase {
    * @param string|null $langcode
    *   (optional) The language code indicating which translation of the node
    *   to check. If NULL, the untranslated (fallback) access is checked.
+   *
+   * @internal
    */
-  public function assertNodeCreateAccess($bundle, $result, AccountInterface $account, $langcode = NULL) {
+  public function assertNodeCreateAccess(string $bundle, bool $result, AccountInterface $account, ?string $langcode = NULL) {
     $this->assertEquals($result, $this->accessHandler->createAccess($bundle, $account, [
       'langcode' => $langcode,
     ]), $this->nodeAccessAssertMessage('create', $result, $langcode));
@@ -134,13 +137,11 @@ abstract class NodeAccessTestBase extends KernelTestBase {
    *   about the node access permission test that was performed.
    */
   public function nodeAccessAssertMessage($operation, $result, $langcode = NULL) {
-    return new FormattableMarkup(
-      'Node access returns @result with operation %op, language code %langcode.',
-      [
-        '@result' => $result ? 'true' : 'false',
-        '%op' => $operation,
-        '%langcode' => !empty($langcode) ? $langcode : 'empty',
-      ]
+    return sprintf(
+     'Node access returns %s with operation %s, language code %s.',
+     $result ? 'true' : 'false',
+     $operation,
+     !empty($langcode) ? $langcode : 'empty',
     );
   }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workflows\Functional;
 
 use Drupal\Core\Url;
@@ -13,11 +15,9 @@ use Drupal\Tests\BrowserTestBase;
 class WorkflowUiNoTypeTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['workflows', 'block'];
+  protected static $modules = ['workflows', 'block'];
 
   /**
    * {@inheritdoc}
@@ -27,7 +27,7 @@ class WorkflowUiNoTypeTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     // We're testing local actions.
     $this->drupalPlaceBlock('local_actions_block');
@@ -36,7 +36,7 @@ class WorkflowUiNoTypeTest extends BrowserTestBase {
   /**
    * Tests the creation of a workflow through the UI.
    */
-  public function testWorkflowUiWithNoType() {
+  public function testWorkflowUiWithNoType(): void {
     $this->drupalLogin($this->createUser(['access administration pages', 'administer workflows']));
     $this->drupalGet('admin/config/workflow/workflows/add');
     // There are no workflow types so this should be a 403.

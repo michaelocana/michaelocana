@@ -7,7 +7,8 @@ use Drupal\Core\Ajax\CommandInterface;
 /**
  * Provides an AJAX command for replacing the page title.
  *
- * This command is implemented in Drupal.AjaxCommands.prototype.viewsReplaceTitle.
+ * This command is implemented in
+ * Drupal.AjaxCommands.prototype.viewsReplaceTitle.
  */
 class ReplaceTitleCommand implements CommandInterface {
 
@@ -34,7 +35,8 @@ class ReplaceTitleCommand implements CommandInterface {
   public function render() {
     return [
       'command' => 'viewsReplaceTitle',
-      'selector' => $this->title,
+      'title' => $this->title,
+      'siteName' => \Drupal::config('system.site')->get('name'),
     ];
   }
 

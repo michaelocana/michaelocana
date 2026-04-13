@@ -4,7 +4,7 @@ namespace Drupal\Core\Config;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Defines the default configuration object.
@@ -21,7 +21,7 @@ class Config extends StorableConfigBase {
   /**
    * An event dispatcher instance to use for configuration events.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   * @var \Symfony\Contracts\EventDispatcher\EventDispatcherInterface
    */
   protected $eventDispatcher;
 
@@ -57,7 +57,7 @@ class Config extends StorableConfigBase {
    * @param \Drupal\Core\Config\StorageInterface $storage
    *   A storage object to use for reading and writing the
    *   configuration data.
-   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   * @param \Symfony\Contracts\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   An event dispatcher instance to use for configuration events.
    * @param \Drupal\Core\Config\TypedConfigManagerInterface $typed_config
    *   The typed configuration manager service.
@@ -91,7 +91,7 @@ class Config extends StorableConfigBase {
     else {
       $parts = explode('.', $key);
       if (count($parts) == 1) {
-        return isset($this->overriddenData[$key]) ? $this->overriddenData[$key] : NULL;
+        return $this->overriddenData[$key] ?? NULL;
       }
       else {
         $value = NestedArray::getValue($this->overriddenData, $parts, $key_exists);
@@ -208,9 +208,9 @@ class Config extends StorableConfigBase {
       if ($this->typedConfigManager->hasConfigSchema($this->name)) {
         // Ensure that the schema wrapper has the latest data.
         $this->schemaWrapper = NULL;
-        foreach ($this->data as $key => $value) {
-          $this->data[$key] = $this->castValue($key, $value);
-        }
+        $this->data = $this->castValue(NULL, $this->data);
+        // Reclaim the memory used by the schema wrapper.
+        $this->schemaWrapper = NULL;
       }
       else {
         foreach ($this->data as $key => $value) {
@@ -228,7 +228,8 @@ class Config extends StorableConfigBase {
       Cache::invalidateTags($this->getCacheTags());
     }
     $this->isNew = FALSE;
-    $this->eventDispatcher->dispatch(ConfigEvents::SAVE, new ConfigCrudEvent($this));
+    $event_name = $this->getStorage()->getCollectionName() === StorageInterface::DEFAULT_COLLECTION ? ConfigEvents::SAVE : ConfigCollectionEvents::SAVE_IN_COLLECTION;
+    $this->eventDispatcher->dispatch(new ConfigCrudEvent($this), $event_name);
     $this->originalData = $this->data;
     return $this;
   }
@@ -245,19 +246,10 @@ class Config extends StorableConfigBase {
     Cache::invalidateTags($this->getCacheTags());
     $this->isNew = TRUE;
     $this->resetOverriddenData();
-    $this->eventDispatcher->dispatch(ConfigEvents::DELETE, new ConfigCrudEvent($this));
+    $event_name = $this->getStorage()->getCollectionName() === StorageInterface::DEFAULT_COLLECTION ? ConfigEvents::DELETE : ConfigCollectionEvents::DELETE_IN_COLLECTION;
+    $this->eventDispatcher->dispatch(new ConfigCrudEvent($this), $event_name);
     $this->originalData = $this->data;
     return $this;
-  }
-
-  /**
-   * Gets the raw data without overrides.
-   *
-   * @return array
-   *   The raw data.
-   */
-  public function getRawData() {
-    return $this->data;
   }
 
   /**
@@ -267,8 +259,6 @@ class Config extends StorableConfigBase {
    * configuration storage before any changes. If this is a new configuration
    * object it will be an empty array.
    *
-   * @see \Drupal\Core\Config\Config::get()
-   *
    * @param string $key
    *   A string that maps to a key within the configuration data.
    * @param bool $apply_overrides
@@ -276,6 +266,8 @@ class Config extends StorableConfigBase {
    *
    * @return mixed
    *   The data that was requested.
+   *
+   * @see \Drupal\Core\Config\Config::get()
    */
   public function getOriginal($key = '', $apply_overrides = TRUE) {
     $original_data = $this->originalData;
@@ -295,7 +287,7 @@ class Config extends StorableConfigBase {
     else {
       $parts = explode('.', $key);
       if (count($parts) == 1) {
-        return isset($original_data[$key]) ? $original_data[$key] : NULL;
+        return $original_data[$key] ?? NULL;
       }
       else {
         $value = NestedArray::getValue($original_data, $parts, $key_exists);
@@ -311,14 +303,14 @@ class Config extends StorableConfigBase {
    *   (optional) A string that maps to a key within the configuration data.
    *   For instance in the following configuration array:
    *   @code
-   *   array(
-   *     'foo' => array(
+   *   [
+   *     'foo' => [
    *       'bar' => 'baz',
-   *     ),
-   *   );
+   *     ],
+   *   ];
    *   @endcode
    *   A key of 'foo.bar' would map to the string 'baz'. However, a key of 'foo'
-   *   would map to the array('bar' => 'baz').
+   *   would map to the ['bar' => 'baz'].
    *   If not supplied TRUE will be returned if there are any overrides at all
    *   for this configuration object.
    *

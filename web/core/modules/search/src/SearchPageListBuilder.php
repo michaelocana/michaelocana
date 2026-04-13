@@ -73,15 +73,11 @@ class SearchPageListBuilder extends DraggableListBuilder implements FormInterfac
    * @param \Drupal\search\SearchIndexInterface $search_index
    *   The search index.
    */
-  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, SearchPluginManager $search_manager, ConfigFactoryInterface $config_factory, MessengerInterface $messenger, SearchIndexInterface $search_index = NULL) {
+  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, SearchPluginManager $search_manager, ConfigFactoryInterface $config_factory, MessengerInterface $messenger, SearchIndexInterface $search_index) {
     parent::__construct($entity_type, $storage);
     $this->configFactory = $config_factory;
     $this->searchManager = $search_manager;
     $this->messenger = $messenger;
-    if (!$search_index) {
-      @trigger_error('Calling SearchPageListBuilder::__construct() without the $search_index argument is deprecated in drupal:8.8.0 and is required in drupal:9.0.0. See https://www.drupal.org/node/3075696', E_USER_DEPRECATED);
-      $search_index = \Drupal::service('search.index');
-    }
     $this->searchIndex = $search_index;
   }
 
@@ -142,7 +138,7 @@ class SearchPageListBuilder extends DraggableListBuilder implements FormInterfac
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    /** @var $entity \Drupal\search\SearchPageInterface */
+    /** @var \Drupal\search\SearchPageInterface $entity */
     $row['label'] = $entity->label();
     $row['url']['#markup'] = 'search/' . $entity->getPath();
     // If the search page is active, link to it.
@@ -230,19 +226,17 @@ class SearchPageListBuilder extends DraggableListBuilder implements FormInterfac
     ];
     $form['indexing_throttle']['cron_limit'] = [
       '#type' => 'select',
-      '#title' => $this->t('Number of items to index per cron run'),
+      '#title' => $this->t('Number of items to index per run'),
       '#default_value' => $search_settings->get('index.cron_limit'),
       '#options' => $items,
-      '#description' => $this->t('The maximum number of items indexed in each run of the <a href=":cron">cron maintenance task</a>. If necessary, reduce the number of items to prevent timeouts and memory errors while indexing. Some search page types may have their own setting for this.', [':cron' => Url::fromRoute('system.cron_settings')->toString()]),
+      '#description' => $this->t('The maximum number of items processed per indexing run. If necessary, reduce the number of items to prevent timeouts and memory errors while indexing. Some search page types may have their own setting for this.'),
     ];
     // Indexing settings:
     $form['indexing_settings'] = [
       '#type' => 'details',
       '#title' => $this->t('Default indexing settings'),
       '#open' => TRUE,
-    ];
-    $form['indexing_settings']['info'] = [
-      '#markup' => $this->t("<p>Search pages that use an index may use the default index provided by the Search module, or they may use a different indexing mechanism. These settings are for the default index. <em>Changing these settings will cause the default search index to be rebuilt to reflect the new settings. Searching will continue to work, based on the existing index, but new content won't be indexed until all existing content has been re-indexed.</em></p><p><em>The default settings should be appropriate for the majority of sites.</em></p>"),
+      '#description' => $this->t('Changing these settings will cause the default search index to be rebuilt to reflect the new settings. Searching will continue to work, based on the existing index, but new content will not be indexed until all existing content has been re-indexed.'),
     ];
     $form['indexing_settings']['minimum_word_size'] = [
       '#type' => 'number',
@@ -321,7 +315,7 @@ class SearchPageListBuilder extends DraggableListBuilder implements FormInterfac
    * {@inheritdoc}
    */
   public function getDefaultOperations(EntityInterface $entity) {
-    /** @var $entity \Drupal\search\SearchPageInterface */
+    /** @var \Drupal\search\SearchPageInterface $entity */
     $operations = parent::getDefaultOperations($entity);
 
     // Prevent the default search from being disabled or deleted.
@@ -373,8 +367,7 @@ class SearchPageListBuilder extends DraggableListBuilder implements FormInterfac
   }
 
   /**
-   * Form submission handler for the reindex button on the search admin settings
-   * form.
+   * Form submission handler for reindex button on search admin settings form.
    */
   public function searchAdminReindexSubmit(array &$form, FormStateInterface $form_state) {
     // Send the user to the confirmation page.

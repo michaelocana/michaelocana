@@ -2,34 +2,31 @@
 
 namespace Drupal\block\Plugin\migrate\process;
 
-use Drupal\migrate\Plugin\MigrationInterface;
+use Drupal\Core\Config\Config;
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
-use Drupal\Core\Config\Config;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * @MigrateProcessPlugin(
- *   id = "block_theme"
- * )
+ * Determines the theme to use for a block.
  */
+#[MigrateProcess('block_theme')]
 class BlockTheme extends ProcessPluginBase implements ContainerFactoryPluginInterface {
 
   /**
-   * Contains the configuration object factory.
-   *
-   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   * Contains the system.theme configuration object.
    */
-  protected $configFactory;
+  protected Config $themeConfig;
 
   /**
-   * Contains the system.theme configuration object.
+   * List of themes available on the destination.
    *
-   * @var \Drupal\Core\Config\Config
+   * @var string[]
    */
-  protected $themeConfig;
+  protected array $themes;
 
   /**
    * Constructs a BlockTheme object.
@@ -40,15 +37,13 @@ class BlockTheme extends ProcessPluginBase implements ContainerFactoryPluginInte
    *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\migrate\Plugin\MigrationInterface $migration
-   *   The migration entity.
    * @param \Drupal\Core\Config\Config $theme_config
    *   The system.theme configuration factory object.
    * @param array $themes
    *   The list of themes available on the destination.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, Config $theme_config, array $themes) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, Config $theme_config, array $themes) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->themeConfig = $theme_config;
     $this->themes = $themes;
   }
@@ -56,12 +51,11 @@ class BlockTheme extends ProcessPluginBase implements ContainerFactoryPluginInte
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     return new static(
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $migration,
       $container->get('config.factory')->get('system.theme'),
       $container->get('theme_handler')->listInfo()
     );
@@ -71,7 +65,7 @@ class BlockTheme extends ProcessPluginBase implements ContainerFactoryPluginInte
    * {@inheritdoc}
    */
   public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
-    list($theme, $default_theme, $admin_theme) = $value;
+    [$theme, $default_theme, $admin_theme] = $value;
 
     // If the source theme exists on the destination, we're good.
     if (isset($this->themes[$theme])) {
@@ -86,7 +80,7 @@ class BlockTheme extends ProcessPluginBase implements ContainerFactoryPluginInte
 
     // If the source block is assigned to a region in the source admin theme,
     // then assign it to the destination admin theme.
-    if (strtolower($theme) == strtolower($admin_theme)) {
+    if ($admin_theme && strtolower($theme) == strtolower($admin_theme)) {
       return $this->themeConfig->get('admin');
     }
 

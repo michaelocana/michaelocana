@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Config;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -12,18 +14,22 @@ use Drupal\KernelTests\KernelTestBase;
 class ConfigEntityNormalizeTest extends KernelTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['config_test'];
+  protected static $modules = ['config_test'];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     $this->installConfig(static::$modules);
   }
 
-  public function testNormalize() {
+  /**
+   * Tests the normalization of configuration data when saved.
+   */
+  public function testNormalize(): void {
     $config_entity = \Drupal::entityTypeManager()->getStorage('config_test')->create(['id' => 'system', 'label' => 'foobar', 'weight' => 1]);
     $config_entity->save();
 
@@ -34,12 +40,12 @@ class ConfigEntityNormalizeTest extends KernelTestBase {
       'additional_key' => TRUE,
     ] + $config->getRawData();
     $config->setData($data)->save();
-    $this->assertNotIdentical($config_entity->toArray(), $config->getRawData(), 'Stored config entity is not is equivalent to config schema.');
+    $this->assertNotSame($config_entity->toArray(), $config->getRawData(), 'Stored config entity is not is equivalent to config schema.');
     $config_entity = \Drupal::entityTypeManager()->getStorage('config_test')->load('system');
     $config_entity->save();
 
     $config = $this->config('config_test.dynamic.system');
-    $this->assertIdentical($config_entity->toArray(), $config->getRawData(), 'Stored config entity is equivalent to config schema.');
+    $this->assertSame($config_entity->toArray(), $config->getRawData(), 'Stored config entity is equivalent to config schema.');
   }
 
 }

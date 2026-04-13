@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_node_revision_vid
-label: null
+label: test_node_revision_vid
 module: views
 description: ''
 tag: ''
@@ -75,6 +75,6 @@ display:
           entity_field: langcode
           plugin_id: standard
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

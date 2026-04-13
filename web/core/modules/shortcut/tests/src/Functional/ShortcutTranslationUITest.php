@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\shortcut\Functional;
 
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Tests\content_translation\Functional\ContentTranslationUITestBase;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Language\Language;
@@ -15,16 +16,14 @@ use Drupal\Core\Language\Language;
 class ShortcutTranslationUITest extends ContentTranslationUITestBase {
 
   /**
-   * {inheritdoc}
+   * {@inheritdoc}
    */
   protected $defaultCacheContexts = ['languages:language_interface', 'session', 'theme', 'user', 'url.path', 'url.query_args', 'url.site'];
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'content_translation',
     'link',
@@ -35,21 +34,22 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     $this->entityTypeId = 'shortcut';
     $this->bundle = 'default';
     parent::setUp();
+    $this->doSetup();
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getTranslatorPermissions() {
+  protected function getTranslatorPermissions(): array {
     return array_merge(parent::getTranslatorPermissions(), ['access shortcuts', 'administer shortcuts', 'access toolbar']);
   }
 
@@ -68,12 +68,14 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
     return ['title' => [['value' => $this->randomMachineName()]]] + parent::getNewEntityValues($langcode);
   }
 
-  protected function doTestBasicTranslation() {
+  /**
+   * Tests basic translation functionality for an entity.
+   */
+  protected function doTestBasicTranslation(): void {
     parent::doTestBasicTranslation();
 
     $storage = $this->container->get('entity_type.manager')
       ->getStorage($this->entityTypeId);
-    $storage->resetCache([$this->entityId]);
     $entity = $storage->load($this->entityId);
     foreach ($this->langcodes as $langcode) {
       if ($entity->hasTranslation($langcode)) {
@@ -83,8 +85,7 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
         $this->drupalGet('<front>', ['language' => $language]);
         $expected_path = \Drupal::urlGenerator()->generateFromRoute('user.page', [], ['language' => $language]);
         $label = $entity->getTranslation($langcode)->label();
-        $elements = $this->xpath('//nav[contains(@class, "toolbar-lining")]/ul[@class="toolbar-menu"]/li/a[contains(@href, :href) and normalize-space(text())=:label]', [':href' => $expected_path, ':label' => $label]);
-        $this->assertTrue(!empty($elements), new FormattableMarkup('Translated @language shortcut link @label found.', ['@label' => $label, '@language' => $language->getName()]));
+        $this->assertSession()->elementExists('xpath', "//nav[contains(@class, 'toolbar-lining')]/ul[@class='toolbar-menu']/li/a[contains(@href, '{$expected_path}') and normalize-space(text())='{$label}']");
       }
     }
   }
@@ -92,10 +93,9 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function doTestTranslationEdit() {
+  protected function doTestTranslationEdit(): void {
     $storage = $this->container->get('entity_type.manager')
       ->getStorage($this->entityTypeId);
-    $storage->resetCache([$this->entityId]);
     $entity = $storage->load($this->entityId);
     $languages = $this->container->get('language_manager')->getLanguages();
 
@@ -105,12 +105,7 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
         $options = ['language' => $languages[$langcode]];
         $url = $entity->toUrl('edit-form', $options);
         $this->drupalGet($url);
-
-        $title = t('@title [%language translation]', [
-          '@title' => $entity->getTranslation($langcode)->label(),
-          '%language' => $languages[$langcode]->getName(),
-        ]);
-        $this->assertRaw($title);
+        $this->assertSession()->pageTextContains("{$entity->getTranslation($langcode)->label()} [{$languages[$langcode]->getName()} translation]");
       }
     }
   }
@@ -118,15 +113,14 @@ class ShortcutTranslationUITest extends ContentTranslationUITestBase {
   /**
    * Tests the basic translation workflow.
    */
-  protected function doTestTranslationChanged() {
+  protected function doTestTranslationChanged(): void {
     $storage = $this->container->get('entity_type.manager')
       ->getStorage($this->entityTypeId);
-    $storage->resetCache([$this->entityId]);
     $entity = $storage->load($this->entityId);
 
     $this->assertFalse(
       $entity instanceof EntityChangedInterface,
-      new FormattableMarkup('%entity is not implementing EntityChangedInterface.', ['%entity' => $this->entityTypeId])
+      "$this->entityTypeId is not implementing EntityChangedInterface."
     );
   }
 

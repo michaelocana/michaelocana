@@ -1,17 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Render\Element;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\GeneratedUrl;
-use Drupal\Core\Render\Element\RenderElement;
+use Drupal\Core\Render\Element\RenderElementBase;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * @coversDefaultClass \Drupal\Core\Render\Element\RenderElement
+ * @coversDefaultClass \Drupal\Core\Render\Element\RenderElementBase
  * @group Render
  */
 class RenderElementTest extends UnitTestCase {
@@ -33,7 +35,7 @@ class RenderElementTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->requestStack = new RequestStack();
@@ -45,7 +47,7 @@ class RenderElementTest extends UnitTestCase {
   /**
    * @covers ::preRenderAjaxForm
    */
-  public function testPreRenderAjaxForm() {
+  public function testPreRenderAjaxForm(): void {
     $request = Request::create('/test');
     $request->query->set('foo', 'bar');
     $this->requestStack->push($request);
@@ -67,7 +69,7 @@ class RenderElementTest extends UnitTestCase {
       ],
     ];
 
-    $element = RenderElement::preRenderAjaxForm($element);
+    $element = RenderElementBase::preRenderAjaxForm($element);
 
     $this->assertTrue($element['#ajax_processed']);
     $this->assertEquals($url, $element['#attached']['drupalSettings']['ajax']['test']['url']);
@@ -76,7 +78,7 @@ class RenderElementTest extends UnitTestCase {
   /**
    * @covers ::preRenderAjaxForm
    */
-  public function testPreRenderAjaxFormWithQueryOptions() {
+  public function testPreRenderAjaxFormWithQueryOptions(): void {
     $request = Request::create('/test');
     $request->query->set('foo', 'bar');
     $this->requestStack->push($request);
@@ -103,10 +105,112 @@ class RenderElementTest extends UnitTestCase {
       ],
     ];
 
-    $element = RenderElement::preRenderAjaxForm($element);
+    $element = RenderElementBase::preRenderAjaxForm($element);
 
     $this->assertTrue($element['#ajax_processed']);
     $this->assertEquals($url, $element['#attached']['drupalSettings']['ajax']['test']['url']);
+  }
+
+  /**
+   * @covers ::setAttributes
+   *
+   * @dataProvider providerTestSetAttributes
+   */
+  public function testSetAttributes(array $element, array $class, array $expected): void {
+    RenderElementBase::setAttributes($element, $class);
+    $this->assertSame($expected, $element);
+  }
+
+  /**
+   * Provides test data for testSetAttributes().
+   */
+  public static function providerTestSetAttributes(): array {
+    return [
+      'No-op' => [
+        'element' => [
+          '#type' => 'textfield',
+        ],
+        'class' => [],
+        'expected' => [
+          '#type' => 'textfield',
+        ],
+      ],
+      'Add first class' => [
+        'element' => [
+          '#type' => 'textfield',
+        ],
+        'class' => ['foo', 'bar'],
+        'expected' => [
+          '#type' => 'textfield',
+          '#attributes' => [
+            'class' => [
+              'foo',
+              'bar',
+            ],
+          ],
+        ],
+      ],
+      'Append classes' => [
+        'element' => [
+          '#type' => 'textfield',
+          '#attributes' => [
+            'class' => [
+              'foo',
+              'bar',
+            ],
+          ],
+        ],
+        'class' => ['baz'],
+        'expected' => [
+          '#type' => 'textfield',
+          '#attributes' => [
+            'class' => [
+              'foo',
+              'bar',
+              'baz',
+            ],
+          ],
+        ],
+      ],
+      'Required' => [
+        'element' => [
+          '#type' => 'textfield',
+          '#required' => TRUE,
+        ],
+        'class' => [],
+        'expected' => [
+          '#type' => 'textfield',
+          '#required' => TRUE,
+          '#attributes' => [
+            'class' => [
+              'required',
+            ],
+            'required' => 'required',
+          ],
+        ],
+      ],
+      'Parent with error' => [
+        'element' => [
+          '#type' => 'textfield',
+          '#parents' => ['dummy_parent'],
+          '#errors' => 'invalid',
+          '#validated' => TRUE,
+        ],
+        'class' => [],
+        'expected' => [
+          '#type' => 'textfield',
+          '#parents' => ['dummy_parent'],
+          '#errors' => 'invalid',
+          '#validated' => TRUE,
+          '#attributes' => [
+            'class' => [
+              'error',
+            ],
+            'aria-invalid' => 'true',
+          ],
+        ],
+      ],
+    ];
   }
 
 }

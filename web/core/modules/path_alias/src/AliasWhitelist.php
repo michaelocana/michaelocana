@@ -2,9 +2,14 @@
 
 namespace Drupal\path_alias;
 
-use Drupal\Core\Path\AliasWhitelist as CoreAliasWhitelist;
+// cspell:ignore whitelist
 
 /**
- * Extends CacheCollector to build the path alias whitelist over time.
+ * Cache a list of valid alias prefixes.
+ *
+ * @deprecated in drupal:11.1.0 and is removed from drupal:12.0.0. Use
+ * \Drupal\path_alias\AliasPrefixList instead.
+ *
+ * @see https://www.drupal.org/node/3467559
  */
-class AliasWhitelist extends CoreAliasWhitelist implements AliasWhitelistInterface {}
+class AliasWhitelist extends AliasPrefixList {}

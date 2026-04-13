@@ -77,17 +77,6 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
   protected $languageManager;
 
   /**
-   * Static cache of entities, keyed first by entity ID, then by an extra key.
-   *
-   * The additional cache key is to maintain separate caches for different
-   * states of config overrides.
-   *
-   * @var array
-   * @see \Drupal\Core\Config\ConfigFactoryInterface::getCacheKeys().
-   */
-  protected $entities = [];
-
-  /**
    * Determines if the underlying configuration is retrieved override free.
    *
    * @var bool
@@ -105,10 +94,10 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
    *   The UUID service.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
-   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface|null $memory_cache
+   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memory_cache
    *   The memory cache backend.
    */
-  public function __construct(EntityTypeInterface $entity_type, ConfigFactoryInterface $config_factory, UuidInterface $uuid_service, LanguageManagerInterface $language_manager, MemoryCacheInterface $memory_cache = NULL) {
+  public function __construct(EntityTypeInterface $entity_type, ConfigFactoryInterface $config_factory, UuidInterface $uuid_service, LanguageManagerInterface $language_manager, MemoryCacheInterface $memory_cache) {
     parent::__construct($entity_type, $memory_cache);
 
     $this->configFactory = $config_factory;
@@ -127,20 +116,6 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
       $container->get('language_manager'),
       $container->get('entity.memory_cache')
     );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function loadRevision($revision_id) {
-    return NULL;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function deleteRevision($revision_id) {
-    return NULL;
   }
 
   /**
@@ -166,7 +141,7 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
   /**
    * {@inheritdoc}
    */
-  protected function doLoadMultiple(array $ids = NULL) {
+  protected function doLoadMultiple(?array $ids = NULL) {
     $prefix = $this->getPrefix();
 
     // Get the names of the configuration entities we are going to load.
@@ -190,7 +165,7 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
       $records[$id] = $this->overrideFree ? $config->getOriginal(NULL, FALSE) : $config->get();
       $configs[$id] = $config;
     }
-    $entities = $this->mapFromStorageRecords($records, $configs);
+    $entities = $this->mapFromStorageRecords($records);
 
     // Config entities wrap config objects, and therefore they need to inherit
     // the cacheability metadata of config objects (to ensure e.g. additional
@@ -225,7 +200,8 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
   protected function doCreate(array $values) {
     // Set default language to current language if not provided.
     $values += [$this->langcodeKey => $this->languageManager->getCurrentLanguage()->getId()];
-    $entity = new $this->entityClass($values, $this->entityTypeId);
+    $entity_class = $this->getEntityClass();
+    $entity = new $entity_class($values, $this->entityTypeId);
 
     return $entity;
   }
@@ -256,8 +232,8 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
     // @see \Drupal\Core\Config\Entity\ConfigEntityStorage::MAX_ID_LENGTH
     // @todo Consider moving this to a protected method on the parent class, and
     //   abstracting it for all entity types.
-    if (strlen($entity->get($this->idKey)) > static::MAX_ID_LENGTH) {
-      throw new ConfigEntityIdLengthException("Configuration entity ID {$entity->get($this->idKey)} exceeds maximum allowed length of " . static::MAX_ID_LENGTH . " characters.");
+    if (strlen($id) > static::MAX_ID_LENGTH) {
+      throw new ConfigEntityIdLengthException("Configuration entity ID {$id} exceeds maximum allowed length of " . static::MAX_ID_LENGTH . " characters.");
     }
 
     return parent::save($entity);
@@ -335,11 +311,22 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function resetCache(?array $ids = NULL) {
+    if ($this->entityType->isStaticallyCacheable()) {
+      // Always invalidate through the cache tag, since config entities may
+      // be cached under different cache keys depending on the override flag.
+      $this->memoryCache->invalidateTags([$this->memoryCacheTag]);
+    }
+  }
+
+  /**
    * Invokes a hook on behalf of the entity.
    *
-   * @param $hook
+   * @param string $hook
    *   One of 'presave', 'insert', 'update', 'predelete', or 'delete'.
-   * @param $entity
+   * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity object.
    */
   protected function invokeHook($hook, EntityInterface $entity) {
@@ -416,7 +403,7 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
    * @param bool $is_syncing
    *   Is the configuration entity being created as part of a config sync.
    *
-   * @return \Drupal\Core\Config\ConfigEntityInterface
+   * @return \Drupal\Core\Config\Entity\ConfigEntityInterface
    *   The configuration entity.
    *
    * @see \Drupal\Core\Config\Entity\ConfigEntityStorageInterface::createFromStorageRecord()
@@ -428,8 +415,9 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
       $values[$this->uuidKey] = $this->uuidService->generate();
     }
     $data = $this->mapFromStorageRecords([$values]);
+    /** @var \Drupal\Core\Config\Entity\ConfigEntityInterface $entity */
     $entity = current($data);
-    $entity->original = clone $entity;
+    $entity->setOriginal(clone $entity);
     $entity->setSyncing($is_syncing);
     $entity->enforceIsNew();
     $entity->postCreate($this);
@@ -445,7 +433,7 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
    * {@inheritdoc}
    */
   public function updateFromStorageRecord(ConfigEntityInterface $entity, array $values) {
-    $entity->original = clone $entity;
+    $entity->setOriginal(clone $entity);
 
     $data = $this->mapFromStorageRecords([$values]);
     $updated_entity = current($data);
@@ -481,13 +469,13 @@ class ConfigEntityStorage extends EntityStorageBase implements ConfigEntityStora
    */
   public function loadOverrideFree($id) {
     $entities = $this->loadMultipleOverrideFree([$id]);
-    return isset($entities[$id]) ? $entities[$id] : NULL;
+    return $entities[$id] ?? NULL;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function loadMultipleOverrideFree(array $ids = NULL) {
+  public function loadMultipleOverrideFree(?array $ids = NULL) {
     $this->overrideFree = TRUE;
     $entities = $this->loadMultiple($ids);
     $this->overrideFree = FALSE;

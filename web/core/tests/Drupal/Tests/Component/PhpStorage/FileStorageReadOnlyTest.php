@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Component\PhpStorage;
 
 use Drupal\Component\PhpStorage\FileStorage;
 use Drupal\Component\PhpStorage\FileReadOnlyStorage;
 use Drupal\Component\Utility\Random;
+use Drupal\TestTools\Extension\DeprecationBridge\ExpectDeprecationTrait;
 
 /**
  * @coversDefaultClass \Drupal\Component\PhpStorage\FileReadOnlyStorage
@@ -13,6 +16,8 @@ use Drupal\Component\Utility\Random;
  * @group PhpStorage
  */
 class FileStorageReadOnlyTest extends PhpStorageTestBase {
+
+  use ExpectDeprecationTrait;
 
   /**
    * Standard test settings to pass to storage instances.
@@ -31,7 +36,7 @@ class FileStorageReadOnlyTest extends PhpStorageTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->standardSettings = [
@@ -48,7 +53,7 @@ class FileStorageReadOnlyTest extends PhpStorageTestBase {
   /**
    * Tests writing with one class and reading with another.
    */
-  public function testReadOnly() {
+  public function testReadOnly(): void {
     // Random generator.
     $random = new Random();
 
@@ -57,20 +62,20 @@ class FileStorageReadOnlyTest extends PhpStorageTestBase {
 
     // Find a global that doesn't exist.
     do {
-      $random = mt_rand(10000, 100000);
+      $random = 'test' . mt_rand(10000, 100000);
     } while (isset($GLOBALS[$random]));
 
     // Write out a PHP file and ensure it's successfully loaded.
-    $code = "<?php\n\$GLOBALS[$random] = TRUE;";
+    $code = "<?php\n\$GLOBALS['$random'] = TRUE;";
     $success = $php->save($name, $code);
-    $this->assertSame(TRUE, $success);
+    $this->assertTrue($success);
     $php_read = new FileReadOnlyStorage($this->readonlyStorage);
     $php_read->load($name);
     $this->assertTrue($GLOBALS[$random]);
 
     // If the file was successfully loaded, it must also exist, but ensure the
     // exists() method returns that correctly.
-    $this->assertSame(TRUE, $php_read->exists($name));
+    $this->assertTrue($php_read->exists($name));
     // Saving and deleting should always fail.
     $this->assertFalse($php_read->save($name, $code));
     $this->assertFalse($php_read->delete($name));
@@ -78,17 +83,9 @@ class FileStorageReadOnlyTest extends PhpStorageTestBase {
   }
 
   /**
-   * @covers ::writeable
-   */
-  public function testWriteable() {
-    $php_read = new FileReadOnlyStorage($this->readonlyStorage);
-    $this->assertFalse($php_read->writeable());
-  }
-
-  /**
    * @covers ::deleteAll
    */
-  public function testDeleteAll() {
+  public function testDeleteAll(): void {
     // Random generator.
     $random = new Random();
 

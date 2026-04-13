@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\path_alias\Unit\PathProcessor;
 
 use Drupal\Core\Cache\Cache;
@@ -29,7 +31,12 @@ class AliasPathProcessorTest extends UnitTestCase {
    */
   protected $pathProcessor;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+
     $this->aliasManager = $this->createMock('Drupal\path_alias\AliasManagerInterface');
     $this->pathProcessor = new AliasPathProcessor($this->aliasManager);
   }
@@ -39,16 +46,16 @@ class AliasPathProcessorTest extends UnitTestCase {
    *
    * @see \Drupal\path_alias\PathProcessor\AliasPathProcessor::processInbound
    */
-  public function testProcessInbound() {
+  public function testProcessInbound(): void {
     $this->aliasManager->expects($this->exactly(2))
       ->method('getPathByAlias')
-      ->will($this->returnValueMap([
-        ['urlalias', NULL, 'internal-url'],
+      ->willReturnMap([
+        ['url-alias', NULL, 'internal-url'],
         ['url', NULL, 'url'],
-      ]));
+      ]);
 
-    $request = Request::create('/urlalias');
-    $this->assertEquals('internal-url', $this->pathProcessor->processInbound('urlalias', $request));
+    $request = Request::create('/url-alias');
+    $this->assertEquals('internal-url', $this->pathProcessor->processInbound('url-alias', $request));
     $request = Request::create('/url');
     $this->assertEquals('url', $this->pathProcessor->processInbound('url', $request));
   }
@@ -58,13 +65,13 @@ class AliasPathProcessorTest extends UnitTestCase {
    *
    * @dataProvider providerTestProcessOutbound
    */
-  public function testProcessOutbound($path, array $options, $expected_path) {
+  public function testProcessOutbound($path, array $options, $expected_path): void {
     $this->aliasManager->expects($this->any())
       ->method('getAliasByPath')
-      ->will($this->returnValueMap([
-        ['internal-url', NULL, 'urlalias'],
+      ->willReturnMap([
+        ['internal-url', NULL, 'url-alias'],
         ['url', NULL, 'url'],
-      ]));
+      ]);
 
     $bubbleable_metadata = new BubbleableMetadata();
     $this->assertEquals($expected_path, $this->pathProcessor->processOutbound($path, $options, NULL, $bubbleable_metadata));
@@ -74,11 +81,14 @@ class AliasPathProcessorTest extends UnitTestCase {
   }
 
   /**
+   * Provides data for testing outbound processing.
+   *
    * @return array
+   *   The data provider for testProcessOutbound.
    */
-  public function providerTestProcessOutbound() {
+  public static function providerTestProcessOutbound() {
     return [
-      ['internal-url', [], 'urlalias'],
+      ['internal-url', [], 'url-alias'],
       ['internal-url', ['alias' => TRUE], 'internal-url'],
       ['url', [], 'url'],
     ];

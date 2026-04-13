@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_area_view
-label: ''
+label: test_area_view
 module: views
 description: ''
 tag: ''
@@ -43,6 +43,6 @@ display:
           inherit_arguments: true
           plugin_id: view
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

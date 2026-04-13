@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Config\Storage;
 
 use Drupal\Core\Config\MemoryStorage;
@@ -14,11 +16,9 @@ class MemoryStorageTest extends ConfigStorageTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->storage = new MemoryStorage();
-    // ::listAll() verifications require other configuration data to exist.
-    $this->storage->write('system.performance', []);
   }
 
   /**
@@ -31,28 +31,28 @@ class MemoryStorageTest extends ConfigStorageTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function insert($name, $data) {
+  protected function insert($name, $data): void {
     $this->storage->write($name, $data);
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function update($name, $data) {
+  protected function update($name, $data): void {
     $this->storage->write($name, $data);
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function delete($name) {
+  protected function delete($name): void {
     $this->storage->delete($name);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function testInvalidStorage() {
+  public function testInvalidStorage(): void {
     $this->markTestSkipped('MemoryStorage cannot be invalid.');
   }
 

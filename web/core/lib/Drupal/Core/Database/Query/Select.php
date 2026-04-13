@@ -2,7 +2,6 @@
 
 namespace Drupal\Core\Database\Query;
 
-use Drupal\Core\Database\Database;
 use Drupal\Core\Database\Connection;
 
 /**
@@ -31,34 +30,34 @@ class Select extends Query implements SelectInterface {
   /**
    * The tables against which to JOIN.
    *
+   * @var array
    * This property is a nested array. Each entry is an array representing
    * a single table against which to join. The structure of each entry is:
    *
-   * array(
+   * @code
+   * [
    *   'type' => $join_type (one of INNER, LEFT OUTER, RIGHT OUTER),
    *   'table' => $table,
    *   'alias' => $alias_of_the_table,
    *   'condition' => $join_condition (string or Condition object),
    *   'arguments' => $array_of_arguments_for_placeholders_in_the condition.
    *   'all_fields' => TRUE to SELECT $alias.*, FALSE or NULL otherwise.
-   * )
-   *
+   * ]
+   * @endcode
    * If $table is a string, it is taken as the name of a table. If it is
    * a Select query object, it is taken as a subquery.
    *
    * If $join_condition is a Condition object, any arguments should be
    * incorporated into the object; a separate array of arguments does not
    * need to be provided.
-   *
-   * @var array
    */
   protected $tables = [];
 
   /**
    * The fields by which to order this query.
    *
-   * This is an associative array. The keys are the fields to order, and the value
-   * is the direction to order, either ASC or DESC.
+   * This is an associative array. The keys are the fields to order, and the
+   * value is the direction to order, either ASC or DESC.
    *
    * @var array
    */
@@ -79,7 +78,7 @@ class Select extends Query implements SelectInterface {
   protected $having;
 
   /**
-   * Whether or not this query should be DISTINCT
+   * Whether or not this query should be DISTINCT.
    *
    * @var bool
    */
@@ -93,8 +92,9 @@ class Select extends Query implements SelectInterface {
   protected $range;
 
   /**
-   * An array whose elements specify a query to UNION, and the UNION type. The
-   * 'type' key may be '', 'ALL', or 'DISTINCT' to represent a 'UNION',
+   * An array whose elements specify a query to UNION, and the UNION type.
+   *
+   * The 'type' key may be '', 'ALL', or 'DISTINCT' to represent a 'UNION',
    * 'UNION ALL', or 'UNION DISTINCT' statement, respectively.
    *
    * All entries in this array will be applied from front to back, with the
@@ -107,33 +107,43 @@ class Select extends Query implements SelectInterface {
 
   /**
    * Indicates if preExecute() has already been called.
+   *
    * @var bool
    */
   protected $prepared = FALSE;
 
   /**
-   * The FOR UPDATE status
+   * The FOR UPDATE status.
    *
    * @var bool
    */
   protected $forUpdate = FALSE;
 
   /**
+   * The query metadata for alter purposes.
+   */
+  public array $alterMetaData;
+
+  /**
+   * The query tags.
+   */
+  public array $alterTags;
+
+  /**
    * Constructs a Select object.
    *
-   * @param string $table
-   *   The name of the table that is being queried.
-   * @param string $alias
-   *   The alias for the table.
    * @param \Drupal\Core\Database\Connection $connection
    *   Database connection object.
+   * @param string|\Drupal\Core\Database\Query\SelectInterface $table
+   *   The table name or subquery that is being queried.
+   * @param string $alias
+   *   The alias for the table.
    * @param array $options
    *   Array of query options.
    */
-  public function __construct($table, $alias, Connection $connection, $options = []) {
-    $options['return'] = Database::RETURN_STATEMENT;
+  public function __construct(Connection $connection, $table, $alias = NULL, $options = []) {
     parent::__construct($connection, $options);
-    $conjunction = isset($options['conjunction']) ? $options['conjunction'] : 'AND';
+    $conjunction = $options['conjunction'] ?? 'AND';
     $this->condition = $this->connection->condition($conjunction);
     $this->having = $this->connection->condition($conjunction);
     $this->addJoin(NULL, $table, $alias);
@@ -180,7 +190,7 @@ class Select extends Query implements SelectInterface {
    * {@inheritdoc}
    */
   public function getMetaData($key) {
-    return isset($this->alterMetaData[$key]) ? $this->alterMetaData[$key] : NULL;
+    return $this->alterMetaData[$key] ?? NULL;
   }
 
   /**
@@ -318,9 +328,11 @@ class Select extends Query implements SelectInterface {
    * {@inheritdoc}
    */
   public function extend($extender_name) {
-    $override_class = $extender_name . '_' . $this->connection->driver();
-    if (class_exists($override_class)) {
-      $extender_name = $override_class;
+    $parts = explode('\\', $extender_name);
+    $class = end($parts);
+    $driver_class = $this->connection->getDriverClass($class);
+    if ($driver_class !== $class) {
+      return new $driver_class($this, $this->connection);
     }
     return new $extender_name($this, $this->connection);
   }
@@ -426,7 +438,7 @@ class Select extends Query implements SelectInterface {
   /**
    * {@inheritdoc}
    */
-  public function getArguments(PlaceholderInterface $queryPlaceholder = NULL) {
+  public function getArguments(?PlaceholderInterface $queryPlaceholder = NULL) {
     if (!isset($queryPlaceholder)) {
       $queryPlaceholder = $this;
     }
@@ -444,7 +456,7 @@ class Select extends Query implements SelectInterface {
   /**
    * {@inheritdoc}
    */
-  public function preExecute(SelectInterface $query = NULL) {
+  public function preExecute(?SelectInterface $query = NULL) {
     // If no query object is passed in, use $this.
     if (!isset($query)) {
       $query = $this;
@@ -464,10 +476,9 @@ class Select extends Query implements SelectInterface {
       // taxonomy_term_access to its queries. Provide backwards compatibility
       // by adding both tags here instead of attempting to fix all contrib
       // modules in a coordinated effort.
-      // TODO:
-      // - Extract this mechanism into a hook as part of a public (non-security)
-      //   issue.
-      // - Emit E_USER_DEPRECATED if term_access is used.
+      // @todo Extract this mechanism into a hook as part of a public
+      //   (non-security) issue.
+      // @todo Emit E_USER_DEPRECATED if term_access is used.
       //   https://www.drupal.org/node/2575081
       $term_access_tags = ['term_access' => 1, 'taxonomy_term_access' => 1];
       if (array_intersect_key($this->alterTags, $term_access_tags)) {
@@ -500,8 +511,8 @@ class Select extends Query implements SelectInterface {
    * {@inheritdoc}
    */
   public function execute() {
-    // If validation fails, simply return NULL.
-    // Note that validation routines in preExecute() may throw exceptions instead.
+    // If validation fails, simply return NULL. Note that validation routines in
+    // preExecute() may throw exceptions instead.
     if (!$this->preExecute()) {
       return NULL;
     }
@@ -532,7 +543,8 @@ class Select extends Query implements SelectInterface {
       $alias = $table_alias . '_' . $field;
     }
 
-    // If that is already used, just add a counter until we find an unused alias.
+    // If that is already used, just add a counter until we find an unused
+    // alias.
     $alias_candidate = $alias;
     $count = 2;
     while (!empty($this->fields[$alias_candidate])) {
@@ -610,13 +622,6 @@ class Select extends Query implements SelectInterface {
    */
   public function leftJoin($table, $alias = NULL, $condition = NULL, $arguments = []) {
     return $this->addJoin('LEFT OUTER', $table, $alias, $condition, $arguments);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function rightJoin($table, $alias = NULL, $condition = NULL, $arguments = []) {
-    return $this->addJoin('RIGHT OUTER', $table, $alias, $condition, $arguments);
   }
 
   /**
@@ -758,8 +763,8 @@ class Select extends Query implements SelectInterface {
         }
       }
 
-      // Also remove 'all_fields' statements, which are expanded into tablename.*
-      // when the query is executed.
+      // Also remove 'all_fields' statements, which are expanded into
+      // tablename.* when the query is executed.
       foreach ($count->tables as &$table) {
         unset($table['all_fields']);
       }
@@ -776,7 +781,8 @@ class Select extends Query implements SelectInterface {
 
     if ($count->distinct && !empty($group_by)) {
       // If the query is distinct and contains a GROUP BY, we need to remove the
-      // distinct because SQL99 does not support counting on distinct multiple fields.
+      // distinct because SQL99 does not support counting on distinct multiple
+      // fields.
       $count->distinct = FALSE;
     }
 
@@ -818,19 +824,20 @@ class Select extends Query implements SelectInterface {
       }
     }
     foreach ($this->fields as $field) {
-      // Note that $field['table'] holds the table alias.
+      // Note that $field['table'] holds the table_alias.
       // @see \Drupal\Core\Database\Query\Select::addField
-      $table = isset($field['table']) ? $this->connection->escapeAlias($field['table']) . '.' : '';
+      $table = isset($field['table']) ? $field['table'] . '.' : '';
       // Always use the AS keyword for field aliases, as some
       // databases require it (e.g., PostgreSQL).
-      $fields[] = $table . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeAlias($field['alias']);
+      $fields[] = $this->connection->escapeField($table . $field['field']) . ' AS ' . $this->connection->escapeAlias($field['alias']);
     }
     foreach ($this->expressions as $expression) {
       $fields[] = $expression['expression'] . ' AS ' . $this->connection->escapeAlias($expression['alias']);
     }
     $query .= implode(', ', $fields);
 
-    // FROM - We presume all queries have a FROM, as any query that doesn't won't need the query builder anyway.
+    // FROM - We presume all queries have a FROM, as any query that doesn't
+    // won't need the query builder anyway.
     $query .= "\nFROM";
     foreach ($this->tables as $table) {
       $query .= "\n";
@@ -838,7 +845,8 @@ class Select extends Query implements SelectInterface {
         $query .= $table['join type'] . ' JOIN ';
       }
 
-      // If the table is a subquery, compile it and integrate it into this query.
+      // If the table is a subquery, compile it and integrate it into this
+      // query.
       if ($table['table'] instanceof SelectInterface) {
         // Run preparation steps on this sub-query before converting to string.
         $subquery = $table['table'];
@@ -848,7 +856,7 @@ class Select extends Query implements SelectInterface {
       else {
         $table_string = $this->connection->escapeTable($table['table']);
         // Do not attempt prefixing cross database / schema queries.
-        if (strpos($table_string, '.') === FALSE) {
+        if (!str_contains($table_string, '.')) {
           $table_string = '{' . $table_string . '}';
         }
       }
@@ -870,7 +878,10 @@ class Select extends Query implements SelectInterface {
 
     // GROUP BY
     if ($this->group) {
-      $query .= "\nGROUP BY " . implode(', ', $this->group);
+      $group_by_fields = array_map(function (string $field): string {
+        return $this->connection->escapeField($field);
+      }, $this->group);
+      $query .= "\nGROUP BY " . implode(', ', $group_by_fields);
     }
 
     // HAVING

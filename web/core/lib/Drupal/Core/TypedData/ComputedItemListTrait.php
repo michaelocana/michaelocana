@@ -80,7 +80,7 @@ trait ComputedItemListTrait {
     // @see \Drupal\Core\TypedData\Plugin\DataType\ItemList::get().
     $this->ensureComputedValue();
 
-    return isset($this->list[$index]) ? $this->list[$index] : NULL;
+    return $this->list[$index] ?? NULL;
   }
 
   /**
@@ -118,7 +118,7 @@ trait ComputedItemListTrait {
   /**
    * {@inheritdoc}
    */
-  public function offsetExists($offset) {
+  public function offsetExists($offset): bool {
     $this->ensureComputedValue();
     return parent::offsetExists($offset);
   }
@@ -126,7 +126,7 @@ trait ComputedItemListTrait {
   /**
    * {@inheritdoc}
    */
-  public function getIterator() {
+  public function getIterator(): \ArrayIterator {
     $this->ensureComputedValue();
     return parent::getIterator();
   }
@@ -134,7 +134,7 @@ trait ComputedItemListTrait {
   /**
    * {@inheritdoc}
    */
-  public function count() {
+  public function count(): int {
     $this->ensureComputedValue();
     return parent::count();
   }

@@ -2,20 +2,20 @@
 
 namespace Drupal\Core\Routing;
 
-use Symfony\Cmf\Component\Routing\VersatileGeneratorInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface as SymfonyUrlGeneratorInterface;
 
 /**
- * Defines an interface for generating a url from a route or system path.
+ * Defines an interface for generating a URL from a route or system path.
  *
  * Provides additional methods and options not present in the base interface.
  */
-interface UrlGeneratorInterface extends VersatileGeneratorInterface {
+interface UrlGeneratorInterface extends SymfonyUrlGeneratorInterface {
 
   /**
    * Gets the internal path (system path) for a route.
    *
-   * @param string|\Symfony\Component\Routing\Route $name
-   *   The route name or a route object.
+   * @param string $name
+   *   The route name.
    * @param array $parameters
    *   An array of parameters as passed to
    *   \Symfony\Component\Routing\Generator\UrlGeneratorInterface::generate().
@@ -24,7 +24,7 @@ interface UrlGeneratorInterface extends VersatileGeneratorInterface {
    *   The internal Drupal path corresponding to the route. This string is
    *   not urlencoded and will be an empty string for the front page.
    */
-  public function getPathFromRoute($name, $parameters = []);
+  public function getPathFromRoute(string $name, array $parameters = []);
 
   /**
    * Generates a URL or path for a specific route based on the given parameters.
@@ -33,8 +33,8 @@ interface UrlGeneratorInterface extends VersatileGeneratorInterface {
    * substituted for them in the pattern. Extra params are added as query
    * strings to the URL.
    *
-   * @param string|\Symfony\Component\Routing\Route $name
-   *   The route name or a route object.
+   * @param string $name
+   *   The route name.
    * @param array $parameters
    *   An associative array of parameter names and values.
    * @param array $options
@@ -53,6 +53,8 @@ interface UrlGeneratorInterface extends VersatileGeneratorInterface {
    *   - 'https': Whether this URL should point to a secure location. If not
    *     defined, the current scheme is used, so the user stays on HTTP or HTTPS
    *     respectively. TRUE enforces HTTPS and FALSE enforces HTTP.
+   *   - 'path_processing': Defaults to TRUE. Whether to pass the path to a
+   *     processor manager to allow alterations.
    *   - 'base_url': Only used internally by a path processor, for example, to
    *     modify the base URL when a language dependent URL requires so.
    *   - 'prefix': Only used internally, to modify the path when a language
@@ -78,6 +80,6 @@ interface UrlGeneratorInterface extends VersatileGeneratorInterface {
    *   Should not be used in user code.
    *   Use \Drupal\Core\Url instead.
    */
-  public function generateFromRoute($name, $parameters = [], $options = [], $collect_bubbleable_metadata = FALSE);
+  public function generateFromRoute(string $name, array $parameters = [], array $options = [], bool $collect_bubbleable_metadata = FALSE);
 
 }

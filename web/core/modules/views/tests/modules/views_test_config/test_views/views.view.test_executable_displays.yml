@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_executable_displays
-label: ''
+label: test_executable_displays
 module: views
 description: ''
 tag: ''
@@ -11,7 +11,7 @@ base_field: nid
 display:
   default:
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   page_1:

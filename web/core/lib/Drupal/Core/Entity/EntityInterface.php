@@ -90,30 +90,10 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   /**
    * Gets the label of the entity.
    *
-   * @return string|null
+   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup|null
    *   The label of the entity, or NULL if there is no label defined.
    */
   public function label();
-
-  /**
-   * Gets the URL object for the entity.
-   *
-   * @param string $rel
-   *   The link relationship type, for example: canonical or edit-form.
-   * @param array $options
-   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   the available options.
-   *
-   * @return \Drupal\Core\Url
-   *   The URL object.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\Entity\EntityInterface::toUrl() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toUrl
-   */
-  public function urlInfo($rel = 'canonical', array $options = []);
 
   /**
    * Gets the URL object for the entity.
@@ -140,7 +120,9 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * entity/entityType/id.
    *
    * @param string $rel
-   *   The link relationship type, for example: canonical or edit-form.
+   *   The link relationship type, for example: canonical or edit-form. If none
+   *   is provided, canonical is assumed, or edit-form if no canonical link
+   *   exists.
    * @param array $options
    *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
    *   the available options.
@@ -151,57 +133,14 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * @throws \Drupal\Core\Entity\EntityMalformedException
    * @throws \Drupal\Core\Entity\Exception\UndefinedLinkTemplateException
    */
-  public function toUrl($rel = 'canonical', array $options = []);
-
-  /**
-   * Gets the public URL for this entity.
-   *
-   * @param string $rel
-   *   The link relationship type, for example: canonical or edit-form.
-   * @param array $options
-   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   the available options.
-   *
-   * @return string
-   *   The URL for this entity.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Please use toUrl() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toUrl
-   */
-  public function url($rel = 'canonical', $options = []);
-
-  /**
-   * Deprecated way of generating a link to the entity. See toLink().
-   *
-   * @param string|null $text
-   *   (optional) The link text for the anchor tag as a translated string.
-   *   If NULL, it will use the entity's label. Defaults to NULL.
-   * @param string $rel
-   *   (optional) The link relationship type. Defaults to 'canonical'.
-   * @param array $options
-   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   the available options.
-   *
-   * @return string
-   *   An HTML string containing a link to the entity.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\EntityInterface::toLink()->toString() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toLink()
-   */
-  public function link($text = NULL, $rel = 'canonical', array $options = []);
+  public function toUrl($rel = NULL, array $options = []);
 
   /**
    * Generates the HTML for a link to this entity.
    *
-   * @param string|null $text
-   *   (optional) The link text for the anchor tag as a translated string.
-   *   If NULL, it will use the entity's label. Defaults to NULL.
+   * @param string|null|array|\Drupal\Component\Render\MarkupInterface $text
+   *   (optional) The link text for the anchor tag as a translated string or
+   *   render array. If NULL, it will use the entity's label. Defaults to NULL.
    * @param string $rel
    *   (optional) The link relationship type. Defaults to 'canonical'.
    * @param array $options
@@ -255,7 +194,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * @return static[]
    *   An array of entity objects indexed by their IDs.
    */
-  public static function loadMultiple(array $ids = NULL);
+  public static function loadMultiple(?array $ids = NULL);
 
   /**
    * Constructs a new entity object, without permanently saving it.
@@ -300,6 +239,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * over all translations if needed. This is different from its counterpart in
    * the Field API, FieldItemListInterface::preSave(), which is fired on all
    * field translations automatically.
+   *
    * @todo Adjust existing implementations and the documentation according to
    *   https://www.drupal.org/node/2577609 to have a consistent API.
    *
@@ -504,5 +444,31 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    *   The configuration target identifier.
    */
   public function getConfigTarget();
+
+  /**
+   * Returns the original unchanged entity.
+   *
+   * If the entity being saved was not the default revision then the original
+   * entity is that specific revision to allow for reliable comparisons.
+   *
+   * This is only available while an entity is being saved.
+   *
+   * @return static|null
+   *   The original entity.
+   */
+  public function getOriginal(): ?static;
+
+  /**
+   * Sets the original unchanged entity.
+   *
+   * This method may be used as a performance optimization when unchanged entity
+   * is already available.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface|null $original
+   *   The unchanged entity.
+   *
+   * @return $this
+   */
+  public function setOriginal(?EntityInterface $original): static;
 
 }

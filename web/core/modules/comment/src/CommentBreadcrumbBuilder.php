@@ -4,6 +4,7 @@ namespace Drupal\comment;
 
 use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
 use Drupal\Core\Breadcrumb\Breadcrumb;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -16,11 +17,11 @@ class CommentBreadcrumbBuilder implements BreadcrumbBuilderInterface {
   use StringTranslationTrait;
 
   /**
-   * The comment storage.
+   * The entity type manager.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
-  protected $storage;
+  protected $entityTypeManager;
 
   /**
    * Constructs the CommentBreadcrumbBuilder.
@@ -29,13 +30,16 @@ class CommentBreadcrumbBuilder implements BreadcrumbBuilderInterface {
    *   The entity type manager.
    */
   public function __construct(EntityTypeManagerInterface $entity_type_manager) {
-    $this->storage = $entity_type_manager->getStorage('comment');
+    $this->entityTypeManager = $entity_type_manager;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function applies(RouteMatchInterface $route_match) {
+  public function applies(RouteMatchInterface $route_match, ?CacheableMetadata $cacheable_metadata = NULL) {
+    // @todo Remove null safe operator in Drupal 12.0.0, see
+    //   https://www.drupal.org/project/drupal/issues/3459277.
+    $cacheable_metadata?->addCacheContexts(['route']);
     return $route_match->getRouteName() == 'comment.reply' && $route_match->getParameter('entity');
   }
 
@@ -44,6 +48,8 @@ class CommentBreadcrumbBuilder implements BreadcrumbBuilderInterface {
    */
   public function build(RouteMatchInterface $route_match) {
     $breadcrumb = new Breadcrumb();
+    // @todo Remove in Drupal 12.0.0, will be added from ::applies(). See
+    //   https://www.drupal.org/project/drupal/issues/3459277
     $breadcrumb->addCacheContexts(['route']);
     $breadcrumb->addLink(Link::createFromRoute($this->t('Home'), '<front>'));
 
@@ -51,7 +57,7 @@ class CommentBreadcrumbBuilder implements BreadcrumbBuilderInterface {
     $breadcrumb->addLink(new Link($entity->label(), $entity->toUrl()));
     $breadcrumb->addCacheableDependency($entity);
 
-    if (($pid = $route_match->getParameter('pid')) && ($comment = $this->storage->load($pid))) {
+    if (($pid = $route_match->getParameter('pid')) && ($comment = $this->entityTypeManager->getStorage('comment')->load($pid))) {
       /** @var \Drupal\comment\CommentInterface $comment */
       $breadcrumb->addCacheableDependency($comment);
       // Display link to parent comment.

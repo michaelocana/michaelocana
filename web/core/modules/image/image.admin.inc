@@ -2,7 +2,6 @@
 
 /**
  * @file
- * Administration pages for image settings.
  */
 
 use Drupal\Core\Render\Element;
@@ -16,14 +15,18 @@ use Drupal\Core\Render\Element;
  *   An associative array containing:
  *   - style: \Drupal\image\ImageStyleInterface image style being previewed.
  */
-function template_preprocess_image_style_preview(&$variables) {
+function template_preprocess_image_style_preview(&$variables): void {
+
+  /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+  $file_url_generator = \Drupal::service('file_url_generator');
+
   // Style information.
   $style = $variables['style'];
   $variables['style_id'] = $style->id();
   $variables['style_name'] = $style->label();
 
   // Cache bypass token.
-  $variables['cache_bypass'] = REQUEST_TIME;
+  $variables['cache_bypass'] = \Drupal::time()->getRequestTime();
 
   // Sample image info.
   $sample_width = 160;
@@ -34,7 +37,7 @@ function template_preprocess_image_style_preview(&$variables) {
   $original_path = \Drupal::config('image.settings')->get('preview_image');
   $original_image = $image_factory->get($original_path);
   $variables['original'] = [
-    'url' => file_url_transform_relative(file_create_url($original_path)),
+    'url' => $file_url_generator->generateString($original_path),
     'width' => $original_image->getWidth(),
     'height' => $original_image->getHeight(),
   ];
@@ -54,8 +57,13 @@ function template_preprocess_image_style_preview(&$variables) {
     $style->createDerivative($original_path, $preview_file);
   }
   $preview_image = $image_factory->get($preview_file);
+
+  // Generate an itok.
+  $defaultScheme = \Drupal::config('system.file')->get('default_scheme');
+  $variables['itok'] = $style->getPathToken($defaultScheme . '://' . $original_path);
+
   $variables['derivative'] = [
-    'url' => file_url_transform_relative(file_create_url($preview_file)),
+    'url' => $file_url_generator->generateString($preview_file),
     'width' => $preview_image->getWidth(),
     'height' => $preview_image->getHeight(),
   ];
@@ -72,7 +80,10 @@ function template_preprocess_image_style_preview(&$variables) {
   $variables['original']['rendered'] = [
     '#theme' => 'image',
     '#uri' => $original_path,
-    '#alt' => t('Sample original image'),
+    '#alt' => t('Source image: @width pixels wide, @height pixels high', [
+      '@width' => $variables['original']['width'],
+      '@height' => $variables['original']['height'],
+    ]),
     '#title' => '',
     '#attributes' => [
       'width' => $variables['original']['width'],
@@ -85,8 +96,11 @@ function template_preprocess_image_style_preview(&$variables) {
   // to prevent caching of images on the client side.
   $variables['derivative']['rendered'] = [
     '#theme' => 'image',
-    '#uri' => $variables['derivative']['url'] . '?cache_bypass=' . $variables['cache_bypass'],
-    '#alt' => t('Sample modified image'),
+    '#uri' => $variables['derivative']['url'] . '?cache_bypass=' . $variables['cache_bypass'] . '&itok=' . $variables['itok'],
+    '#alt' => t('Derivative image: @width pixels wide, @height pixels high', [
+      '@width' => $variables['derivative']['width'],
+      '@height' => $variables['derivative']['height'],
+    ]),
     '#title' => '',
     '#attributes' => [
       'width' => $variables['derivative']['width'],
@@ -106,7 +120,7 @@ function template_preprocess_image_style_preview(&$variables) {
  *   An associative array containing:
  *   - element: An associative array containing the image.
  */
-function template_preprocess_image_anchor(&$variables) {
+function template_preprocess_image_anchor(&$variables): void {
   $element = $variables['element'];
 
   $rows = [];

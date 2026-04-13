@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Component\Utility\Html;
@@ -34,10 +36,11 @@ class FormTestStorageForm extends FormBase {
     }
     // Initialize
     $storage = $form_state->getStorage();
+    $session = $this->getRequest()->getSession();
     if (empty($storage)) {
       $user_input = $form_state->getUserInput();
       if (empty($user_input)) {
-        $_SESSION['constructions'] = 0;
+        $session->set('constructions', 0);
       }
       // Put the initial thing into the storage
       $storage = [
@@ -49,8 +52,9 @@ class FormTestStorageForm extends FormBase {
       $form_state->setStorage($storage);
     }
     // Count how often the form is constructed.
-    $_SESSION['constructions']++;
-    $this->messenger()->addStatus("Form constructions: " . $_SESSION['constructions']);
+    $counter = $session->get('constructions');
+    $session->set('constructions', ++$counter);
+    $this->messenger()->addStatus("Form constructions: " . $counter);
 
     $form['title'] = [
       '#type' => 'textfield',
@@ -79,21 +83,6 @@ class FormTestStorageForm extends FormBase {
       '#value' => 'Save',
     ];
 
-    // @todo Remove this in https://www.drupal.org/node/2524408, because form
-    //   cache immutability is no longer necessary, because we no longer cache
-    //   forms during safe HTTP methods. In the meantime, because
-    //   Drupal\system\Tests\Form still has test coverage for a poisoned form
-    //   cache following a GET request, trick $form_state into caching the form
-    //   to keep that test working until we either remove it or change it in
-    //   that issue.
-    if ($this->getRequest()->get('immutable')) {
-      $form_state->addBuildInfo('immutable', TRUE);
-      if ($this->getRequest()->get('cache') && $this->getRequest()->isMethodCacheable()) {
-        $form_state->setRequestMethod('FAKE');
-        $form_state->setCached();
-      }
-    }
-
     return $form;
   }
 
@@ -102,8 +91,8 @@ class FormTestStorageForm extends FormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     if ($this->getRequest()->get('cache')) {
-      // Manually activate caching, so we can test that the storage keeps working
-      // when it's enabled.
+      // Manually activate caching, so we can test that the storage keeps
+      // working when it's enabled.
       $form_state->setCached();
     }
   }
@@ -115,9 +104,9 @@ class FormTestStorageForm extends FormBase {
    */
   public function elementValidateValueCached($element, FormStateInterface $form_state) {
     // If caching is enabled and we receive a certain value, change the storage.
-    // This presumes that another submitted form value triggers a validation error
-    // elsewhere in the form. Form API should still update the cached form storage
-    // though.
+    // This presumes that another submitted form value triggers a validation
+    // error elsewhere in the form. Form API should still update the cached form
+    // storage though.
     if ($this->getRequest()->get('cache') && $form_state->getValue('value') == 'change_title') {
       $form_state->set(['thing', 'changed'], TRUE);
     }
@@ -137,7 +126,7 @@ class FormTestStorageForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->messenger()->addStatus("Title: " . Html::escape($form_state->getValue('title')));
-    $this->messenger()->addStatus("Form constructions: " . $_SESSION['constructions']);
+    $this->messenger()->addStatus("Form constructions: " . $this->getRequest()->getSession()->get('constructions'));
     if ($form_state->has(['thing', 'changed'])) {
       $this->messenger()->addStatus("The thing has been changed.");
     }

@@ -1,9 +1,6 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\Tests\Component\ProxyBuilder\ProxyBuilderTest.
- */
+declare(strict_types=1);
 
 namespace Drupal\Tests\Component\ProxyBuilder;
 
@@ -26,7 +23,7 @@ class ProxyBuilderTest extends TestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->proxyBuilder = new ProxyBuilder();
@@ -35,7 +32,7 @@ class ProxyBuilderTest extends TestCase {
   /**
    * @covers ::buildProxyClassName
    */
-  public function testBuildProxyClassName() {
+  public function testBuildProxyClassName(): void {
     $class_name = $this->proxyBuilder->buildProxyClassName('Drupal\Tests\Component\ProxyBuilder\TestServiceNoMethod');
     $this->assertEquals('Drupal\Tests\ProxyClass\Component\ProxyBuilder\TestServiceNoMethod', $class_name);
   }
@@ -43,7 +40,7 @@ class ProxyBuilderTest extends TestCase {
   /**
    * @covers ::buildProxyClassName
    */
-  public function testBuildProxyClassNameForModule() {
+  public function testBuildProxyClassNameForModule(): void {
     $class_name = $this->proxyBuilder->buildProxyClassName('Drupal\views_ui\ParamConverter\ViewUIConverter');
     $this->assertEquals('Drupal\views_ui\ProxyClass\ParamConverter\ViewUIConverter', $class_name);
   }
@@ -51,7 +48,7 @@ class ProxyBuilderTest extends TestCase {
   /**
    * @covers ::buildProxyNamespace
    */
-  public function testBuildProxyNamespace() {
+  public function testBuildProxyNamespace(): void {
     $class_name = $this->proxyBuilder->buildProxyNamespace('Drupal\Tests\Component\ProxyBuilder\TestServiceNoMethod');
     $this->assertEquals('Drupal\Tests\ProxyClass\Component\ProxyBuilder', $class_name);
   }
@@ -63,7 +60,7 @@ class ProxyBuilderTest extends TestCase {
    * @covers ::buildConstructorMethod
    * @covers ::buildLazyLoadItselfMethod
    */
-  public function testBuildNoMethod() {
+  public function testBuildNoMethod(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceNoMethod';
 
     $result = $this->proxyBuilder->build($class);
@@ -74,7 +71,7 @@ class ProxyBuilderTest extends TestCase {
    * @covers ::buildMethod
    * @covers ::buildMethodBody
    */
-  public function testBuildSimpleMethod() {
+  public function testBuildSimpleMethod(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceSimpleMethod';
 
     $result = $this->proxyBuilder->build($class);
@@ -98,7 +95,7 @@ EOS;
    * @covers ::buildParameter
    * @covers ::buildMethodBody
    */
-  public function testBuildMethodWithParameter() {
+  public function testBuildMethodWithParameter(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceMethodWithParameter';
 
     $result = $this->proxyBuilder->build($class);
@@ -122,21 +119,45 @@ EOS;
    * @covers ::buildParameter
    * @covers ::buildMethodBody
    */
-  public function testBuildComplexMethod() {
+  public function testBuildComplexMethod(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceComplexMethod';
 
     $result = $this->proxyBuilder->build($class);
 
-    // @todo Solve the silly linebreak for array()
+    // @todo Solve the silly linebreak for an empty array.
     $method_body = <<<'EOS'
 
 /**
  * {@inheritdoc}
  */
-public function complexMethod($parameter, callable $function, \Drupal\Tests\Component\ProxyBuilder\TestServiceNoMethod $test_service = NULL, array &$elements = array (
-))
+public function complexMethod(string $parameter, callable $function, ?\Drupal\Tests\Component\ProxyBuilder\TestServiceNoMethod $test_service = NULL, array &$elements = array (
+)): array
 {
     return $this->lazyLoadItself()->complexMethod($parameter, $function, $test_service, $elements);
+}
+
+EOS;
+
+    $this->assertEquals($this->buildExpectedClass($class, $method_body), $result);
+  }
+
+  /**
+   * @covers ::buildMethodBody
+   */
+  public function testBuildServiceMethodReturnsVoid(): void {
+    $class = TestServiceMethodReturnsVoid::class;
+
+    $result = $this->proxyBuilder->build($class);
+
+    // @todo Solve the silly linebreak for an empty array.
+    $method_body = <<<'EOS'
+
+/**
+ * {@inheritdoc}
+ */
+public function methodReturnsVoid(string $parameter): void
+{
+    $this->lazyLoadItself()->methodReturnsVoid($parameter);
 }
 
 EOS;
@@ -148,12 +169,12 @@ EOS;
    * @covers ::buildMethod
    * @covers ::buildMethodBody
    */
-  public function testBuildReturnReference() {
+  public function testBuildReturnReference(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceReturnReference';
 
     $result = $this->proxyBuilder->build($class);
 
-    // @todo Solve the silly linebreak for array()
+    // @todo Solve the silly linebreak for an empty array.
     $method_body = <<<'EOS'
 
 /**
@@ -174,7 +195,7 @@ EOS;
    * @covers ::buildParameter
    * @covers ::buildMethodBody
    */
-  public function testBuildWithInterface() {
+  public function testBuildWithInterface(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceWithInterface';
 
     $result = $this->proxyBuilder->build($class);
@@ -198,7 +219,7 @@ EOS;
   /**
    * @covers ::build
    */
-  public function testBuildWithNestedInterface() {
+  public function testBuildWithNestedInterface(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceWithChildInterfaces';
 
     $result = $this->proxyBuilder->build($class);
@@ -213,7 +234,7 @@ EOS;
    * @covers ::buildParameter
    * @covers ::buildMethodBody
    */
-  public function testBuildWithProtectedAndPrivateMethod() {
+  public function testBuildWithProtectedAndPrivateMethod(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceWithProtectedMethods';
 
     $result = $this->proxyBuilder->build($class);
@@ -238,7 +259,7 @@ EOS;
    * @covers ::buildParameter
    * @covers ::buildMethodBody
    */
-  public function testBuildWithPublicStaticMethod() {
+  public function testBuildWithPublicStaticMethod(): void {
     $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceWithPublicStaticMethod';
 
     $result = $this->proxyBuilder->build($class);
@@ -260,10 +281,40 @@ EOS;
   }
 
   /**
+   * @covers ::buildMethod
+   * @covers ::buildParameter
+   * @covers ::buildMethodBody
+   */
+  public function testBuildWithNullableSelfTypeHint(): void {
+    $class = 'Drupal\Tests\Component\ProxyBuilder\TestServiceNullableTypeHintSelf';
+
+    $result = $this->proxyBuilder->build($class);
+
+    // Ensure that the static method is not wrapped.
+    $method_body = <<<'EOS'
+
+/**
+ * {@inheritdoc}
+ */
+public function typeHintSelf(?\Drupal\Tests\Component\ProxyBuilder\TestServiceNullableTypeHintSelf $parameter): ?\Drupal\Tests\Component\ProxyBuilder\TestServiceNullableTypeHintSelf
+{
+    return $this->lazyLoadItself()->typeHintSelf($parameter);
+}
+
+EOS;
+
+    $this->assertEquals($this->buildExpectedClass($class, $method_body), $result);
+  }
+
+  /**
    * Constructs the expected class output.
    *
+   * @param string $class
+   *   The class name that is being built.
    * @param string $expected_methods_body
    *   The expected body of decorated methods.
+   * @param string $interface_string
+   *   (optional) The expected "implements" clause of the class definition.
    *
    * @return string
    *   The code of the entire proxy.
@@ -359,10 +410,16 @@ EOS;
 
 }
 
+/**
+ * Test service without methods.
+ */
 class TestServiceNoMethod {
 
 }
 
+/**
+ * Test service with simple method.
+ */
 class TestServiceSimpleMethod {
 
   public function method() {
@@ -371,6 +428,9 @@ class TestServiceSimpleMethod {
 
 }
 
+/**
+ * Test service with method without parameter.
+ */
 class TestServiceMethodWithParameter {
 
   public function methodWithParameter($parameter) {
@@ -379,14 +439,42 @@ class TestServiceMethodWithParameter {
 
 }
 
+/**
+ * Test service with complex method.
+ */
 class TestServiceComplexMethod {
 
-  public function complexMethod($parameter, callable $function, TestServiceNoMethod $test_service = NULL, array &$elements = []) {
+  public function complexMethod(string $parameter, callable $function, ?TestServiceNoMethod $test_service = NULL, array &$elements = []): array {
+    return [];
+  }
+
+}
+
+/**
+ * Test service with a nullable self parameter.
+ */
+class TestServiceNullableTypeHintSelf {
+
+  public function typeHintSelf(?self $parameter): ?self {
+    return NULL;
+  }
+
+}
+
+/**
+ * Test service with void returning method.
+ */
+class TestServiceMethodReturnsVoid {
+
+  public function methodReturnsVoid(string $parameter): void {
 
   }
 
 }
 
+/**
+ * Test service with method that returns reference.
+ */
 class TestServiceReturnReference {
 
   public function &returnReference() {
@@ -395,12 +483,18 @@ class TestServiceReturnReference {
 
 }
 
+/**
+ * Test interface.
+ */
 interface TestInterface {
 
   public function testMethod($parameter);
 
 }
 
+/**
+ * Test service that implements test interface.
+ */
 class TestServiceWithInterface implements TestInterface {
 
   public function testMethod($parameter) {
@@ -409,6 +503,9 @@ class TestServiceWithInterface implements TestInterface {
 
 }
 
+/**
+ * Test service with protected methods.
+ */
 class TestServiceWithProtectedMethods {
 
   public function testMethod($parameter) {
@@ -425,6 +522,9 @@ class TestServiceWithProtectedMethods {
 
 }
 
+/**
+ * Test service with public static method.
+ */
 class TestServiceWithPublicStaticMethod {
 
   public static function testMethod($parameter) {
@@ -432,14 +532,23 @@ class TestServiceWithPublicStaticMethod {
 
 }
 
+/**
+ * Test base interface.
+ */
 interface TestBaseInterface {
 
 }
 
+/**
+ * Test child interface.
+ */
 interface TestChildInterface extends TestBaseInterface {
 
 }
 
+/**
+ * Test service that implements test child interface.
+ */
 class TestServiceWithChildInterfaces implements TestChildInterface {
 
 }

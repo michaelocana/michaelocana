@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Kernel;
 
 use Drupal\Core\Entity\EntityStorageException;
@@ -8,6 +10,7 @@ use Drupal\Core\Field\FieldException;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field_test\FieldTestHelper;
 
 /**
  * Tests field storage create, read, update, and delete.
@@ -17,27 +20,25 @@ use Drupal\field\Entity\FieldStorageConfig;
 class FieldStorageCrudTest extends FieldKernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [];
+  protected static $modules = [];
 
-  // TODO : test creation with
+  // @todo Test creation with
   // - a full fledged $field structure, check that all the values are there
   // - a minimal $field structure, check all default values are set
   // defer actual $field comparison to a helper function, used for the two cases above
 
   /**
-   * Test the creation of a field storage.
+   * Tests the creation of a field storage.
    */
-  public function testCreate() {
+  public function testCreate(): void {
     $field_storage_definition = [
       'field_name' => 'field_2',
       'entity_type' => 'entity_test',
       'type' => 'test_field',
     ];
-    field_test_memorize();
+    FieldTestHelper::memorize();
     $field_storage = FieldStorageConfig::create($field_storage_definition);
     $field_storage->save();
 
@@ -45,9 +46,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $this->assertEquals('TRUE', $field_storage->getSetting('storage_setting_from_config_data'));
     $this->assertNull($field_storage->getSetting('config_data_from_storage_setting'));
 
-    $mem = field_test_memorize();
-    $this->assertIdentical($mem['field_test_field_storage_config_create'][0][0]->getName(), $field_storage_definition['field_name'], 'hook_entity_create() called with correct arguments.');
-    $this->assertIdentical($mem['field_test_field_storage_config_create'][0][0]->getType(), $field_storage_definition['type'], 'hook_entity_create() called with correct arguments.');
+    $mem = FieldTestHelper::memorize();
+    $this->assertSame($field_storage_definition['field_name'], $mem['Drupal\field_test\Hook\FieldTestHooks::fieldStorageConfigCreate'][0][0]->getName(), 'hook_entity_create() called with correct arguments.');
+    $this->assertSame($field_storage_definition['type'], $mem['Drupal\field_test\Hook\FieldTestHooks::fieldStorageConfigCreate'][0][0]->getType(), 'hook_entity_create() called with correct arguments.');
 
     // Read the configuration. Check against raw configuration data rather than
     // the loaded ConfigEntity, to be sure we check that the defaults are
@@ -63,17 +64,17 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     unset($field_storage_config['settings']['config_data_from_storage_setting']);
 
     // Ensure that basic properties are preserved.
-    $this->assertEqual($field_storage_config['field_name'], $field_storage_definition['field_name'], 'The field name is properly saved.');
-    $this->assertEqual($field_storage_config['entity_type'], $field_storage_definition['entity_type'], 'The field entity type is properly saved.');
-    $this->assertEqual($field_storage_config['id'], $field_storage_definition['entity_type'] . '.' . $field_storage_definition['field_name'], 'The field id is properly saved.');
-    $this->assertEqual($field_storage_config['type'], $field_storage_definition['type'], 'The field type is properly saved.');
+    $this->assertEquals($field_storage_definition['field_name'], $field_storage_config['field_name'], 'The field name is properly saved.');
+    $this->assertEquals($field_storage_definition['entity_type'], $field_storage_config['entity_type'], 'The field entity type is properly saved.');
+    $this->assertEquals($field_storage_definition['entity_type'] . '.' . $field_storage_definition['field_name'], $field_storage_config['id'], 'The field id is properly saved.');
+    $this->assertEquals($field_storage_definition['type'], $field_storage_config['type'], 'The field type is properly saved.');
 
     // Ensure that cardinality defaults to 1.
-    $this->assertEqual($field_storage_config['cardinality'], 1, 'Cardinality defaults to 1.');
+    $this->assertEquals(1, $field_storage_config['cardinality'], 'Cardinality defaults to 1.');
 
     // Ensure that default settings are present.
     $field_type_manager = \Drupal::service('plugin.manager.field.field_type');
-    $this->assertEqual($field_storage_config['settings'], $field_type_manager->getDefaultStorageSettings($field_storage_definition['type']), 'Default storage settings have been written.');
+    $this->assertEquals($field_type_manager->getDefaultStorageSettings($field_storage_definition['type']), $field_storage_config['settings'], 'Default storage settings have been written.');
 
     // Guarantee that the name is unique.
     try {
@@ -186,7 +187,7 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
    * This behavior is needed to allow field storage creation within updates,
    * since plugin classes (and thus the field type schema) cannot be accessed.
    */
-  public function testCreateWithExplicitSchema() {
+  public function testCreateWithExplicitSchema(): void {
     $schema = [
       'dummy' => 'foobar',
     ];
@@ -196,13 +197,13 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
       'type' => 'test_field',
       'schema' => $schema,
     ]);
-    $this->assertEqual($field_storage->getSchema(), $schema);
+    $this->assertEquals($schema, $field_storage->getSchema());
   }
 
   /**
    * Tests reading field storage definitions.
    */
-  public function testRead() {
+  public function testRead(): void {
     $field_storage_definition = [
       'field_name' => 'field_1',
       'entity_type' => 'entity_test',
@@ -219,11 +220,18 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $this->assertArrayHasKey($id, $fields, 'The field has the correct key.');
 
     // Check that 'multi column' criteria works.
-    $fields = $field_storage_config_storage->loadByProperties(['field_name' => $field_storage_definition['field_name'], 'type' => $field_storage_definition['type']]);
+    $fields = $field_storage_config_storage->loadByProperties([
+      'field_name' => $field_storage_definition['field_name'],
+      'type' => $field_storage_definition['type'],
+      'entity_type' => $field_storage_definition['entity_type'],
+    ]);
     $this->assertCount(1, $fields, 'The field was properly read.');
     $this->assertArrayHasKey($id, $fields, 'The field has the correct key.');
-    $fields = $field_storage_config_storage->loadByProperties(['field_name' => $field_storage_definition['field_name'], 'type' => 'foo']);
-    $this->assertTrue(empty($fields), 'No field was found.');
+    $fields = $field_storage_config_storage->loadByProperties([
+      'field_name' => $field_storage_definition['field_name'],
+      'type' => 'foo',
+    ]);
+    $this->assertEmpty($fields, 'No field was found.');
 
     // Create a field from the field storage.
     $field_definition = [
@@ -235,9 +243,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
   }
 
   /**
-   * Test creation of indexes on data column.
+   * Tests creation of indexes on data column.
    */
-  public function testIndexes() {
+  public function testIndexes(): void {
     // Check that indexes specified by the field type are used by default.
     $field_storage = FieldStorageConfig::create([
       'field_name' => 'field_1',
@@ -248,7 +256,7 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $field_storage = FieldStorageConfig::load($field_storage->id());
     $schema = $field_storage->getSchema();
     $expected_indexes = ['value' => ['value']];
-    $this->assertEqual($schema['indexes'], $expected_indexes, 'Field type indexes saved by default');
+    $this->assertEquals($expected_indexes, $schema['indexes'], 'Field type indexes saved by default');
 
     // Check that indexes specified by the field definition override the field
     // type indexes.
@@ -264,7 +272,7 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $field_storage = FieldStorageConfig::load($field_storage->id());
     $schema = $field_storage->getSchema();
     $expected_indexes = ['value' => []];
-    $this->assertEqual($schema['indexes'], $expected_indexes, 'Field definition indexes override field type indexes');
+    $this->assertEquals($expected_indexes, $schema['indexes'], 'Field definition indexes override field type indexes');
 
     // Check that indexes specified by the field definition add to the field
     // type indexes.
@@ -281,13 +289,13 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $field_storage = FieldStorageConfig::load($id);
     $schema = $field_storage->getSchema();
     $expected_indexes = ['value' => ['value'], 'value_2' => ['value']];
-    $this->assertEqual($schema['indexes'], $expected_indexes, 'Field definition indexes are merged with field type indexes');
+    $this->assertEquals($expected_indexes, $schema['indexes'], 'Field definition indexes are merged with field type indexes');
   }
 
   /**
-   * Test the deletion of a field storage.
+   * Tests the deletion of a field storage.
    */
-  public function testDeleteNoData() {
+  public function testDeleteNoData(): void {
     // Deleting and purging field storages with data is tested in
     // \Drupal\Tests\field\Kernel\BulkDeleteTest.
 
@@ -318,41 +326,54 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
 
     // Test that the first field is not deleted, and then delete it.
     $field_storage_config_storage = \Drupal::entityTypeManager()->getStorage('field_storage_config');
-    $field_storage = current($field_storage_config_storage->loadByProperties(['field_name' => $field_storage_definition['field_name'], 'include_deleted' => TRUE]));
-    $this->assertTrue(!empty($field_storage) && !$field_storage->isDeleted(), 'A new storage is not marked for deletion.');
+    $field_storage = current($field_storage_config_storage->loadByProperties([
+      'field_name' => $field_storage_definition['field_name'],
+      'include_deleted' => TRUE,
+    ]));
+    $this->assertFalse($field_storage->isDeleted());
     FieldStorageConfig::loadByName('entity_test', $field_storage_definition['field_name'])->delete();
 
     // Make sure that the field storage is deleted as it had no data.
-    $field_storages = $field_storage_config_storage->loadByProperties(['field_name' => $field_storage_definition['field_name'], 'include_deleted' => TRUE]);
+    $field_storages = $field_storage_config_storage->loadByProperties([
+      'field_name' => $field_storage_definition['field_name'],
+      'include_deleted' => TRUE,
+    ]);
     $this->assertCount(0, $field_storages, 'Field storage was deleted');
 
     // Make sure that this field is marked as deleted when it is
     // specifically loaded.
-    $fields = \Drupal::entityTypeManager()->getStorage('field_config')->loadByProperties(['entity_type' => 'entity_test', 'field_name' => $field_definition['field_name'], 'bundle' => $field_definition['bundle'], 'include_deleted' => TRUE]);
+    $fields = \Drupal::entityTypeManager()
+      ->getStorage('field_config')
+      ->loadByProperties([
+        'entity_type' => 'entity_test',
+        'field_name' => $field_definition['field_name'],
+        'bundle' => $field_definition['bundle'],
+        'include_deleted' => TRUE,
+      ]);
     $this->assertCount(0, $fields, 'Field storage was deleted');
 
     // Try to load the storage normally and make sure it does not show up.
     $field_storage = FieldStorageConfig::load('entity_test.' . $field_storage_definition['field_name']);
-    $this->assertTrue(empty($field_storage), 'Field storage was deleted');
+    $this->assertEmpty($field_storage, 'Field storage was deleted');
 
     // Try to load the field normally and make sure it does not show up.
-    $field = FieldConfig::load('entity_test.' . '.' . $field_definition['bundle'] . '.' . $field_definition['field_name']);
-    $this->assertTrue(empty($field), 'Field was deleted');
+    $field = FieldConfig::load('entity_test.' . $field_definition['bundle'] . '.' . $field_definition['field_name']);
+    $this->assertEmpty($field, 'Field was deleted');
 
     // Make sure the other field and its storage are not deleted.
     $another_field_storage = FieldStorageConfig::load('entity_test.' . $another_field_storage_definition['field_name']);
-    $this->assertTrue(!empty($another_field_storage) && !$another_field_storage->isDeleted(), 'A non-deleted storage is not marked for deletion.');
+    $this->assertFalse($another_field_storage->isDeleted());
     $another_field = FieldConfig::load('entity_test.' . $another_field_definition['bundle'] . '.' . $another_field_definition['field_name']);
-    $this->assertTrue(!empty($another_field) && !$another_field->isDeleted(), 'A field whose storage was not deleted is not marked for deletion.');
+    $this->assertFalse($another_field->isDeleted());
 
     // Try to create a new field the same name as a deleted field and
     // write data into it.
     FieldStorageConfig::create($field_storage_definition)->save();
     FieldConfig::create($field_definition)->save();
     $field_storage = FieldStorageConfig::load('entity_test.' . $field_storage_definition['field_name']);
-    $this->assertTrue(!empty($field_storage) && !$field_storage->isDeleted(), 'A new storage with a previously used name is created.');
+    $this->assertFalse($field_storage->isDeleted());
     $field = FieldConfig::load('entity_test.' . $field_definition['bundle'] . '.' . $field_definition['field_name']);
-    $this->assertTrue(!empty($field) && !$field->isDeleted(), 'A new field for a previously used field name is created.');
+    $this->assertFalse($field->isDeleted());
 
     // Save an entity with data for the field
     $entity = EntityTest::create();
@@ -361,13 +382,16 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
     $entity = $this->entitySaveReload($entity);
 
     // Verify the field is present on load
-    $this->assertIdentical(count($entity->{$field_storage->getName()}), count($values), "Data in previously deleted field saves and loads correctly");
+    $this->assertCount(1, $entity->{$field_storage->getName()}, "Data in previously deleted field saves and loads correctly");
     foreach ($values as $delta => $value) {
-      $this->assertEqual($entity->{$field_storage->getName()}[$delta]->value, $values[$delta]['value'], "Data in previously deleted field saves and loads correctly");
+      $this->assertEquals($values[$delta]['value'], $entity->{$field_storage->getName()}[$delta]->value, "Data in previously deleted field saves and loads correctly");
     }
   }
 
-  public function testUpdateFieldType() {
+  /**
+   * Tests that updating a field storage type is not allowed.
+   */
+  public function testUpdateFieldType(): void {
     $field_storage = FieldStorageConfig::create([
       'field_name' => 'field_type',
       'entity_type' => 'entity_test',
@@ -386,9 +410,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
   }
 
   /**
-   * Test changing a field storage type.
+   * Tests changing a field storage type.
    */
-  public function testUpdateEntityType() {
+  public function testUpdateEntityType(): void {
     $field_storage = FieldStorageConfig::create([
       'field_name' => 'field_type',
       'entity_type' => 'entity_test',
@@ -404,9 +428,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
   }
 
   /**
-   * Test changing a field storage entity type.
+   * Tests changing a field storage entity type.
    */
-  public function testUpdateEntityTargetType() {
+  public function testUpdateEntityTargetType(): void {
     $field_storage = FieldStorageConfig::create([
       'field_name' => 'field_type',
       'entity_type' => 'entity_test',
@@ -422,9 +446,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
   }
 
   /**
-   * Test updating a field storage.
+   * Tests updating a field storage.
    */
-  public function testUpdate() {
+  public function testUpdate(): void {
     // Create a field with a defined cardinality, so that we can ensure it's
     // respected. Since cardinality enforcement is consistent across database
     // systems, it makes a good test case.
@@ -452,10 +476,10 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
       }
       // Load back and assert there are $cardinality number of values.
       $entity = $this->entitySaveReload($entity);
-      $this->assertEqual(count($entity->field_update), $field_storage->getCardinality());
+      $this->assertCount($field_storage->getCardinality(), $entity->field_update);
       // Now check the values themselves.
       for ($delta = 0; $delta < $cardinality; $delta++) {
-        $this->assertEqual($entity->field_update[$delta]->value, $delta + 1);
+        $this->assertEquals($delta + 1, $entity->field_update[$delta]->value);
       }
       // Increase $cardinality and set the field cardinality to the new value.
       $field_storage->setCardinality(++$cardinality);
@@ -464,9 +488,9 @@ class FieldStorageCrudTest extends FieldKernelTestBase {
   }
 
   /**
-   * Test field type modules forbidding an update.
+   * Tests field type modules forbidding an update.
    */
-  public function testUpdateForbid() {
+  public function testUpdateForbid(): void {
     $field_storage = FieldStorageConfig::create([
       'field_name' => 'forbidden',
       'entity_type' => 'entity_test',

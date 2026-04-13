@@ -5,6 +5,9 @@
  * Hooks provided by the Block module.
  */
 
+use Drupal\Core\Block\BlockPluginInterface;
+use Drupal\block\Entity\Block;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Access\AccessResult;
 
 /**
@@ -12,24 +15,48 @@ use Drupal\Core\Access\AccessResult;
  * @{
  * Information about the classes and interfaces that make up the Block API.
  *
+ * @section sec_overview Overview
  * Blocks are a combination of a configuration entity and a plugin. The
  * configuration entity stores placement information (theme, region, weight) and
  * any other configuration that is specific to the block. The block plugin does
  * the work of rendering the block's content for display.
  *
+ * @section sec_requirements Basic requirements
  * To define a block in a module you need to:
  * - Define a Block plugin by creating a new class that implements the
- *   \Drupal\Core\Block\BlockPluginInterface, in namespace Plugin\Block under your
- *   module namespace. For more information about creating plugins, see the
+ *   \Drupal\Core\Block\BlockPluginInterface, in namespace Plugin\Block under
+ *   your module namespace. For more information about creating plugins, see the
  *   @link plugin_api Plugin API topic. @endlink
- * - Usually you will want to extend the \Drupal\Core\Block\BlockBase class, which
- *   provides a common configuration form and utility methods for getting and
- *   setting configuration in the block configuration entity.
+ * - Usually you will want to extend the \Drupal\Core\Block\BlockBase class,
+ *   which provides a common configuration form and utility methods for getting
+ *   and setting configuration in the block configuration entity.
  * - Block plugins use the annotations defined by
  *   \Drupal\Core\Block\Annotation\Block. See the
  *   @link annotation Annotations topic @endlink for more information about
  *   annotations.
  *
+ * This is an example of a basic block plugin class:
+ * @code
+ * namespace Drupal\my_module\Plugin\Block;
+ *
+ * use Drupal\Core\Block\BlockBase;
+ * #[Block(
+ *   id: "my_block",
+ *   admin_label: new TranslatableMarkup("My Block"),
+ * )]
+ * class MyBlock extends BlockBase {
+ *   public function build() {
+ *     return [
+ *       '#type' => '#markup',
+ *       '#markup' => 'Example block',
+ *     ];
+ *   }
+ * }
+ * @endcode
+ *
+ * More examples are available at the links below.
+ *
+ * @section sec_extending Extending blocks with conditions and hooks
  * The Block API also makes use of Condition plugins, for conditional block
  * placement. Condition plugins have interface
  * \Drupal\Core\Condition\ConditionInterface, base class
@@ -43,15 +70,15 @@ use Drupal\Core\Access\AccessResult;
  * - hook_block_view_BASE_BLOCK_ID_alter()
  * - hook_block_access()
  *
- * Further information and examples:
+ * @section sec_further_information Further information
  * - \Drupal\system\Plugin\Block\SystemPoweredByBlock provides a simple example
  *   of defining a block.
  * - \Drupal\user\Plugin\Condition\UserRole is a straightforward example of a
  *   block placement condition plugin.
- * - \Drupal\book\Plugin\Block\BookNavigationBlock is an example of a block with
+ * - \Drupal\system\Plugin\Block\SystemMenuBlock is an example of a block with
  *   a custom configuration form.
  * - For a more in-depth discussion of the Block API, see
- *   https://www.drupal.org/developing/api/8/block_api.
+ *   https://www.drupal.org/docs/drupal-apis/block-api/block-api-overview.
  * - The Examples for Developers project also provides a Block example in
  *   https://www.drupal.org/project/examples.
  * @}
@@ -72,8 +99,9 @@ use Drupal\Core\Access\AccessResult;
  * If the module wishes to act on the rendered HTML of the block rather than
  * the structured content array, it may use this hook to add a #post_render
  * callback. Alternatively, it could also implement hook_preprocess_HOOK() for
- * block.html.twig. See drupal_render() documentation or the
- * @link themeable Default theme implementations topic @endlink for details.
+ * block.html.twig. See \Drupal\Core\Render\RendererInterface::render()
+ * documentation or the @link themeable Default theme implementations topic
+ * @endlink for details.
  *
  * In addition to hook_block_view_alter(), which is called for all blocks, there
  * is hook_block_view_BASE_BLOCK_ID_alter(), which can be used to target a
@@ -91,7 +119,7 @@ use Drupal\Core\Access\AccessResult;
  *
  * @ingroup block_api
  */
-function hook_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
+function hook_block_view_alter(array &$build, BlockPluginInterface $block) {
   // Remove the contextual links on all blocks that provide them.
   if (isset($build['#contextual_links'])) {
     unset($build['#contextual_links']);
@@ -121,7 +149,7 @@ function hook_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInte
  *
  * @ingroup block_api
  */
-function hook_block_view_BASE_BLOCK_ID_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
+function hook_block_view_BASE_BLOCK_ID_alter(array &$build, BlockPluginInterface $block) {
   // Change the title of the specific block.
   $build['#title'] = t('New title of the block');
 }
@@ -148,7 +176,7 @@ function hook_block_view_BASE_BLOCK_ID_alter(array &$build, \Drupal\Core\Block\B
  *
  * @ingroup block_api
  */
-function hook_block_build_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
+function hook_block_build_alter(array &$build, BlockPluginInterface $block) {
   // Add the 'user' cache context to some blocks.
   if ($block->label() === 'some condition') {
     $build['#cache']['contexts'][] = 'user';
@@ -176,7 +204,7 @@ function hook_block_build_alter(array &$build, \Drupal\Core\Block\BlockPluginInt
  *
  * @ingroup block_api
  */
-function hook_block_build_BASE_BLOCK_ID_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
+function hook_block_build_BASE_BLOCK_ID_alter(array &$build, BlockPluginInterface $block) {
   // Explicitly enable placeholdering of the specific block.
   $build['#create_placeholder'] = TRUE;
 }
@@ -205,7 +233,7 @@ function hook_block_build_BASE_BLOCK_ID_alter(array &$build, \Drupal\Core\Block\
  * @see \Drupal\block\BlockAccessControlHandler::checkAccess()
  * @ingroup block_api
  */
-function hook_block_access(\Drupal\block\Entity\Block $block, $operation, \Drupal\Core\Session\AccountInterface $account) {
+function hook_block_access(Block $block, $operation, AccountInterface $account) {
   // Example code that would prevent displaying the 'Powered by Drupal' block in
   // a region different than the footer.
   if ($operation == 'view' && $block->getPluginId() == 'system_powered_by_block') {
@@ -214,6 +242,23 @@ function hook_block_access(\Drupal\block\Entity\Block $block, $operation, \Drupa
 
   // No opinion.
   return AccessResult::neutral();
+}
+
+/**
+ * Allow modules to alter the block plugin definitions.
+ *
+ * @param array[] $definitions
+ *   The array of block definitions, keyed by plugin ID.
+ *
+ * @ingroup block_api
+ */
+function hook_block_alter(&$definitions) {
+  foreach ($definitions as $id => $definition) {
+    if (str_starts_with($id, 'system_menu_block:')) {
+      // Replace $definition properties: id, deriver, class, provider to ones
+      // provided by this custom module.
+    }
+  }
 }
 
 /**

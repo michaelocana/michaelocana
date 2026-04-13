@@ -9,7 +9,7 @@ use Drupal\Component\Annotation\Plugin;
  *
  * Plugin Namespace: Plugin\rest\resource
  *
- * For a working example, see \Drupal\dblog\Plugin\rest\resource\DBLogResource
+ * For a working example, see \Drupal\dblog\Plugin\rest\resource\DbLogResource
  *
  * @see \Drupal\rest\Plugin\Type\ResourcePluginManager
  * @see \Drupal\rest\Plugin\ResourceBase
@@ -32,18 +32,20 @@ class RestResource extends Plugin {
   /**
    * The human-readable name of the REST resource plugin.
    *
-   * @ingroup plugin_translatable
-   *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $label;
 
   /**
    * The serialization class to deserialize serialized data into.
    *
-   * @see \Symfony\Component\Serializer\SerializerInterface's "type" parameter.
+   * This property is optional and it does not need to be declared.
    *
-   * @var string (optional)
+   * @var string
+   *
+   * @see \Symfony\Component\Serializer\SerializerInterface's "type" parameter.
    */
   public $serialization_class;
 
@@ -53,9 +55,9 @@ class RestResource extends Plugin {
    * Key-value pairs, with link relation type plugin IDs as keys, and URL
    * templates as values.
    *
-   * @see core/core.link_relation_types.yml
-   *
    * @var string[]
+   *
+   * @see core/core.link_relation_types.yml
    */
   public $uri_paths = [];
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel\Plugin;
 
 use Drupal\views\Views;
@@ -20,6 +22,9 @@ class QueryTest extends ViewsKernelTestBase {
    */
   public static $testViews = ['test_view'];
 
+  /**
+   * Provides Views metadata for the test data table.
+   */
   protected function viewsData() {
     $data = parent::viewsData();
     $data['views_test_data']['table']['base']['query_id'] = 'query_test';
@@ -30,7 +35,7 @@ class QueryTest extends ViewsKernelTestBase {
   /**
    * Tests query plugins.
    */
-  public function testQuery() {
+  public function testQuery(): void {
     $this->_testInitQuery();
     $this->_testQueryExecute();
     $this->queryMethodsTests();
@@ -39,7 +44,7 @@ class QueryTest extends ViewsKernelTestBase {
   /**
    * Tests the ViewExecutable::initQuery method.
    */
-  public function _testInitQuery() {
+  public function _testInitQuery(): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
 
@@ -47,7 +52,10 @@ class QueryTest extends ViewsKernelTestBase {
     $this->assertInstanceOf(QueryTestPlugin::class, $view->query);
   }
 
-  public function _testQueryExecute() {
+  /**
+   * Executes the views query, ensures it's not empty.
+   */
+  public function _testQueryExecute(): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
 
@@ -59,11 +67,11 @@ class QueryTest extends ViewsKernelTestBase {
   }
 
   /**
-   * Test methods provided by the QueryPluginBase.
+   * Tests methods provided by the QueryPluginBase.
    *
    * @see \Drupal\views\Plugin\views\query\QueryPluginBase
    */
-  protected function queryMethodsTests() {
+  protected function queryMethodsTests(): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
 
@@ -71,7 +79,7 @@ class QueryTest extends ViewsKernelTestBase {
     $this->assertNull($view->query->getLimit(), 'Default to an empty limit.');
     $rand_number = rand(5, 10);
     $view->query->setLimit($rand_number);
-    $this->assertEqual($view->query->getLimit(), $rand_number, 'set_limit adapts the amount of items.');
+    $this->assertEquals($rand_number, $view->query->getLimit(), 'set_limit adapts the amount of items.');
   }
 
 }

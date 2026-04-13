@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\Session;
 
 use Drupal\Core\Url;
@@ -25,7 +27,7 @@ class SessionAuthenticationTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['basic_auth', 'session_test'];
+  protected static $modules = ['basic_auth', 'session_test'];
 
   /**
    * {@inheritdoc}
@@ -35,7 +37,7 @@ class SessionAuthenticationTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Create a test administrator user.
@@ -48,7 +50,7 @@ class SessionAuthenticationTest extends BrowserTestBase {
    * Regression test for a bug that caused a session initiated by basic
    * authentication to persist over subsequent unauthorized requests.
    */
-  public function testSessionFromBasicAuthenticationDoesNotLeak() {
+  public function testSessionFromBasicAuthenticationDoesNotLeak(): void {
     // This route is authorized through basic_auth only, not cookie.
     $protected_url = Url::fromRoute('session_test.get_session_basic_auth');
 
@@ -65,7 +67,7 @@ class SessionAuthenticationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
 
     // Check that the correct user is logged in.
-    $this->assertEqual($this->user->id(), json_decode($session->getPage()->getContent())->user, 'The correct user is authenticated on a route with basic authentication.');
+    $this->assertEquals($this->user->id(), json_decode($session->getPage()->getContent())->user, 'The correct user is authenticated on a route with basic authentication.');
     $session->restart();
 
     // If we now try to access a page without basic authentication then we
@@ -83,7 +85,7 @@ class SessionAuthenticationTest extends BrowserTestBase {
   /**
    * Tests if a session can be initiated through basic authentication.
    */
-  public function testBasicAuthSession() {
+  public function testBasicAuthSession(): void {
     // Set a session value on a request through basic auth.
     $test_value = 'alpaca';
     $response = $this->basicAuthGet('session-test/set-session/' . $test_value, $this->user->getAccountName(), $this->user->pass_raw);
@@ -103,19 +105,21 @@ class SessionAuthenticationTest extends BrowserTestBase {
    *   A response object containing the session values and the user ID.
    * @param string $expected
    *   The expected session value.
+   *
+   * @internal
    */
-  protected function assertSessionData($response, $expected) {
+  protected function assertSessionData(string $response, string $expected): void {
     $response = json_decode($response, TRUE);
-    $this->assertEqual(['test_value' => $expected], $response['session'], 'The session data matches the expected value.');
+    $this->assertEquals(['test_value' => $expected], $response['session'], 'The session data matches the expected value.');
 
     // Check that we are logged in as the correct user.
-    $this->assertEqual($this->user->id(), $response['user'], 'The correct user is logged in.');
+    $this->assertEquals($this->user->id(), $response['user'], 'The correct user is logged in.');
   }
 
   /**
    * Tests that a session is not started automatically by basic authentication.
    */
-  public function testBasicAuthNoSession() {
+  public function testBasicAuthNoSession(): void {
     // A route that is authorized through basic_auth only, not cookie.
     $no_cookie_url = Url::fromRoute('session_test.get_session_basic_auth');
 
@@ -136,7 +140,8 @@ class SessionAuthenticationTest extends BrowserTestBase {
     $this->drupalGet($cookie_url);
     $this->assertEmpty($this->getSessionCookies());
     $edit = ['name' => $this->user->getAccountName(), 'pass' => $this->user->passRaw];
-    $this->drupalPostForm($cookie_url, $edit, t('Log in'));
+    $this->drupalGet($cookie_url);
+    $this->submitForm($edit, 'Log in');
     $this->assertNotEmpty($this->getSessionCookies());
   }
 

@@ -1,17 +1,17 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\Tests\migrate\Kernel\SqlBaseTest.
- */
+declare(strict_types=1);
 
 namespace Drupal\Tests\migrate\Kernel;
 
 use Drupal\Core\Database\Query\ConditionInterface;
 use Drupal\Core\Database\Query\SelectInterface;
+use Drupal\Core\Database\Statement\FetchAs;
 use Drupal\Core\Database\StatementInterface;
 use Drupal\migrate\Exception\RequirementsException;
 use Drupal\Core\Database\Database;
+use Drupal\migrate\MigrateExecutable;
+use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\Plugin\migrate\source\SqlBase;
 use Drupal\migrate\Plugin\MigrationInterface;
 
@@ -32,17 +32,17 @@ class SqlBaseTest extends MigrateTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->migration = $this->createMock(MigrationInterface::class);
-    $this->migration->method('id')->willReturn('fubar');
+    $this->migration->method('id')->willReturn('foo');
   }
 
   /**
    * Tests different connection types.
    */
-  public function testConnectionTypes() {
+  public function testConnectionTypes(): void {
     $sql_base = new TestSqlBase([], $this->migration);
 
     // Verify that falling back to the default 'migrate' connection (defined in
@@ -129,6 +129,31 @@ class SqlBaseTest extends MigrateTestBase {
   }
 
   /**
+   * Tests the exception when a connection is defined but not available.
+   */
+  public function testBrokenConnection(): void {
+    if (Database::getConnection()->driver() === 'sqlite') {
+      $this->markTestSkipped('Not compatible with sqlite');
+    }
+
+    $sql_base = new TestSqlBase([], $this->migration);
+    $target = 'test_state_db_target2';
+    $key = 'test_state_migrate_connection2';
+    $database = Database::getConnectionInfo('default')['default'];
+    $database['database'] = 'godot';
+    $config = ['target' => $target, 'key' => $key, 'database' => $database];
+    $database_state_key = 'migrate_sql_base_test2';
+    \Drupal::state()->set($database_state_key, $config);
+    $sql_base->setConfiguration(['database_state_key' => $database_state_key]);
+
+    // Call checkRequirements(): it will call getDatabase() and convert the
+    // exception to a RequirementsException.
+    $this->expectException(RequirementsException::class);
+    $this->expectExceptionMessage('No database connection available for source plugin sql_base');
+    $sql_base->checkRequirements();
+  }
+
+  /**
    * Tests that SqlBase respects high-water values.
    *
    * @param mixed $high_water
@@ -138,7 +163,7 @@ class SqlBaseTest extends MigrateTestBase {
    *
    * @dataProvider highWaterDataProvider
    */
-  public function testHighWater($high_water = NULL, array $query_result = []) {
+  public function testHighWater($high_water = NULL, array $query_result = []): void {
     $configuration = [
       'high_water_property' => [
         'name' => 'order',
@@ -147,11 +172,11 @@ class SqlBaseTest extends MigrateTestBase {
     $source = new TestSqlBase($configuration, $this->migration);
 
     if ($high_water) {
-      $source->getHighWaterStorage()->set($this->migration->id(), $high_water);
+      \Drupal::keyValue('migrate:high_water')->set($this->migration->id(), $high_water);
     }
 
     $statement = $this->createMock(StatementInterface::class);
-    $statement->expects($this->atLeastOnce())->method('setFetchMode')->with(\PDO::FETCH_ASSOC);
+    $statement->expects($this->atLeastOnce())->method('setFetchMode')->with(FetchAs::Associative);
     $query = $this->createMock(SelectInterface::class);
     $query->method('execute')->willReturn($statement);
     $query->expects($this->atLeastOnce())->method('orderBy')->with('order', 'ASC');
@@ -169,11 +194,57 @@ class SqlBaseTest extends MigrateTestBase {
    * @return array
    *   The scenarios to test.
    */
-  public function highWaterDataProvider() {
+  public static function highWaterDataProvider() {
     return [
       'no high-water value set' => [],
       'high-water value set' => [33],
     ];
+  }
+
+  /**
+   * Tests prepare query method.
+   */
+  public function testPrepareQuery(): void {
+    $this->prepareSourceData();
+    $this->enableModules(['migrate_sql_prepare_query_test', 'entity_test']);
+
+    /** @var \Drupal\migrate\Plugin\MigrationInterface $migration */
+    $migration = $this->container->get('plugin.manager.migration')
+      ->createStubMigration([
+        'source' => ['plugin' => 'test_sql_prepare_query'],
+        'process' => ['id' => 'id', 'name' => 'name'],
+        'destination' => ['plugin' => 'entity:entity_test'],
+      ]);
+
+    // One item is excluded by the condition defined in the source plugin.
+    // @see \Drupal\migrate_sql_prepare_query_test\Plugin\migrate\source\TestSqlPrepareQuery
+    $count = $migration->getSourcePlugin()->count();
+    $this->assertEquals(2, $count);
+
+    // Run the migration and verify that the number of migrated items matches
+    // the initial source count.
+    (new MigrateExecutable($migration, new MigrateMessage()))->import();
+    $this->assertEquals(2, $migration->getIdMap()->processedCount());
+  }
+
+  /**
+   * Creates a custom source table and some sample data.
+   */
+  protected function prepareSourceData(): void {
+    $this->sourceDatabase->schema()->createTable('migrate_source_test', [
+      'fields' => [
+        'id' => ['type' => 'int'],
+        'name' => ['type' => 'varchar', 'length' => 32],
+      ],
+    ]);
+
+    // Add some data in the table.
+    $this->sourceDatabase->insert('migrate_source_test')
+      ->fields(['id', 'name'])
+      ->values(['id' => 1, 'name' => 'foo'])
+      ->values(['id' => 2, 'name' => 'bar'])
+      ->values(['id' => 3, 'name' => 'baz'])
+      ->execute();
   }
 
 }
@@ -200,8 +271,8 @@ class TestSqlBase extends SqlBase {
    * @param \Drupal\migrate\Plugin\MigrationInterface $migration
    *   (optional) The migration being run.
    */
-  public function __construct(array $configuration = [], MigrationInterface $migration = NULL) {
-    parent::__construct($configuration, 'sql_base', [], $migration, \Drupal::state());
+  public function __construct(array $configuration = [], ?MigrationInterface $migration = NULL) {
+    parent::__construct($configuration, 'sql_base', ['requirements_met' => TRUE], $migration, \Drupal::state());
   }
 
   /**
@@ -218,19 +289,23 @@ class TestSqlBase extends SqlBase {
    * @param array $config
    *   The config array.
    */
-  public function setConfiguration($config) {
+  public function setConfiguration($config): void {
     $this->configuration = $config;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getIds() {}
+  public function getIds() {
+    return [];
+  }
 
   /**
    * {@inheritdoc}
    */
-  public function fields() {}
+  public function fields() {
+    throw new \RuntimeException(__METHOD__ . " not implemented for " . __CLASS__);
+  }
 
   /**
    * {@inheritdoc}
@@ -245,15 +320,8 @@ class TestSqlBase extends SqlBase {
    * @param \Drupal\Core\Database\Query\SelectInterface $query
    *   The query to execute.
    */
-  public function setQuery(SelectInterface $query) {
+  public function setQuery(SelectInterface $query): void {
     $this->query = $query;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getHighWaterStorage() {
-    return parent::getHighWaterStorage();
   }
 
 }

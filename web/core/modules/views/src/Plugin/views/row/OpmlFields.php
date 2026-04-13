@@ -3,18 +3,19 @@
 namespace Drupal\views\Plugin\views\row;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\views\Attribute\ViewsRow;
 
 /**
  * Renders an OPML item based on fields.
- *
- * @ViewsRow(
- *   id = "opml_fields",
- *   title = @Translation("OPML fields"),
- *   help = @Translation("Display fields as OPML items."),
- *   theme = "views_view_row_opml",
- *   display_types = {"feed"}
- * )
  */
+#[ViewsRow(
+  id: "opml_fields",
+  title: new TranslatableMarkup("OPML fields"),
+  help: new TranslatableMarkup("Display fields as OPML items."),
+  theme: "views_view_row_opml",
+  display_types: ["feed"]
+)]
 class OpmlFields extends RowPluginBase {
 
   /**
@@ -195,7 +196,7 @@ class OpmlFields extends RowPluginBase {
       '#view' => $this->view,
       '#options' => $this->options,
       '#row' => $item,
-      '#field_alias' => isset($this->field_alias) ? $this->field_alias : '',
+      '#field_alias' => $this->field_alias ?? '',
     ];
     return $build;
   }
@@ -203,9 +204,9 @@ class OpmlFields extends RowPluginBase {
   /**
    * Retrieves a views field value from the style plugin.
    *
-   * @param $index
+   * @param int $index
    *   The index count of the row as expected by views_plugin_style::getField().
-   * @param $field_id
+   * @param string $field_id
    *   The ID assigned to the required field in the display.
    *
    * @return string

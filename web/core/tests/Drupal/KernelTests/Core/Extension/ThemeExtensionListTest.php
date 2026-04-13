@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Extension;
 
-use Drupal\Core\Site\Settings;
 use Drupal\KernelTests\KernelTestBase;
 
 /**
@@ -14,11 +15,7 @@ class ThemeExtensionListTest extends KernelTestBase {
   /**
    * @covers ::getList
    */
-  public function testGetlist() {
-    $settings = Settings::getAll();
-    $settings['install_profile'] = 'testing';
-    new Settings($settings);
-
+  public function testGetList(): void {
     \Drupal::configFactory()->getEditable('core.extension')
       ->set('module.testing', 1000)
       ->set('theme.test_theme', 0)
@@ -38,7 +35,7 @@ class ThemeExtensionListTest extends KernelTestBase {
   /**
    * Tests that themes have an empty default version set.
    */
-  public function testThemeWithoutVersion() {
+  public function testThemeWithoutVersion(): void {
     $theme = \Drupal::service('extension.list.theme')->get('test_theme_settings_features');
     $this->assertNull($theme->info['version']);
   }

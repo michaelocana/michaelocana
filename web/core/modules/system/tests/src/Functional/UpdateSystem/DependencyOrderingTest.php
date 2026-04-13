@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,11 +14,9 @@ use Drupal\Tests\BrowserTestBase;
 class DependencyOrderingTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'update_test_0',
     'update_test_1',
     'update_test_2',
@@ -28,15 +28,18 @@ class DependencyOrderingTest extends BrowserTestBase {
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     require_once $this->root . '/core/includes/update.inc';
   }
 
   /**
-   * Test that updates within a single module run in the correct order.
+   * Tests that updates within a single module run in the correct order.
    */
-  public function testUpdateOrderingSingleModule() {
+  public function testUpdateOrderingSingleModule(): void {
     $starting_updates = [
       'update_test_1' => 8001,
     ];
@@ -46,13 +49,13 @@ class DependencyOrderingTest extends BrowserTestBase {
       'update_test_1_update_8003',
     ];
     $actual_updates = array_keys(update_resolve_dependencies($starting_updates));
-    $this->assertEqual($expected_updates, $actual_updates, 'Updates within a single module run in the correct order.');
+    $this->assertEquals($expected_updates, $actual_updates, 'Updates within a single module run in the correct order.');
   }
 
   /**
-   * Test that dependencies between modules are resolved correctly.
+   * Tests that dependencies between modules are resolved correctly.
    */
-  public function testUpdateOrderingModuleInterdependency() {
+  public function testUpdateOrderingModuleInterdependency(): void {
     $starting_updates = [
       'update_test_2' => 8001,
       'update_test_3' => 8001,

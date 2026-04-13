@@ -1,19 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate_drupal\Kernel\Plugin\migrate;
 
 use Drupal\ban\Plugin\migrate\destination\BlockedIp;
-use Drupal\color\Plugin\migrate\destination\Color;
 use Drupal\KernelTests\FileSystemModuleDiscoveryDataProviderTrait;
 use Drupal\migrate\Plugin\migrate\destination\ComponentEntityDisplayBase;
 use Drupal\migrate\Plugin\migrate\destination\Config;
 use Drupal\migrate\Plugin\migrate\destination\EntityConfigBase;
 use Drupal\migrate\Plugin\migrate\destination\EntityContentBase;
-use Drupal\path\Plugin\migrate\destination\UrlAlias;
 use Drupal\shortcut\Plugin\migrate\destination\ShortcutSetUsers;
-use Drupal\statistics\Plugin\migrate\destination\NodeCounter;
 use Drupal\system\Plugin\migrate\destination\d7\ThemeSettings;
-use Drupal\Tests\DeprecatedModulesTestTrait;
 use Drupal\Tests\migrate_drupal\Kernel\MigrateDrupalTestBase;
 use Drupal\Tests\migrate_drupal\Traits\CreateMigrationsTrait;
 use Drupal\user\Plugin\migrate\destination\UserData;
@@ -27,7 +25,6 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
 
   use FileSystemModuleDiscoveryDataProviderTrait;
   use CreateMigrationsTrait;
-  use DeprecatedModulesTestTrait;
 
   /**
    * The migration plugin manager.
@@ -39,10 +36,9 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     // Enable all modules.
     self::$modules = array_keys($this->coreModuleListDataProvider());
-    self::$modules = $this->removeDeprecatedModules(self::$modules);
     parent::setUp();
     $this->migrationManager = \Drupal::service('plugin.manager.migration');
   }
@@ -50,7 +46,7 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
   /**
    * Tests that all D6 migrations are tagged as either Configuration or Content.
    */
-  public function testD6Categories() {
+  public function testD6Categories(): void {
     $migrations = $this->drupal6Migrations();
     $this->assertArrayHasKey('d6_node:page', $migrations);
     $this->assertCategories($migrations);
@@ -59,7 +55,7 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
   /**
    * Tests that all D7 migrations are tagged as either Configuration or Content.
    */
-  public function testD7Categories() {
+  public function testD7Categories(): void {
     $migrations = $this->drupal7Migrations();
     $this->assertArrayHasKey('d7_node:page', $migrations);
     $this->assertCategories($migrations);
@@ -71,8 +67,10 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
    *
    * @param \Drupal\migrate\Plugin\MigrationInterface[] $migrations
    *   The migrations.
+   *
+   * @internal
    */
-  protected function assertCategories($migrations) {
+  protected function assertCategories(array $migrations): void {
     foreach ($migrations as $id => $migration) {
       $object_classes = class_parents($migration->getDestinationPlugin());
       $object_classes[] = get_class($migration->getDestinationPlugin());
@@ -100,9 +98,8 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
    * @return array
    *   The configuration class names.
    */
-  protected function getConfigurationClasses() {
+  protected function getConfigurationClasses(): array {
     return [
-      Color::class,
       Config::class,
       EntityConfigBase::class,
       ThemeSettings::class,
@@ -120,12 +117,11 @@ class DestinationCategoryTest extends MigrateDrupalTestBase {
    * @return array
    *   The content class names.
    */
-  protected function getContentClasses() {
+  protected function getContentClasses(): array {
     return [
       EntityContentBase::class,
-      UrlAlias::class,
+      // @todo Remove BlockedIp in https://www.drupal.org/project/drupal/issues/3488827
       BlockedIp::class,
-      NodeCounter::class,
       UserData::class,
     ];
   }

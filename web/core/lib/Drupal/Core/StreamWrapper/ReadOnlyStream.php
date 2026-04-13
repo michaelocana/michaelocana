@@ -57,7 +57,7 @@ abstract class ReadOnlyStream implements StreamWrapperInterface {
    *
    * @param string $uri
    *   A string containing the URI to the file to open.
-   * @param int $mode
+   * @param string $mode
    *   The file mode, only strict readonly modes are supported.
    * @param int $options
    *   A bit mask of STREAM_USE_PATH and STREAM_REPORT_ERRORS.
@@ -67,6 +67,9 @@ abstract class ReadOnlyStream implements StreamWrapperInterface {
    * @return bool
    *   TRUE if $mode denotes a readonly mode and the file was opened
    *   successfully, FALSE otherwise.
+   *
+   * @throws \BadMethodCallException
+   *   When ::getLocalPath() is not implemented in the concrete driver class.
    *
    * @see http://php.net/manual/streamwrapper.stream-open.php
    */
@@ -87,6 +90,34 @@ abstract class ReadOnlyStream implements StreamWrapperInterface {
     }
 
     return (bool) $this->handle;
+  }
+
+  /**
+   * Returns the canonical absolute path of the URI, if possible.
+   *
+   * @param string $uri
+   *   (optional) The stream wrapper URI to be converted to a canonical
+   *   absolute path. This may point to a directory or another type of file.
+   *
+   * phpcs:ignore Drupal.Commenting.FunctionComment.InvalidNoReturn
+   * @return string|bool
+   *   If $uri is not set, returns the canonical absolute path of the URI
+   *   previously set by the
+   *   Drupal\Core\StreamWrapper\StreamWrapperInterface::setUri() function.
+   *   If $uri is set and valid for this class, returns its canonical absolute
+   *   path, as determined by the realpath() function. If $uri is set but not
+   *   valid, returns FALSE.
+   *
+   * @throws \BadMethodCallException
+   *   If the method is not implemented in the concrete driver class.
+   *
+   * @todo This method is called by ReadOnlyStream::stream_open on the abstract
+   *   class, and therefore should be defined as well on the abstract class to
+   *   prevent static analysis errors. In D11, consider changing it to an
+   *   abstract method.
+   */
+  protected function getLocalPath($uri = NULL) {
+    throw new \BadMethodCallException(get_class($this) . '::getLocalPath() not implemented.');
   }
 
   /**

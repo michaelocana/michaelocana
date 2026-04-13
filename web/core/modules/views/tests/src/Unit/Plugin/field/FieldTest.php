@@ -1,14 +1,12 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\Tests\views\Unit\Plugin\field\FieldTest.
- */
+declare(strict_types=1);
 
 namespace Drupal\Tests\views\Unit\Plugin\field;
 
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityRepositoryInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Tests\UnitTestCase;
@@ -68,6 +66,13 @@ class FieldTest extends UnitTestCase {
   protected $fieldTypePluginManager;
 
   /**
+   * The entity type bundle info service.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
+   */
+  protected $entityTypeBundleInfo;
+
+  /**
    * The renderer.
    *
    * @var \Drupal\Core\Render\RendererInterface|\PHPUnit\Framework\MockObject\MockObject
@@ -84,11 +89,12 @@ class FieldTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
     $this->entityFieldManager = $this->createMock(EntityFieldManagerInterface::class);
+    $this->entityTypeBundleInfo = $this->createMock(EntityTypeBundleInfoInterface::class);
     $this->entityRepository = $this->createMock(EntityRepositoryInterface::class);
     $this->formatterPluginManager = $this->getMockBuilder('Drupal\Core\Field\FormatterPluginManager')
       ->disableOriginalConstructor()
@@ -119,14 +125,14 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::__construct
    */
-  public function testConstruct() {
+  public function testConstruct(): void {
     $definition = [
       'entity_type' => 'test_entity',
       // Just provide 'entity field' as definition. This is how EntityViewsData
       // provides it.
       'entity field' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
     $this->assertEquals('title', $handler->definition['field_name']);
   }
@@ -134,14 +140,14 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::defineOptions
    */
-  public function testDefineOptionsWithNoOptions() {
+  public function testDefineOptionsWithNoOptions(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
-    // Setup the entity manager to allow fetching the storage definitions.
+    // Setup the entity field manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
     $this->entityFieldManager->expects($this->atLeastOnce())
@@ -161,16 +167,16 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::defineOptions
    */
-  public function testDefineOptionsWithDefaultFormatterOnFieldDefinition() {
+  public function testDefineOptionsWithDefaultFormatterOnFieldDefinition(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
       'default_formatter' => 'test_example',
       'default_formatter_settings' => ['link_to_entity' => TRUE],
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
-    // Setup the entity manager to allow fetching the storage definitions.
+    // Setup the entity field manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
     $this->entityFieldManager->expects($this->atLeastOnce())
@@ -189,15 +195,15 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::defineOptions
    */
-  public function testDefineOptionsWithDefaultFormatterOnFieldType() {
+  public function testDefineOptionsWithDefaultFormatterOnFieldType(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
       'default_formatter_settings' => ['link_to_entity' => TRUE],
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
-    // Setup the entity manager to allow fetching the storage definitions.
+    // Setup the entity field manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
     $this->entityFieldManager->expects($this->atLeastOnce())
@@ -216,12 +222,12 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::calculateDependencies
    */
-  public function testCalculateDependenciesWithBaseField() {
+  public function testCalculateDependenciesWithBaseField(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
     $title_storage = $this->getBaseFieldStorage();
     $this->entityFieldManager->expects($this->atLeastOnce())
@@ -238,12 +244,12 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::calculateDependencies
    */
-  public function testCalculateDependenciesWithConfiguredField() {
+  public function testCalculateDependenciesWithConfiguredField(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'body',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
 
     $body_storage = $this->getConfigFieldStorage();
     $this->entityFieldManager->expects($this->atLeastOnce())
@@ -264,12 +270,12 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::access
    */
-  public function testAccess() {
+  public function testAccess(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
     $handler->setViewsData($this->viewsData);
 
@@ -310,17 +316,19 @@ class FieldTest extends UnitTestCase {
   }
 
   /**
-   * @dataProvider providerSortOrders
+   * Tests the click sort order.
    *
    * @param string $order
    *   The sort order.
+   *
+   * @dataProvider providerSortOrders
    */
-  public function testClickSortWithOutConfiguredColumn($order) {
+  public function testClickSortWithOutConfiguredColumn($order): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
 
     $this->entityFieldManager->expects($this->never())
@@ -330,19 +338,18 @@ class FieldTest extends UnitTestCase {
   }
 
   /**
+   * @covers ::clickSort
    * @dataProvider providerSortOrders
    *
    * @param string $order
    *   The sort order.
-   *
-   * @covers ::clickSort
    */
-  public function testClickSortWithBaseField($order) {
+  public function testClickSortWithBaseField($order): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
 
     $field_storage = $this->getBaseFieldStorage();
@@ -390,19 +397,18 @@ class FieldTest extends UnitTestCase {
   }
 
   /**
+   * @covers ::clickSort
    * @dataProvider providerSortOrders
    *
    * @param string $order
    *   The sort order.
-   *
-   * @covers ::clickSort
    */
-  public function testClickSortWithConfiguredField($order) {
+  public function testClickSortWithConfiguredField($order): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'body',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
 
     $field_storage = $this->getConfigFieldStorage();
@@ -452,12 +458,12 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::query
    */
-  public function testQueryWithGroupByForBaseField() {
+  public function testQueryWithGroupByForBaseField(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
     $handler->view->field = [$handler];
 
@@ -514,12 +520,12 @@ class FieldTest extends UnitTestCase {
   /**
    * @covers ::query
    */
-  public function testQueryWithGroupByForConfigField() {
+  public function testQueryWithGroupByForConfigField(): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'body',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
     $handler->view->field = [$handler];
 
@@ -578,12 +584,12 @@ class FieldTest extends UnitTestCase {
    *
    * @dataProvider providerTestPrepareItemsByDelta
    */
-  public function testPrepareItemsByDelta(array $options, array $expected_values) {
+  public function testPrepareItemsByDelta(array $options, array $expected_values): void {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'integer',
     ];
-    $handler = new FieldTestEntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new FieldTestEntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager, $this->entityTypeBundleInfo);
     $handler->view = $this->executable;
     $handler->view->field = [$handler];
 
@@ -633,7 +639,7 @@ class FieldTest extends UnitTestCase {
   /**
    * Provides test data for testPrepareItemsByDelta().
    */
-  public function providerTestPrepareItemsByDelta() {
+  public static function providerTestPrepareItemsByDelta() {
     $data = [];
 
     // Let's display all values.
@@ -649,6 +655,11 @@ class FieldTest extends UnitTestCase {
     $data[] = [['group_rows' => TRUE, 'delta_limit' => 1, 'delta_first_last' => TRUE], [3]];
     $data[] = [['group_rows' => TRUE, 'delta_offset' => 1, 'delta_first_last' => TRUE], [1, 9]];
 
+    // Test with string values where we would expect integers to be provided.
+    $data[] = [['group_rows' => TRUE, 'delta_limit' => 'All'], [3, 1, 4, 1, 5, 9]];
+    $data[] = [['group_rows' => TRUE, 'delta_limit' => 'three'], [3, 1, 4, 1, 5, 9]];
+    $data[] = [['group_rows' => TRUE, 'delta_limit' => 'three', 'delta_offset' => 'two'], [3, 1, 4, 1, 5, 9]];
+
     return $data;
   }
 
@@ -656,6 +667,7 @@ class FieldTest extends UnitTestCase {
    * Returns a mocked base field storage object.
    *
    * @return \Drupal\Core\Field\FieldStorageDefinitionInterface|\PHPUnit\Framework\MockObject\MockObject
+   *   The mocked field storage object.
    */
   protected function getBaseFieldStorage() {
     $title_storage = $this->createMock('Drupal\Core\Field\FieldStorageDefinitionInterface');
@@ -675,6 +687,7 @@ class FieldTest extends UnitTestCase {
    * Returns a mocked configurable field storage object.
    *
    * @return \Drupal\field\FieldStorageConfigInterface|\PHPUnit\Framework\MockObject\MockObject
+   *   The mocked field storage object.
    */
   protected function getConfigFieldStorage() {
     $title_storage = $this->createMock('Drupal\field\FieldStorageConfigInterface');
@@ -694,8 +707,9 @@ class FieldTest extends UnitTestCase {
    * Provides sort orders for clickSort() test methods.
    *
    * @return array
+   *   An array of sort orders.
    */
-  public function providerSortOrders() {
+  public static function providerSortOrders() {
     return [
       ['asc'],
       ['desc'],
@@ -709,10 +723,10 @@ class FieldTest extends UnitTestCase {
    *
    * @param \Drupal\views\Plugin\views\field\EntityField $handler
    *   The field handler.
-   * @param $definition
+   * @param array $definition
    *   An array with entity type definition data.
    */
-  protected function setupLanguageRenderer(EntityField $handler, $definition) {
+  protected function setupLanguageRenderer(EntityField $handler, $definition): void {
     $display_handler = $this->getMockBuilder('\Drupal\views\Plugin\views\display\DisplayPluginBase')
       ->disableOriginalConstructor()
       ->getMock();
@@ -743,8 +757,14 @@ class FieldTest extends UnitTestCase {
 
 }
 
+/**
+ * Stub class for testing EntityField methods.
+ */
 class FieldTestEntityField extends EntityField {
 
+  /**
+   * {@inheritdoc}
+   */
   public function executePrepareItemsByDelta(array $all_values) {
     return $this->prepareItemsByDelta($all_values);
   }

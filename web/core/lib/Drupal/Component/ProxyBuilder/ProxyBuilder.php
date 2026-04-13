@@ -48,24 +48,16 @@ class ProxyBuilder {
    *
    * @param string $class_name
    *   The class name of the actual service.
-   * @param string $proxy_class_name
-   *   (optional) The class name of the proxy service.
    *
    * @return string
    *   The full string with namespace class and methods.
    */
-  public function build($class_name, $proxy_class_name = '') {
+  public function build($class_name) {
     $reflection = new \ReflectionClass($class_name);
 
-    if ($proxy_class_name) {
-      $proxy_class_reflection = new \ReflectionClass($proxy_class_name);
-      $proxy_namespace = $proxy_class_reflection->getNamespaceName();
-    }
-    else {
-      $proxy_class_name = $this->buildProxyClassName($class_name);
-      $proxy_namespace = $this->buildProxyNamespace($class_name);
-      $proxy_class_shortname = str_replace($proxy_namespace . '\\', '', $proxy_class_name);
-    }
+    $proxy_class_name = $this->buildProxyClassName($class_name);
+    $proxy_namespace = $this->buildProxyNamespace($class_name);
+    $proxy_class_shortname = str_replace($proxy_namespace . '\\', '', $proxy_class_name);
 
     $output = '';
     $class_documentation = <<<'EOS'
@@ -87,7 +79,7 @@ EOS;
     // In order to avoid that, check for each interface, whether one of its
     // parents is also in the list and exclude it.
     if ($interfaces = $reflection->getInterfaces()) {
-      foreach ($interfaces as $interface_name => $interface) {
+      foreach ($interfaces as $interface) {
         // Exclude all parents from the list of implemented interfaces of the
         // class.
         if ($parent_interfaces = $interface->getInterfaceNames()) {
@@ -175,6 +167,7 @@ EOS;
    * Generates the string for the method which loads the actual service.
    *
    * @return string
+   *   A string for the lazyLoadItself method.
    */
   protected function buildLazyLoadItselfMethod() {
     $output = <<<'EOS'
@@ -205,6 +198,7 @@ EOS;
    *   A reflection method for the method.
    *
    * @return string
+   *   The docblock, signature, and body for a method.
    */
   protected function buildMethod(\ReflectionMethod $reflection_method) {
 
@@ -236,6 +230,22 @@ EOS;
 
     $signature_line .= implode(', ', $parameters);
     $signature_line .= ')';
+    if ($reflection_method->hasReturnType()) {
+      $signature_line .= ': ';
+      $return_type = $reflection_method->getReturnType();
+      if ($return_type->allowsNull()) {
+        $signature_line .= '?';
+      }
+      if (!$return_type->isBuiltin()) {
+        // The parameter is a class or interface.
+        $signature_line .= '\\';
+      }
+      $return_type_name = $return_type->getName();
+      if ($return_type_name === 'self') {
+        $return_type_name = $reflection_method->getDeclaringClass()->getName();
+      }
+      $signature_line .= $return_type_name;
+    }
 
     $output = $signature_line . "\n{\n";
 
@@ -252,18 +262,25 @@ EOS;
    *   A reflection object of the parameter.
    *
    * @return string
+   *   A parameter string.
    */
   protected function buildParameter(\ReflectionParameter $parameter) {
     $parameter_string = '';
 
-    if ($parameter->isArray()) {
-      $parameter_string .= 'array ';
-    }
-    elseif ($parameter->isCallable()) {
-      $parameter_string .= 'callable ';
-    }
-    elseif ($class = $parameter->getClass()) {
-      $parameter_string .= '\\' . $class->getName() . ' ';
+    if ($parameter->hasType()) {
+      $type = $parameter->getType();
+      if ($type->allowsNull()) {
+        $parameter_string .= '?';
+      }
+      if (!$type->isBuiltin()) {
+        // The parameter is a class or interface.
+        $parameter_string .= '\\';
+      }
+      $type_name = $type->getName();
+      if ($type_name === 'self') {
+        $type_name = $parameter->getDeclaringClass()->getName();
+      }
+      $parameter_string .= $type_name . ' ';
     }
 
     if ($parameter->isPassedByReference()) {
@@ -287,6 +304,7 @@ EOS;
    *   A reflection method for the method.
    *
    * @return string
+   *   The body for a method.
    */
   protected function buildMethodBody(\ReflectionMethod $reflection_method) {
     $output = '';
@@ -294,7 +312,12 @@ EOS;
     $function_name = $reflection_method->getName();
 
     if (!$reflection_method->isStatic()) {
-      $output .= '    return $this->lazyLoadItself()->' . $function_name . '(';
+      if ($reflection_method->getReturnType() && $reflection_method->getReturnType()->getName() === 'void') {
+        $output .= '    $this->lazyLoadItself()->' . $function_name . '(';
+      }
+      else {
+        $output .= '    return $this->lazyLoadItself()->' . $function_name . '(';
+      }
     }
     else {
       $class_name = $reflection_method->getDeclaringClass()->getName();
@@ -316,6 +339,7 @@ EOS;
    * Builds the constructor used to inject the actual service ID.
    *
    * @return string
+   *   The constructor for a class.
    */
   protected function buildConstructorMethod() {
     $output = <<<'EOS'
@@ -342,6 +366,7 @@ EOS;
    * Build the required use statements of the proxy class.
    *
    * @return string
+   *   The use statements.
    */
   protected function buildUseStatements() {
     $output = '';

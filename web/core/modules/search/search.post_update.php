@@ -5,31 +5,33 @@
  * Post update functions for Search module.
  */
 
-use Drupal\block\BlockInterface;
 use Drupal\Core\Config\Entity\ConfigEntityUpdater;
+use Drupal\block\BlockInterface;
 
 /**
- * Configures default search page for instantiated blocks.
+ * Implements hook_removed_post_updates().
  */
-function search_post_update_block_page(&$sandbox = NULL) {
-  if (!\Drupal::moduleHandler()->moduleExists('block')) {
-    // Early exit when block module disabled.
-    return;
-  }
-  \Drupal::classResolver(ConfigEntityUpdater::class)
-    ->update($sandbox, 'block', function (BlockInterface $block) {
-      // Save search block to set default search page from plugin.
-      return $block->getPluginId() === 'search_form_block';
-    });
+function search_removed_post_updates(): array {
+  return [
+    'search_post_update_block_page' => '9.0.0',
+    'search_post_update_reindex_after_diacritics_rule_change' => '10.0.0',
+  ];
 }
 
 /**
- * Mark everything for reindexing after diacritics removal rule change.
+ * Updates Search Blocks' without an explicit `page_id` from '' to NULL.
  */
-function search_post_update_reindex_after_diacritics_rule_change() {
-  $search_page_repository = \Drupal::service('search.search_page_repository');
-  foreach ($search_page_repository->getIndexableSearchPages() as $entity) {
-    $entity->getPlugin()->markForReindex();
-  }
-  return t("Content has been marked for re-indexing for all active search pages. Searching will continue to work, but new content won't be indexed until all existing content has been re-indexed.");
+function search_post_update_block_with_empty_page_id(&$sandbox = []): void {
+  $config_entity_updater = \Drupal::classResolver(ConfigEntityUpdater::class);
+  $config_entity_updater->update($sandbox, 'block', function (BlockInterface $block): bool {
+    // Only update blocks using the search block plugin.
+    // @see search_block_presave()
+    if ($block->getPluginId() === 'search_form_block' && $block->get('settings')['page_id'] === '') {
+      $settings = $block->get('settings');
+      $settings['page_id'] = NULL;
+      $block->set('settings', $settings);
+      return TRUE;
+    }
+    return FALSE;
+  });
 }

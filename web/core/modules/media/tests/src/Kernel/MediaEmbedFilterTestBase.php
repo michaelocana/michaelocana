@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\Kernel;
 
 use Drupal\Component\Utility\Html;
@@ -67,11 +69,10 @@ abstract class MediaEmbedFilterTestBase extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installSchema('file', ['file_usage']);
-    $this->installSchema('system', 'sequences');
     $this->installEntitySchema('file');
     $this->installEntitySchema('media');
     $this->installEntitySchema('user');
@@ -82,12 +83,12 @@ abstract class MediaEmbedFilterTestBase extends KernelTestBase {
 
     // Create a user with required permissions. Ensure that we don't use user 1
     // because that user is treated in special ways by access control handlers.
-    $admin_user = $this->drupalCreateUser([]);
+    $this->drupalCreateUser([]);
     $user = $this->drupalCreateUser([
       'access content',
       'view media',
     ]);
-    $this->container->set('current_user', $user);
+    $this->container->get('current_user')->setAccount($user);
 
     $this->image = File::create([
       'uri' => $this->getTestFiles('image')[0]->uri,
@@ -163,7 +164,7 @@ abstract class MediaEmbedFilterTestBase extends KernelTestBase {
   }
 
   /**
-   * Applies the `@Filter=media_embed` filter to text, pipes to raw content.
+   * Applies the `media_embed` filter to text, pipes to raw content.
    *
    * @param string $text
    *   The text string to be filtered.

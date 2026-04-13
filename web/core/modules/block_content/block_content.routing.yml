@@ -2,11 +2,11 @@ block_content.add_page:
   path: '/block/add'
   defaults:
     _controller: '\Drupal\block_content\Controller\BlockContentController::add'
-    _title: 'Add custom block'
+    _title: 'Add content block'
   options:
     _admin_route: TRUE
   requirements:
-    _permission: 'administer blocks'
+    _entity_create_any_access: 'block_content'
 
 block_content.add_form:
   path: '/block/add/{block_content_type}'
@@ -16,12 +16,13 @@ block_content.add_form:
   options:
     _admin_route: TRUE
   requirements:
-    _permission: 'administer blocks'
+    _entity_create_access: 'block_content:{block_content_type}'
 
 entity.block_content.canonical:
-  path: '/block/{block_content}'
+  path: '/admin/content/block/{block_content}'
   defaults:
     _entity_form: 'block_content.edit'
+    _title_callback: '\Drupal\Core\Entity\Controller\EntityController::title'
   options:
     _admin_route: TRUE
   requirements:
@@ -29,7 +30,7 @@ entity.block_content.canonical:
     block_content: \d+
 
 entity.block_content.edit_form:
-  path: '/block/{block_content}'
+  path: '/admin/content/block/{block_content}'
   defaults:
     _entity_form: 'block_content.edit'
   options:
@@ -39,7 +40,7 @@ entity.block_content.edit_form:
     block_content: \d+
 
 entity.block_content.delete_form:
-  path: '/block/{block_content}/delete'
+  path: '/admin/content/block/{block_content}/delete'
   defaults:
     _entity_form: 'block_content.delete'
     _title: 'Delete'
@@ -50,17 +51,17 @@ entity.block_content.delete_form:
     block_content: \d+
 
 block_content.type_add:
-  path: '/admin/structure/block/block-content/types/add'
+  path: '/admin/structure/block-content/add'
   defaults:
     _entity_form: 'block_content_type.add'
     _title: 'Add'
   requirements:
-    _permission: 'administer blocks'
+    _entity_create_access: 'block_content_type'
 
 entity.block_content.collection:
-  path: '/admin/structure/block/block-content'
+  path: '/admin/content/block'
   defaults:
-    _title: 'Custom block library'
+    _title: 'Content blocks'
     _entity_list: 'block_content'
   requirements:
-    _permission: 'administer blocks'
+    _permission: 'access block library+administer block content'

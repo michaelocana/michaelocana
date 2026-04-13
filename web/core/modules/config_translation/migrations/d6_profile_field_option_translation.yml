@@ -1,3 +1,4 @@
+# cspell:ignore objectid
 id: d6_profile_field_option_translation
 label: Profile field configuration
 migration_tags:
@@ -49,4 +50,5 @@ destination:
   translations: true
 migration_dependencies:
   required:
-    - user_profile_field
+    - language
+    - user_profile_field_instance

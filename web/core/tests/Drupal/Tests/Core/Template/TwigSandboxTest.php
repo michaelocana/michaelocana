@@ -1,16 +1,17 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\Tests\Core\Template\TwigSandboxTest.
- */
+declare(strict_types=1);
 
 namespace Drupal\Tests\Core\Template;
 
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Template\TwigSandboxPolicy;
 use Drupal\Core\Template\Loader\StringLoader;
+use Drupal\Tests\Core\Entity\ContentEntityBaseMockableClass;
 use Drupal\Tests\UnitTestCase;
+use Twig\Environment;
+use Twig\Extension\SandboxExtension;
+use Twig\Sandbox\SecurityError;
 
 /**
  * Tests the twig sandbox policy.
@@ -24,20 +25,20 @@ class TwigSandboxTest extends UnitTestCase {
   /**
    * The Twig environment loaded with the sandbox extension.
    *
-   * @var \Twig_Environment
+   * @var \Twig\Environment
    */
   protected $twig;
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $loader = new StringLoader();
-    $this->twig = new \Twig_Environment($loader);
+    $this->twig = new Environment($loader);
     $policy = new TwigSandboxPolicy();
-    $sandbox = new \Twig_Extension_Sandbox($policy, TRUE);
+    $sandbox = new SandboxExtension($policy, TRUE);
     $this->twig->addExtension($sandbox);
   }
 
@@ -46,9 +47,9 @@ class TwigSandboxTest extends UnitTestCase {
    *
    * @dataProvider getTwigEntityDangerousMethods
    */
-  public function testEntityDangerousMethods($template) {
+  public function testEntityDangerousMethods($template): void {
     $entity = $this->createMock('Drupal\Core\Entity\EntityInterface');
-    $this->expectException(\Twig_Sandbox_SecurityError::class);
+    $this->expectException(SecurityError::class);
     $this->twig->render($template, ['entity' => $entity]);
   }
 
@@ -56,8 +57,9 @@ class TwigSandboxTest extends UnitTestCase {
    * Data provider for ::testEntityDangerousMethods.
    *
    * @return array
+   *   An array of dangerous methods.
    */
-  public function getTwigEntityDangerousMethods() {
+  public static function getTwigEntityDangerousMethods() {
     return [
       ['{{ entity.delete }}'],
       ['{{ entity.save }}'],
@@ -68,7 +70,7 @@ class TwigSandboxTest extends UnitTestCase {
   /**
    * Tests that white listed classes can be extended.
    */
-  public function testExtendedClass() {
+  public function testExtendedClass(): void {
     $this->assertEquals(' class=&quot;kitten&quot;', $this->twig->render('{{ attribute.addClass("kitten") }}', ['attribute' => new TestAttribute()]));
   }
 
@@ -77,7 +79,7 @@ class TwigSandboxTest extends UnitTestCase {
    *
    * Currently "get", "has", and "is" are the only allowed prefixes.
    */
-  public function testEntitySafePrefixes() {
+  public function testEntitySafePrefixes(): void {
     $entity = $this->createMock('Drupal\Core\Entity\EntityInterface');
     $entity->expects($this->atLeastOnce())
       ->method('hasLinkTemplate')
@@ -98,17 +100,17 @@ class TwigSandboxTest extends UnitTestCase {
       ->method('getEntityType')
       ->willReturn('test');
     $result = $this->twig->render('{{ entity.getEntityType }}', ['entity' => $entity]);
-    $this->assertEquals($result, 'test', 'Sandbox policy allows get* functions to be called.');
+    $this->assertEquals('test', $result, 'Sandbox policy allows get* functions to be called.');
   }
 
   /**
    * Tests that valid methods can be called from within Twig templates.
    *
-   * Currently the following methods are whitelisted: id, label, bundle, and
-   * get.
+   * Currently the following methods are in the allowed list: id, label, bundle,
+   * and get.
    */
-  public function testEntitySafeMethods() {
-    $entity = $this->getMockBuilder('Drupal\Core\Entity\ContentEntityBase')
+  public function testEntitySafeMethods(): void {
+    $entity = $this->getMockBuilder(ContentEntityBaseMockableClass::class)
       ->disableOriginalConstructor()
       ->getMock();
     $entity->expects($this->atLeastOnce())
@@ -116,34 +118,34 @@ class TwigSandboxTest extends UnitTestCase {
       ->with('title')
       ->willReturn('test');
     $result = $this->twig->render('{{ entity.get("title") }}', ['entity' => $entity]);
-    $this->assertEquals($result, 'test', 'Sandbox policy allows get() to be called.');
+    $this->assertEquals('test', $result, 'Sandbox policy allows get() to be called.');
 
     $entity = $this->createMock('Drupal\Core\Entity\EntityInterface');
     $entity->expects($this->atLeastOnce())
       ->method('id')
       ->willReturn('1234');
     $result = $this->twig->render('{{ entity.id }}', ['entity' => $entity]);
-    $this->assertEquals($result, '1234', 'Sandbox policy allows get() to be called.');
+    $this->assertEquals('1234', $result, 'Sandbox policy allows get() to be called.');
 
     $entity = $this->createMock('Drupal\Core\Entity\EntityInterface');
     $entity->expects($this->atLeastOnce())
       ->method('label')
       ->willReturn('testing');
     $result = $this->twig->render('{{ entity.label }}', ['entity' => $entity]);
-    $this->assertEquals($result, 'testing', 'Sandbox policy allows get() to be called.');
+    $this->assertEquals('testing', $result, 'Sandbox policy allows get() to be called.');
 
     $entity = $this->createMock('Drupal\Core\Entity\EntityInterface');
     $entity->expects($this->atLeastOnce())
       ->method('bundle')
       ->willReturn('testing');
     $result = $this->twig->render('{{ entity.bundle }}', ['entity' => $entity]);
-    $this->assertEquals($result, 'testing', 'Sandbox policy allows get() to be called.');
+    $this->assertEquals('testing', $result, 'Sandbox policy allows get() to be called.');
   }
 
   /**
    * Tests that safe methods inside Url objects can be called.
    */
-  public function testUrlSafeMethods() {
+  public function testUrlSafeMethods(): void {
     $url = $this->getMockBuilder('Drupal\Core\Url')
       ->disableOriginalConstructor()
       ->getMock();
@@ -151,9 +153,12 @@ class TwigSandboxTest extends UnitTestCase {
       ->method('toString')
       ->willReturn('http://kittens.cat/are/cute');
     $result = $this->twig->render('{{ url.toString }}', ['url' => $url]);
-    $this->assertEquals($result, 'http://kittens.cat/are/cute', 'Sandbox policy allows toString() to be called.');
+    $this->assertEquals('http://kittens.cat/are/cute', $result, 'Sandbox policy allows toString() to be called.');
   }
 
 }
 
+/**
+ * Test class for HTML attributes collector, sanitizer, and renderer.
+ */
 class TestAttribute extends Attribute {}

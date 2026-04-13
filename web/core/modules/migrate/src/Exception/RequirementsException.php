@@ -2,8 +2,6 @@
 
 namespace Drupal\migrate\Exception;
 
-use Exception;
-
 /**
  * Defines an exception thrown when a migration does not meet the requirements.
  *
@@ -27,10 +25,10 @@ class RequirementsException extends \RuntimeException {
    *   (optional) The missing requirements.
    * @param int $code
    *   (optional) The Exception code.
-   * @param \Exception $previous
+   * @param \Throwable $previous
    *   (optional) The previous exception used for the exception chaining.
    */
-  public function __construct($message = "", array $requirements = [], $code = 0, Exception $previous = NULL) {
+  public function __construct($message = "", array $requirements = [], $code = 0, ?\Throwable $previous = NULL) {
     parent::__construct($message, $code, $previous);
 
     $this->requirements = $requirements;

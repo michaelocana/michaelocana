@@ -2,8 +2,11 @@
 
 namespace Drupal\views\Routing;
 
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\views\Plugin\views\display\Page;
+use Drupal\views\Render\ViewsRenderPipelineMarkup;
+use Drupal\views\Views;
 
 /**
  * Defines a page controller to execute and render a view.
@@ -14,7 +17,7 @@ class ViewPageController {
    * Handler a response for a given view and display.
    *
    * @param string $view_id
-   *   The ID of the view
+   *   The ID of the view.
    * @param string $display_id
    *   The ID of the display.
    * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
@@ -61,6 +64,24 @@ class ViewPageController {
 
       return $build;
     }
+  }
+
+  /**
+   * Gets the title of the given view's display.
+   *
+   * @param string $view_id
+   *   The id of the view.
+   * @param string $display_id
+   *   The id of the display from the view.
+   *
+   * @return string|\Drupal\Component\Render\MarkupInterface
+   *   The title of the display of the view.
+   */
+  public function getTitle($view_id, $display_id = 'default') {
+    $view = Views::getView($view_id);
+    $view->setDisplay($display_id);
+
+    return ViewsRenderPipelineMarkup::create(Xss::filter($view->getTitle()));
   }
 
 }

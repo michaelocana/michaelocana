@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel\Views;
 
 use Drupal\comment\Entity\Comment;
+use Drupal\comment\Entity\CommentType;
 use Drupal\Core\Session\AnonymousUserSession;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\Tests\views\Kernel\ViewsKernelTestBase;
@@ -12,7 +15,7 @@ use Drupal\views\Entity\View;
 use Drupal\views\Views;
 
 /**
- * Tests comment user name field
+ * Tests comment user name field.
  *
  * @group comment
  */
@@ -27,12 +30,12 @@ class CommentUserNameTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user', 'comment', 'entity_test'];
+  protected static $modules = ['user', 'comment', 'entity_test'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
 
     $this->installEntitySchema('user');
@@ -54,11 +57,17 @@ class CommentUserNameTest extends ViewsKernelTestBase {
 
     $admin_role = Role::create([
       'id' => 'admin',
-      'permissions' => ['administer comments', 'access user profiles'],
+      'permissions' => [
+        'view test entity',
+        'administer comments',
+        'access user profiles',
+        'access comments',
+      ],
+      'label' => 'Admin',
     ]);
     $admin_role->save();
 
-    /* @var \Drupal\user\RoleInterface $anonymous_role */
+    /** @var \Drupal\user\RoleInterface $anonymous_role */
     $anonymous_role = Role::load(Role::ANONYMOUS_ID);
     $anonymous_role->grantPermission('access comments');
     $anonymous_role->save();
@@ -72,6 +81,13 @@ class CommentUserNameTest extends ViewsKernelTestBase {
     $host = EntityTest::create(['name' => $this->randomString()]);
     $host->save();
 
+    $commentType = CommentType::create([
+      'id' => 'entity_test_comment',
+      'label' => 'Entity Test Comment',
+      'target_entity_type_id' => 'entity_test',
+    ]);
+    $commentType->save();
+
     // Create some comments.
     $comment = Comment::create([
       'subject' => 'My comment title',
@@ -80,7 +96,7 @@ class CommentUserNameTest extends ViewsKernelTestBase {
       'entity_type' => 'entity_test',
       'field_name' => 'comment',
       'entity_id' => $host->id(),
-      'comment_type' => 'entity_test',
+      'comment_type' => 'entity_test_comment',
       'status' => 1,
     ]);
     $comment->save();
@@ -94,7 +110,7 @@ class CommentUserNameTest extends ViewsKernelTestBase {
       'entity_type' => 'entity_test',
       'field_name' => 'comment',
       'entity_id' => $host->id(),
-      'comment_type' => 'entity_test',
+      'comment_type' => 'entity_test_comment',
       'created' => 123456,
       'status' => 1,
     ]);
@@ -102,12 +118,13 @@ class CommentUserNameTest extends ViewsKernelTestBase {
   }
 
   /**
-   * Test the username formatter.
+   * Tests the username formatter.
    */
-  public function testUsername() {
+  public function testUsername(): void {
     $view_id = $this->randomMachineName();
     $view = View::create([
       'id' => $view_id,
+      'label' => $view_id,
       'base_table' => 'comment_field_data',
       'display' => [
         'default' => [
@@ -139,17 +156,16 @@ class CommentUserNameTest extends ViewsKernelTestBase {
     ]);
     $view->save();
 
-    /* @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
+    /** @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
     $account_switcher = \Drupal::service('account_switcher');
 
-    /* @var \Drupal\Core\Render\RendererInterface $renderer */
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
     $renderer = \Drupal::service('renderer');
 
     $account_switcher->switchTo($this->adminUser);
     $executable = Views::getView($view_id);
     $build = $executable->preview();
     $this->setRawContent($renderer->renderRoot($build));
-    $this->verbose($this->getRawContent());
 
     $this->assertLink('My comment title');
     $this->assertLink('Anonymous comment title');
@@ -158,7 +174,7 @@ class CommentUserNameTest extends ViewsKernelTestBase {
     $comment_author = $this->xpath('//div[contains(@class, :class)]/span[normalize-space(text())=""]', [
       ':class' => 'views-field-subject',
     ]);
-    $this->assertTrue(!empty($comment_author));
+    $this->assertNotEmpty($comment_author);
     // When comment belongs to an anonymous user the name field has a value and
     // it is rendered correctly.
     $this->assertLink('barry (not verified)');
@@ -174,9 +190,11 @@ class CommentUserNameTest extends ViewsKernelTestBase {
     $this->assertNoLink($this->adminUser->label());
     // Note: External users aren't pointing to drupal user profiles.
     $this->assertLink('barry (not verified)');
-    $this->verbose($this->getRawContent());
-    $this->assertLink('My comment title');
-    $this->assertLink('Anonymous comment title');
+    // Anonymous user does not have access to this link but can still see title.
+    $this->assertText('My comment title');
+    $this->assertNoLink('My comment title');
+    $this->assertText('Anonymous comment title');
+    $this->assertNoLink('Anonymous comment title');
   }
 
 }

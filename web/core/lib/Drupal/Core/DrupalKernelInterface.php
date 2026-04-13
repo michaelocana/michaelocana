@@ -2,7 +2,7 @@
 
 namespace Drupal\Core;
 
-use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
  * This interface extends Symfony's KernelInterface and adds methods for
  * responding to modules being enabled or disabled during its lifetime.
  */
-interface DrupalKernelInterface extends HttpKernelInterface, ContainerAwareInterface {
+interface DrupalKernelInterface extends HttpKernelInterface {
 
   /**
    * Event fired when the service container finished initializing in subrequest.
@@ -74,7 +74,9 @@ interface DrupalKernelInterface extends HttpKernelInterface, ContainerAwareInter
   public function getCachedContainerDefinition();
 
   /**
-   * Set the current site path.
+   * Set the current site path directory.
+   *
+   * Format: "folder-name/child-folder" usually uses "sites/default".
    *
    * @param string $path
    *   The current site path.
@@ -85,10 +87,10 @@ interface DrupalKernelInterface extends HttpKernelInterface, ContainerAwareInter
   public function setSitePath($path);
 
   /**
-   * Get the site path.
+   * Gets the site path directory.
    *
    * @return string
-   *   The current site path.
+   *   The current site path directory.
    */
   public function getSitePath();
 
@@ -96,6 +98,7 @@ interface DrupalKernelInterface extends HttpKernelInterface, ContainerAwareInter
    * Gets the app root.
    *
    * @return string
+   *   The path of the application root.
    */
   public function getAppRoot();
 
@@ -116,28 +119,22 @@ interface DrupalKernelInterface extends HttpKernelInterface, ContainerAwareInter
    * Force a container rebuild.
    *
    * @return \Symfony\Component\DependencyInjection\ContainerInterface
+   *   The rebuilt Symfony container.
    */
   public function rebuildContainer();
+
+  /**
+   * Force a container reset.
+   *
+   * @return \Symfony\Component\DependencyInjection\ContainerInterface
+   *   The Symfony container.
+   */
+  public function resetContainer(): ContainerInterface;
 
   /**
    * Invalidate the service container for the next request.
    */
   public function invalidateContainer();
-
-  /**
-   * Prepare the kernel for handling a request without handling the request.
-   *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current request.
-   *
-   * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   *   DrupalKernel::boot() and DrupalKernel::preHandle() instead.
-   *
-   * @see https://www.drupal.org/node/3070678
-   */
-  public function prepareLegacyRequest(Request $request);
 
   /**
    * Helper method that does request related initialization.

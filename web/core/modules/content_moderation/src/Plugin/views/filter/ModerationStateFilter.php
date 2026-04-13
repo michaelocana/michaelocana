@@ -4,10 +4,10 @@ namespace Drupal\content_moderation\Plugin\views\filter;
 
 use Drupal\content_moderation\Plugin\views\ModerationStateJoinViewsHandlerTrait;
 use Drupal\Core\Cache\Cache;
-use Drupal\Core\Database\Query\Condition;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\views\Attribute\ViewsFilter;
 use Drupal\views\Plugin\DependentWithRemovalPluginInterface;
 use Drupal\views\Plugin\views\filter\InOperator;
 use Drupal\views\Views;
@@ -17,9 +17,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Provides a filter for the moderation state of an entity.
  *
  * @ingroup views_filter_handlers
- *
- * @ViewsFilter("moderation_state_filter")
  */
+#[ViewsFilter("moderation_state_filter")]
 class ModerationStateFilter extends InOperator implements DependentWithRemovalPluginInterface {
 
   use ModerationStateJoinViewsHandlerTrait;
@@ -145,19 +144,20 @@ class ModerationStateFilter extends InOperator implements DependentWithRemovalPl
         $entity_base_table = $entity_type->getBaseTable();
         $entity_revision_base_table = $entity_type->isTranslatable() ? $entity_type->getRevisionDataTable() : $entity_type->getRevisionTable();
         if ($this->table === $entity_revision_base_table) {
+          $entity_revision_base_table_alias = $this->relationship ?: $this->table;
           $configuration = [
             'table' => $entity_base_table,
             'field' => $entity_type->getKey('id'),
-            'left_table' => $entity_revision_base_table,
+            'left_table' => $entity_revision_base_table_alias,
             'left_field' => $entity_type->getKey('id'),
             'type' => 'INNER',
           ];
 
           $join = Views::pluginManager('join')->createInstance('standard', $configuration);
-          $entity_base_table_alias = $this->query->addRelationship($entity_base_table, $join, $entity_revision_base_table);
+          $entity_base_table_alias = $this->query->addRelationship($entity_base_table, $join, $entity_revision_base_table_alias);
         }
 
-        $bundle_condition = new Condition('AND');
+        $bundle_condition = $this->view->query->getConnection()->condition('AND');
         $bundle_condition->condition("$entity_base_table_alias.{$entity_type->getKey('bundle')}", $moderated_bundles, 'IN');
       }
       // Otherwise, force the query to return an empty result.
@@ -176,11 +176,11 @@ class ModerationStateFilter extends InOperator implements DependentWithRemovalPl
 
     // The values are strings composed from the workflow ID and the state ID, so
     // we need to create a complex WHERE condition.
-    $field = new Condition('OR');
+    $field = $this->view->query->getConnection()->condition('OR');
     foreach ((array) $this->value as $value) {
-      list($workflow_id, $state_id) = explode('-', $value, 2);
+      [$workflow_id, $state_id] = explode('-', $value, 2);
 
-      $and = new Condition('AND');
+      $and = $this->view->query->getConnection()->condition('AND');
       $and
         ->condition("$this->tableAlias.workflow", $workflow_id, '=')
         ->condition("$this->tableAlias.$this->realField", $state_id, $operator);
@@ -248,7 +248,7 @@ class ModerationStateFilter extends InOperator implements DependentWithRemovalPl
   protected function getWorkflowIds() {
     $workflow_ids = [];
     foreach ((array) $this->value as $value) {
-      list($workflow_id) = explode('-', $value, 2);
+      [$workflow_id] = explode('-', $value, 2);
       $workflow_ids[] = $workflow_id;
     }
 

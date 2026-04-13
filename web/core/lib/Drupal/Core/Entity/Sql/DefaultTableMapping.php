@@ -54,8 +54,9 @@ class DefaultTableMapping implements TableMappingInterface {
   protected $dataTable;
 
   /**
-   * The table that stores revision field data if the entity supports revisions
-   * and has multilingual support.
+   * The table that stores revision field data.
+   *
+   * Only used if the entity supports revisions and has multilingual support.
    *
    * @var string
    */
@@ -175,7 +176,9 @@ class DefaultTableMapping implements TableMappingInterface {
       return $table_mapping->allowsSharedTableStorage($definition);
     });
 
-    $key_fields = array_values(array_filter([$id_key, $revision_key, $bundle_key, $uuid_key, $langcode_key]));
+    // The ID and UUID key may point to the same field, so make sure the list is
+    // unique.
+    $key_fields = array_values(array_unique(array_filter([$id_key, $revision_key, $bundle_key, $uuid_key, $langcode_key])));
     $all_fields = array_keys($shared_table_definitions);
     $revisionable_fields = array_keys(array_filter($shared_table_definitions, function (FieldStorageDefinitionInterface $definition) {
       return $definition->isRevisionable();
@@ -205,10 +208,11 @@ class DefaultTableMapping implements TableMappingInterface {
       // whether they are translatable or not. The data table holds also a
       // denormalized copy of the bundle field value to allow for more
       // performant queries. This means that only the UUID is not stored on
-      // the data table.
+      // the data table. Make sure the ID is always in the list, even if the ID
+      // key and the UUID key point to the same field.
       $table_mapping
         ->setFieldNames($table_mapping->baseTable, $key_fields)
-        ->setFieldNames($table_mapping->dataTable, array_values(array_diff($all_fields, [$uuid_key])));
+        ->setFieldNames($table_mapping->dataTable, array_values(array_unique(array_merge([$id_key], array_diff($all_fields, [$uuid_key])))));
     }
     elseif ($revisionable && $translatable) {
       // The revisionable multilingual layout stores key field values in the
@@ -223,7 +227,7 @@ class DefaultTableMapping implements TableMappingInterface {
       // Like in the multilingual, non-revisionable case the UUID is not
       // in the data table. Additionally, do not store revision metadata
       // fields in the data table.
-      $data_fields = array_values(array_diff($all_fields, [$uuid_key], $revision_metadata_fields));
+      $data_fields = array_values(array_unique(array_merge([$id_key], array_diff($all_fields, [$uuid_key], $revision_metadata_fields))));
       $table_mapping->setFieldNames($table_mapping->dataTable, $data_fields);
 
       $revision_base_fields = array_merge([$id_key, $revision_key, $langcode_key], $revision_metadata_fields);
@@ -397,6 +401,15 @@ class DefaultTableMapping implements TableMappingInterface {
   /**
    * {@inheritdoc}
    */
+  public function getAllFieldTableNames($field_name) {
+    return array_keys(array_filter($this->fieldNames, function ($table_fields) use ($field_name) {
+      return in_array($field_name, $table_fields, TRUE);
+    }));
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getColumnNames($field_name) {
     if (!isset($this->columnMapping[$field_name])) {
       $this->columnMapping[$field_name] = [];
@@ -466,7 +479,7 @@ class DefaultTableMapping implements TableMappingInterface {
   }
 
   /**
-   * Adds a extra columns for a table to the table mapping.
+   * Adds extra columns for a table to the table mapping.
    *
    * @param string $table_name
    *   The name of table to add the extra columns for.

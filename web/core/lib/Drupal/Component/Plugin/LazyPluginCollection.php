@@ -47,7 +47,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
    *
    * @return $this
    */
-  abstract public function setConfiguration($configuration);
+  abstract public function setConfiguration(array $configuration);
 
   /**
    * Clears all instantiated plugins.
@@ -142,7 +142,11 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
     $this->remove($instance_id);
   }
 
-  public function getIterator() {
+  /**
+   * @return \Traversable<string, mixed>
+   *   A traversable generator.
+   */
+  public function getIterator(): \Traversable {
     $instances = [];
     foreach ($this->getInstanceIds() as $instance_id) {
       $instances[$instance_id] = $this->get($instance_id);
@@ -153,7 +157,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
   /**
    * {@inheritdoc}
    */
-  public function count() {
+  public function count(): int {
     return count($this->instanceIds);
   }
 

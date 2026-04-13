@@ -2,6 +2,7 @@
 
 namespace Drupal\serialization\Normalizer;
 
+use Drupal\Core\Serialization\Attribute\JsonSchema;
 use Drupal\Core\TypedData\Plugin\DataType\DateTimeIso8601;
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItem;
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
@@ -13,6 +14,8 @@ use Symfony\Component\Serializer\Exception\InvalidArgumentException;
  * @internal
  */
 class DateTimeIso8601Normalizer extends DateTimeNormalizer {
+
+  use SchematicNormalizerHelperTrait;
 
   /**
    * {@inheritdoc}
@@ -32,34 +35,36 @@ class DateTimeIso8601Normalizer extends DateTimeNormalizer {
   /**
    * {@inheritdoc}
    */
-  protected $supportedInterfaceOrClass = DateTimeIso8601::class;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function normalize($datetime, $format = NULL, array $context = []) {
-    assert($datetime instanceof DateTimeIso8601);
-    $field_item = $datetime->getParent();
+  #[JsonSchema(['type' => 'string', 'format' => 'date'])]
+  public function normalize($object, $format = NULL, array $context = []): array|string|int|float|bool|\ArrayObject|NULL {
+    if ($format === 'json_schema') {
+      return $this->getNormalizationSchema($object, $context);
+    }
+    assert($object instanceof DateTimeIso8601);
+    $field_item = $object->getParent();
     // @todo Remove this in https://www.drupal.org/project/drupal/issues/2958416.
     if ($field_item instanceof DateTimeItem && $field_item->getFieldDefinition()->getFieldStorageDefinition()->getSetting('datetime_type') === DateTimeItem::DATETIME_TYPE_DATE) {
-      $drupal_date_time = $datetime->getDateTime();
+      $drupal_date_time = $object->getDateTime();
       if ($drupal_date_time === NULL) {
         return $drupal_date_time;
       }
       return $drupal_date_time->format($this->allowedFormats['date-only']);
     }
-    return parent::normalize($datetime, $format, $context);
+    return parent::normalize($object, $format, $context);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function denormalize($data, $class, $format = NULL, array $context = []) {
+  public function denormalize($data, $class, $format = NULL, array $context = []): mixed {
     // @todo Move the date-only handling out of here in https://www.drupal.org/project/drupal/issues/2958416.
-    $field_definition = isset($context['target_instance'])
-      ? $context['target_instance']->getFieldDefinition()
-      : (isset($context['field_definition']) ? $context['field_definition'] : NULL);
-    if ($field_definition === NULL) {
+    if (isset($context['target_instance'])) {
+      $field_definition = $context['target_instance']->getFieldDefinition();
+    }
+    elseif (isset($context['field_definition'])) {
+      $field_definition = $context['field_definition'];
+    }
+    else {
       throw new InvalidArgumentException('$context[\'target_instance\'] or $context[\'field_definition\'] must be set to denormalize with the DateTimeIso8601Normalizer');
     }
 
@@ -76,25 +81,21 @@ class DateTimeIso8601Normalizer extends DateTimeNormalizer {
     }
 
     $context['datetime_allowed_formats'] = array_diff_key($this->allowedFormats, ['date-only' => TRUE]);
-    try {
-      $datetime = parent::denormalize($data, $class, $format, $context);
-    }
-    catch (\UnexpectedValueException $e) {
-      // If denormalization didn't work using any of the actively supported
-      // formats, try again with the BC format too. Explicitly label it as
-      // being deprecated and trigger a deprecation error.
-      $using_deprecated_format = TRUE;
-      $context['datetime_allowed_formats']['backward compatibility — deprecated'] = DateTimeItemInterface::DATETIME_STORAGE_FORMAT;
-      $datetime = parent::denormalize($data, $class, $format, $context);
-    }
+    $datetime = parent::denormalize($data, $class, $format, $context);
     if (!$datetime instanceof \DateTime) {
       return $datetime;
     }
-    if (isset($using_deprecated_format)) {
-      @trigger_error('The provided datetime string format (Y-m-d\\TH:i:s) is deprecated and will be removed before Drupal 9.0.0. Use the RFC3339 format instead (Y-m-d\\TH:i:sP).', E_USER_DEPRECATED);
-    }
     $datetime->setTimezone(new \DateTimeZone(DateTimeItemInterface::STORAGE_TIMEZONE));
     return $datetime->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [
+      DateTimeIso8601::class => TRUE,
+    ];
   }
 
 }

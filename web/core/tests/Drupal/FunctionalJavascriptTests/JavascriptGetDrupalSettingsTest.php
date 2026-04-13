@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalJavascriptTests;
 
 /**
- * Tests Drupal settings retrieval in JavascriptTestBase tests.
+ * Tests Drupal settings retrieval in WebDriverTestBase tests.
  *
  * @group javascript
  */
@@ -24,7 +26,7 @@ class JavascriptGetDrupalSettingsTest extends WebDriverTestBase {
    *
    * @see \Drupal\FunctionalJavascriptTests\WebDriverTestBase::getDrupalSettings()
    */
-  public function testGetDrupalSettings() {
+  public function testGetDrupalSettings(): void {
     $this->drupalLogin($this->drupalCreateUser());
     $this->drupalGet('test-page');
 
@@ -32,7 +34,7 @@ class JavascriptGetDrupalSettingsTest extends WebDriverTestBase {
     $js_settings = $this->getDrupalSettings();
     $this->assertSame('azAZ09();.,\\\/-_{}', $js_settings['test-setting']);
 
-    // Dynamically change the setting using Javascript.
+    // Dynamically change the setting using JavaScript.
     $script = <<<EndOfScript
 (function () {
   drupalSettings['test-setting'] = 'foo';

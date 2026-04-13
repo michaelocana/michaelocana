@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate_drupal_ui\Functional;
 
 use Drupal\views\Entity\View;
@@ -23,13 +25,21 @@ class MigrateControllerTest extends BrowserTestBase {
 
   /**
    * {@inheritdoc}
+   *
+   * @todo Remove and fix test to not rely on super user.
+   * @see https://www.drupal.org/project/drupal/issues/3437620
+   */
+  protected bool $usesSuperUserAccessPolicy = TRUE;
+
+  /**
+   * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Log in as user 1. Migrations in the UI can only be performed as user 1.
@@ -43,7 +53,7 @@ class MigrateControllerTest extends BrowserTestBase {
   /**
    * Tests the upgrade report with the view enabled, disabled and uninstalled.
    */
-  public function testUpgradeReport() {
+  public function testUpgradeReport(): void {
     $session = $this->assertSession();
 
     $this->assertTrue(View::load('watchdog')->status(), 'Watchdog view is enabled');

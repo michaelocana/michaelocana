@@ -13,7 +13,7 @@ class MenuSettingsConstraintValidator extends ConstraintValidator {
   /**
    * {@inheritdoc}
    */
-  public function validate($entity, Constraint $constraint) {
+  public function validate($entity, Constraint $constraint): void {
     if (isset($entity) && !$entity->isNew() && !$entity->isDefaultRevision()) {
       $defaults = menu_ui_get_menu_link_defaults($entity);
 
@@ -25,7 +25,7 @@ class MenuSettingsConstraintValidator extends ConstraintValidator {
       }
 
       if (trim($values['title']) && !empty($values['menu_parent'])) {
-        list($menu_name, $parent) = explode(':', $values['menu_parent'], 2);
+        [$menu_name, $parent] = explode(':', $values['menu_parent'], 2);
         $values['menu_name'] = $menu_name;
         $values['parent'] = $parent;
       }

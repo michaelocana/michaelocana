@@ -1,177 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Functional;
 
 use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
 use Drupal\layout_builder\Section;
 use Drupal\node\Entity\Node;
-use Drupal\Tests\BrowserTestBase;
-use Drupal\views\Entity\View;
+use Drupal\Tests\layout_builder\Traits\EnableLayoutBuilderTrait;
 
 /**
  * Tests the Layout Builder UI.
  *
  * @group layout_builder
  */
-class LayoutBuilderTest extends BrowserTestBase {
+class LayoutBuilderTest extends LayoutBuilderTestBase {
 
-  /**
-   * {@inheritdoc}
-   */
-  public static $modules = [
-    'views',
-    'layout_builder',
-    'layout_builder_views_test',
-    'layout_test',
-    'block',
-    'block_test',
-    'node',
-    'layout_builder_test',
-  ];
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $defaultTheme = 'classy';
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-    parent::setUp();
-
-    $this->drupalPlaceBlock('local_tasks_block');
-
-    // Create two nodes.
-    $this->createContentType([
-      'type' => 'bundle_with_section_field',
-      'name' => 'Bundle with section field',
-    ]);
-    $this->createNode([
-      'type' => 'bundle_with_section_field',
-      'title' => 'The first node title',
-      'body' => [
-        [
-          'value' => 'The first node body',
-        ],
-      ],
-    ]);
-    $this->createNode([
-      'type' => 'bundle_with_section_field',
-      'title' => 'The second node title',
-      'body' => [
-        [
-          'value' => 'The second node body',
-        ],
-      ],
-    ]);
-  }
-
-  /**
-   * Tests deleting a field in-use by an overridden layout.
-   */
-  public function testDeleteField() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node fields',
-    ]));
-
-    // Enable layout builder overrides.
-    LayoutBuilderEntityViewDisplay::load('node.bundle_with_section_field.default')
-      ->enableLayoutBuilder()
-      ->setOverridable()
-      ->save();
-
-    // Ensure there is a layout override.
-    $this->drupalGet('node/1/layout');
-    $page->pressButton('Save layout');
-
-    // Delete one of the fields in use.
-    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/fields/node.bundle_with_section_field.body/delete');
-    $page->pressButton('Delete');
-
-    // The node should still be accessible.
-    $this->drupalGet('node/1');
-    $assert_session->statusCodeEquals(200);
-    $this->drupalGet('node/1/layout');
-    $assert_session->statusCodeEquals(200);
-  }
-
-  /**
-   * Tests Layout Builder overrides without access to edit the default layout.
-   */
-  public function testOverridesWithoutDefaultsAccess() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser(['configure any layout']));
-
-    LayoutBuilderEntityViewDisplay::load('node.bundle_with_section_field.default')
-      ->enableLayoutBuilder()
-      ->setOverridable()
-      ->save();
-
-    $this->drupalGet('node/1');
-    $page->clickLink('Layout');
-    $assert_session->elementTextContains('css', '.layout-builder__message.layout-builder__message--overrides', 'You are editing the layout for this Bundle with section field content item.');
-    $assert_session->linkNotExists('Edit the template for all Bundle with section field content items instead.');
-  }
-
-  /**
-   * Tests functionality of Layout Builder for overrides.
-   */
-  public function testOverrides() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-    ]));
-
-    // From the manage display page, go to manage the layout.
-    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm(NULL, ['layout[allow_custom]' => TRUE], 'Save');
-    // @todo This should not be necessary.
-    $this->container->get('entity_field.manager')->clearCachedFieldDefinitions();
-
-    // Add a block with a custom label.
-    $this->drupalGet('node/1');
-    $page->clickLink('Layout');
-    // The layout form should not contain fields for the title of the node by
-    // default.
-    $assert_session->fieldNotExists('title[0][value]');
-    $assert_session->elementTextContains('css', '.layout-builder__message.layout-builder__message--overrides', 'You are editing the layout for this Bundle with section field content item. Edit the template for all Bundle with section field content items instead.');
-    $assert_session->linkExists('Edit the template for all Bundle with section field content items instead.');
-    $page->clickLink('Add block');
-    $page->clickLink('Powered by Drupal');
-    $page->fillField('settings[label]', 'This is an override');
-    $page->checkField('settings[label_display]');
-    $page->pressButton('Add block');
-    $page->pressButton('Save layout');
-    $assert_session->pageTextContains('This is an override');
-
-    // Get the UUID of the component.
-    $components = Node::load(1)->get('layout_builder__layout')->getSection(0)->getComponents();
-    end($components);
-    $uuid = key($components);
-
-    $this->drupalGet('layout_builder/update/block/overrides/node.1/0/content/' . $uuid);
-    $page->uncheckField('settings[label_display]');
-    $page->pressButton('Update');
-    $assert_session->pageTextNotContains('This is an override');
-    $page->pressButton('Save layout');
-    $assert_session->pageTextNotContains('This is an override');
-  }
+  use EnableLayoutBuilderTrait;
 
   /**
    * Tests the Layout Builder UI for an entity type without a bundle.
    */
-  public function testNonBundleEntityType() {
+  public function testNonBundleEntityType(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -182,8 +32,8 @@ class LayoutBuilderTest extends BrowserTestBase {
     ]));
 
     $this->drupalGet('admin/config/people/accounts/display/default');
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm(NULL, ['layout[allow_custom]' => TRUE], 'Save');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
 
     $page->clickLink('Manage layout');
     $assert_session->pageTextContains('You are editing the layout template for all users.');
@@ -205,7 +55,7 @@ class LayoutBuilderTest extends BrowserTestBase {
   /**
    * Tests that the Layout Builder preserves entity values.
    */
-  public function testPreserverEntityValues() {
+  public function testPreserverEntityValues(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -216,8 +66,8 @@ class LayoutBuilderTest extends BrowserTestBase {
 
     // From the manage display page, go to manage the layout.
     $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm(NULL, ['layout[allow_custom]' => TRUE], 'Save');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
     // @todo This should not be necessary.
     $this->container->get('entity_field.manager')->clearCachedFieldDefinitions();
 
@@ -252,7 +102,7 @@ class LayoutBuilderTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public function testLayoutBuilderUi() {
+  public function testLayoutBuilderUi(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -275,7 +125,7 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->linkNotExists('Manage layout');
     $assert_session->fieldDisabled('layout[allow_custom]');
 
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
     $assert_session->linkExists('Manage layout');
     $this->clickLink('Manage layout');
     $assert_session->addressEquals("$field_ui_prefix/display/default/layout");
@@ -325,9 +175,11 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->pageTextContains('Extra, Extra read all about it.');
     $assert_session->pageTextNotContains('Placeholder for the "Extra label" field');
     $assert_session->linkNotExists('Layout');
+    $assert_session->pageTextContains(sprintf('Yes, I can access the %s', Node::load(1)->label()));
 
     // Enable overrides.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
     $this->drupalGet('node/1');
 
     // Remove the section from the defaults.
@@ -350,6 +202,7 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->pageTextNotContains('Powered by Drupal');
     $assert_session->pageTextNotContains('Extra, Extra read all about it.');
     $assert_session->pageTextNotContains('Placeholder for the "Extra label" field');
+    $assert_session->pageTextContains(sprintf('Yes, I can access the entity %s in two column', Node::load(1)->label()));
 
     // Assert that overrides cannot be turned off while overrides exist.
     $this->drupalGet("$field_ui_prefix/display/default");
@@ -374,6 +227,7 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->pageTextContains('Powered by Drupal');
     $assert_session->pageTextContains('Extra, Extra read all about it.');
     $assert_session->pageTextNotContains('Placeholder for the "Extra label" field');
+    $assert_session->pageTextContains(sprintf('Yes, I can access the %s', Node::load(2)->label()));
 
     // The overridden node does not pick up the changes to defaults.
     $this->drupalGet('node/1');
@@ -404,27 +258,24 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->pageTextContains('The first node body');
     $assert_session->pageTextContains('Powered by Drupal');
     $assert_session->pageTextContains('Extra, Extra read all about it.');
+    $assert_session->pageTextNotContains(sprintf('Yes, I can access the entity %s in two column', Node::load(1)->label()));
+    $assert_session->pageTextContains(sprintf('Yes, I can access the %s', Node::load(1)->label()));
 
     // Assert that overrides can be turned off now that all overrides are gone.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => FALSE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[allow_custom]' => FALSE], 'Save');
     $this->drupalGet('node/1');
     $assert_session->linkNotExists('Layout');
 
     // Add a new field.
-    $edit = [
-      'new_storage_type' => 'string',
-      'label' => 'My text field',
-      'field_name' => 'my_text',
-    ];
-    $this->drupalPostForm("$field_ui_prefix/fields/add-field", $edit, 'Save and continue');
-    $page->pressButton('Save field settings');
-    $page->pressButton('Save settings');
+    $this->fieldUIAddNewField($field_ui_prefix, 'my_text', 'My text field', 'string');
     $this->drupalGet("$field_ui_prefix/display/default/layout");
     $assert_session->pageTextContains('My text field');
     $assert_session->elementExists('css', '.field--name-field-my-text');
 
     // Delete the field.
-    $this->drupalPostForm("$field_ui_prefix/fields/node.bundle_with_section_field.field_my_text/delete", [], 'Delete');
+    $this->drupalGet("{$field_ui_prefix}/fields/node.bundle_with_section_field.field_my_text/delete");
+    $this->submitForm([], 'Delete');
     $this->drupalGet("$field_ui_prefix/display/default/layout");
     $assert_session->pageTextNotContains('My text field');
     $assert_session->elementNotExists('css', '.field--name-field-my-text');
@@ -448,9 +299,9 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
-   * Test that layout builder checks entity view access.
+   * Tests that layout builder checks entity view access.
    */
-  public function testAccess() {
+  public function testAccess(): void {
     $assert_session = $this->assertSession();
 
     $this->drupalLogin($this->drupalCreateUser([
@@ -460,8 +311,10 @@ class LayoutBuilderTest extends BrowserTestBase {
 
     $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
     // Allow overrides for the layout.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
 
     $this->drupalLogin($this->drupalCreateUser(['configure any layout']));
     $this->drupalGet('node/1');
@@ -480,68 +333,9 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that a non-default view mode works as expected.
-   */
-  public function testNonDefaultViewMode() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-    ]));
-
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
-    // Allow overrides for the layout.
-    $this->drupalGet("$field_ui_prefix/display/default");
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
-    $page->checkField('layout[allow_custom]');
-    $page->pressButton('Save');
-
-    $this->clickLink('Manage layout');
-    // Confirm the body field only is shown once.
-    $assert_session->elementsCount('css', '.field--name-body', 1);
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    $this->clickLink('Teaser');
-    // Enabling Layout Builder for the default mode does not affect the teaser.
-    $assert_session->addressEquals("$field_ui_prefix/display/teaser");
-    $assert_session->elementNotExists('css', '#layout-builder__layout');
-    $assert_session->checkboxNotChecked('layout[enabled]');
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
-    $assert_session->linkExists('Manage layout');
-    $page->clickLink('Manage layout');
-    // Confirm the body field only is shown once.
-    $assert_session->elementsCount('css', '.field--name-body', 1);
-
-    // Enable a disabled view mode.
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-    $assert_session->addressEquals("$field_ui_prefix/display/teaser");
-    $page->clickLink('Default');
-    $assert_session->addressEquals("$field_ui_prefix/display");
-    $assert_session->linkNotExists('Full content');
-    $page->checkField('display_modes_custom[full]');
-    $page->pressButton('Save');
-
-    $assert_session->linkExists('Full content');
-    $page->clickLink('Full content');
-    $assert_session->addressEquals("$field_ui_prefix/display/full");
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
-    $assert_session->linkExists('Manage layout');
-    $page->clickLink('Manage layout');
-    // Confirm the body field only is shown once.
-    $assert_session->elementsCount('css', '.field--name-body', 1);
-  }
-
-  /**
    * Tests that component's dependencies are respected during removal.
    */
-  public function testPluginDependencies() {
+  public function testPluginDependencies(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -555,11 +349,11 @@ class LayoutBuilderTest extends BrowserTestBase {
     // Create a new menu.
     $this->drupalGet('admin/structure/menu/add');
     $page->fillField('label', 'My Menu');
-    $page->fillField('id', 'mymenu');
+    $page->fillField('id', 'my-menu');
     $page->pressButton('Save');
     $this->drupalGet('admin/structure/menu/add');
     $page->fillField('label', 'My Menu');
-    $page->fillField('id', 'myothermenu');
+    $page->fillField('id', 'my-other-menu');
     $page->pressButton('Save');
 
     $page->clickLink('Add link');
@@ -567,7 +361,8 @@ class LayoutBuilderTest extends BrowserTestBase {
     $page->fillField('link[0][uri]', '/');
     $page->pressButton('Save');
 
-    $this->drupalPostForm('admin/structure/types/manage/bundle_with_section_field/display', ['layout[enabled]' => TRUE], 'Save');
+    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
     $assert_session->linkExists('Manage layout');
     $this->clickLink('Manage layout');
     $assert_session->linkExists('Add section');
@@ -578,7 +373,8 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->elementExists('css', '.layout--layout-test-dependencies-plugin');
     $assert_session->elementExists('css', '.field--name-body');
     $page->pressButton('Save layout');
-    $this->drupalPostForm('admin/structure/menu/manage/myothermenu/delete', [], 'Delete');
+    $this->drupalGet('admin/structure/menu/manage/my-other-menu/delete');
+    $this->submitForm([], 'Delete');
     $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default/layout');
     $assert_session->elementNotExists('css', '.layout--layout-test-dependencies-plugin');
     $assert_session->elementExists('css', '.field--name-body');
@@ -600,191 +396,24 @@ class LayoutBuilderTest extends BrowserTestBase {
     // Assert that the blocks are visible, and save the layout.
     $assert_session->pageTextContains('Powered by Drupal');
     $assert_session->pageTextContains('My Menu');
-    $assert_session->elementExists('css', '.block.menu--mymenu');
+    $assert_session->elementExists('css', '.block.menu--my-menu');
     $page->pressButton('Save layout');
 
     // Delete the menu.
-    $this->drupalPostForm('admin/structure/menu/manage/mymenu/delete', [], 'Delete');
+    $this->drupalGet('admin/structure/menu/manage/my-menu/delete');
+    $this->submitForm([], 'Delete');
 
     // Ensure that the menu block is gone, but that the other block remains.
     $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default/layout');
     $assert_session->pageTextContains('Powered by Drupal');
     $assert_session->pageTextNotContains('My Menu');
-    $assert_session->elementNotExists('css', '.block.menu--mymenu');
+    $assert_session->elementNotExists('css', '.block.menu--my-menu');
   }
 
   /**
-   * Tests the interaction between full and default view modes.
-   *
-   * @see \Drupal\layout_builder\Plugin\SectionStorage\OverridesSectionStorage::getDefaultSectionStorage()
+   * Tests preview-aware templates.
    */
-  public function testLayoutBuilderUiFullViewMode() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-      'administer node fields',
-    ]));
-
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
-
-    // For the purposes of this test, turn the full view mode on and off to
-    // prevent copying from the customized default view mode.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => FALSE], 'Save');
-
-    // Allow overrides for the layout.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
-
-    // Customize the default view mode.
-    $this->drupalGet("$field_ui_prefix/display/default/layout");
-    $this->clickLink('Add block');
-    $this->clickLink('Powered by Drupal');
-    $page->fillField('settings[label]', 'This is the default view mode');
-    $page->checkField('settings[label_display]');
-    $page->pressButton('Add block');
-    $assert_session->pageTextContains('This is the default view mode');
-    $page->pressButton('Save layout');
-
-    // The default view mode is used for both the node display and layout UI.
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    // Enable the full view mode and customize it.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/full", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/full", ['layout[allow_custom]' => TRUE], 'Save');
-    $this->drupalGet("$field_ui_prefix/display/full/layout");
-    $this->clickLink('Add block');
-    $this->clickLink('Powered by Drupal');
-    $page->fillField('settings[label]', 'This is the full view mode');
-    $page->checkField('settings[label_display]');
-    $page->pressButton('Add block');
-    $assert_session->pageTextContains('This is the full view mode');
-    $page->pressButton('Save layout');
-
-    // The full view mode is now used for both the node display and layout UI.
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    // Disable the full view mode, the default should be used again.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => FALSE], 'Save');
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    // Re-enabling the full view mode restores the layout changes.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => TRUE], 'Save');
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-
-    // Create an override of the full view mode.
-    $this->clickLink('Add block');
-    $this->clickLink('Powered by Drupal');
-    $page->fillField('settings[label]', 'This is an override of the full view mode');
-    $page->checkField('settings[label_display]');
-    $page->pressButton('Add block');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $page->pressButton('Save layout');
-
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    // The override does not affect the full view mode.
-    $this->drupalGet("$field_ui_prefix/display/full/layout");
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-
-    // Reverting the override restores back to the full view mode.
-    $this->drupalGet('node/1/layout');
-    $page->pressButton('Revert to default');
-    $page->pressButton('Revert');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextNotContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-
-    // Recreate an override of the full view mode.
-    $this->clickLink('Add block');
-    $this->clickLink('Powered by Drupal');
-    $page->fillField('settings[label]', 'This is an override of the full view mode');
-    $page->checkField('settings[label_display]');
-    $page->pressButton('Add block');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $page->pressButton('Save layout');
-
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-
-    // Disable the full view mode.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['display_modes_custom[full]' => FALSE], 'Save');
-
-    // The override of the full view mode is still available.
-    $this->drupalGet('node/1');
-    $assert_session->pageTextContains('This is the full view mode');
-    $assert_session->pageTextContains('This is an override of the full view mode');
-    $assert_session->pageTextNotContains('This is the default view mode');
-
-    // Reverting the override restores back to the default view mode.
-    $this->drupalGet('node/1/layout');
-    $page->pressButton('Revert to default');
-    $page->pressButton('Revert');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $this->drupalGet('node/1/layout');
-    $assert_session->pageTextContains('This is the default view mode');
-    $assert_session->pageTextNotContains('This is the full view mode');
-    $page->pressButton('Discard changes');
-    $page->pressButton('Confirm');
-  }
-
-  /**
-   * Ensures that one bundle doesn't interfere with another bundle.
-   */
-  public function testFullViewModeMultipleBundles() {
+  public function testPreviewAwareTemplates(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -793,78 +422,28 @@ class LayoutBuilderTest extends BrowserTestBase {
       'administer node display',
     ]));
 
-    // Create one bundle with the full view mode enabled.
-    $this->createContentType(['type' => 'full_bundle']);
-    $this->drupalGet('admin/structure/types/manage/full_bundle/display/default');
-    $page->checkField('display_modes_custom[full]');
-    $page->pressButton('Save');
-
-    // Create another bundle without the full view mode enabled.
-    $this->createContentType(['type' => 'default_bundle']);
-    $this->drupalGet('admin/structure/types/manage/default_bundle/display/default');
-
-    // Enable Layout Builder for defaults and overrides.
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
-    $page->checkField('layout[allow_custom]');
-    $page->pressButton('Save');
-    $assert_session->checkboxChecked('layout[allow_custom]');
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function testLayoutBuilderChooseBlocksAlter() {
-    // See layout_builder_test_plugin_filter_block__layout_builder_alter().
-    $assert_session = $this->assertSession();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-      'administer node fields',
-    ]));
-
-    // From the manage display page, go to manage the layout.
-    $this->drupalPostForm('admin/structure/types/manage/bundle_with_section_field/display/default', ['layout[enabled]' => TRUE], 'Save');
-    $assert_session->linkExists('Manage layout');
-    $this->clickLink('Manage layout');
-
-    // Add a new block.
-    $this->clickLink('Add block');
-
-    // Verify that blocks not modified are present.
-    $assert_session->linkExists('Powered by Drupal');
-    $assert_session->linkExists('Default revision');
-
-    // Verify that blocks explicitly removed are not present.
-    $assert_session->linkNotExists('Help');
-    $assert_session->linkNotExists('Sticky at top of lists');
-    $assert_session->linkNotExists('Page title');
-
-    // Verify that Changed block is not present on first section.
-    $assert_session->linkNotExists('Changed');
-
-    // Go back to Manage layout.
     $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
-    $this->clickLink('Manage layout');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $page->clickLink('Manage layout');
+    $page->clickLink('Add section');
+    $page->clickLink('1 column layout');
+    $page->pressButton('Add section');
+    $page->clickLink('Add block');
+    $page->clickLink('Preview-aware block');
+    $page->pressButton('Add block');
 
-    // Add a new section.
-    $this->clickLink('Add section', 1);
-    $assert_session->linkExists('Two column');
-    $this->clickLink('Two column');
-    $assert_session->buttonExists('Add section');
-    $this->getSession()->getPage()->pressButton('Add section');
-    // Add a new block to second section.
-    $this->clickLink('Add block', 1);
+    $assert_session->pageTextContains('This is a preview, indeed');
 
-    // Verify that Changed block is present on second section.
-    $assert_session->linkExists('Changed');
+    $page->pressButton('Save layout');
+    $this->drupalGet('node/1');
+
+    $assert_session->pageTextNotContains('This is a preview, indeed');
   }
 
   /**
    * Tests that extra fields work before and after enabling Layout Builder.
    */
-  public function testExtraFields() {
+  public function testExtraFields(): void {
     $assert_session = $this->assertSession();
 
     $this->drupalLogin($this->drupalCreateUser([
@@ -875,24 +454,40 @@ class LayoutBuilderTest extends BrowserTestBase {
     $this->drupalGet('node');
     $assert_session->linkExists('Read more');
 
-    $this->drupalPostForm('admin/structure/types/manage/bundle_with_section_field/display/default', ['layout[enabled]' => TRUE], 'Save');
+    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
 
     // Extra fields display under "Content fields".
     $this->drupalGet("admin/structure/types/manage/bundle_with_section_field/display/default/layout");
     $this->clickLink('Add block');
-    $page = $this->getSession()->getPage();
-    $content_fields_category = $page->find('xpath', '//details/summary[contains(text(),"Content fields")]/parent::details');
-    $extra_field = strpos($content_fields_category->getText(), 'Extra label');
-    $this->assertTrue($extra_field !== FALSE);
+    $assert_session->elementTextContains('xpath', '//details/summary[contains(text(),"Content fields")]/parent::details', 'Extra label');
 
     $this->drupalGet('node');
     $assert_session->linkExists('Read more');
+
+    // Consider an extra field hidden by default. Make sure it's not displayed.
+    $this->drupalGet('node/1');
+    $assert_session->pageTextNotContains('Extra Field 2 is hidden by default.');
+
+    // View the layout and add the extra field that is not visible by default.
+    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default/layout');
+    $assert_session->pageTextNotContains('Extra Field 2');
+    $page = $this->getSession()->getPage();
+    $page->clickLink('Add block');
+    $page->clickLink('Extra Field 2');
+    $page->pressButton('Add block');
+    $assert_session->pageTextContains('Extra Field 2');
+    $page->pressButton('Save layout');
+
+    // Confirm that the newly added extra field is visible.
+    $this->drupalGet('node/1');
+    $assert_session->pageTextContains('Extra Field 2 is hidden by default.');
   }
 
   /**
    * Tests loading a pending revision in the Layout Builder UI.
    */
-  public function testPendingRevision() {
+  public function testPendingRevision(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -903,8 +498,10 @@ class LayoutBuilderTest extends BrowserTestBase {
 
     $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
     // Enable overrides.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->drupalGet("{$field_ui_prefix}/display/default");
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
 
     $storage = $this->container->get('entity_type.manager')->getStorage('node');
     $node = $storage->load(1);
@@ -923,46 +520,9 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that deleting a View block used in Layout Builder works.
-   */
-  public function testDeletedView() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-    ]));
-
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
-    // Enable overrides.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
-    $this->drupalGet('node/1');
-
-    $assert_session->linkExists('Layout');
-    $this->clickLink('Layout');
-    $this->clickLink('Add block');
-    $this->clickLink('Test Block View');
-    $page->pressButton('Add block');
-
-    $assert_session->pageTextContains('Test Block View');
-    $assert_session->elementExists('css', '.block-views-blocktest-block-view-block-1');
-    $page->pressButton('Save');
-    $assert_session->pageTextContains('Test Block View');
-    $assert_session->elementExists('css', '.block-views-blocktest-block-view-block-1');
-
-    View::load('test_block_view')->delete();
-    $this->drupalGet('node/1');
-    // Node can be loaded after deleting the View.
-    $assert_session->pageTextContains(Node::load(1)->getTitle());
-    $assert_session->pageTextNotContains('Test Block View');
-  }
-
-  /**
    * Tests that hook_form_alter() has access to the Layout Builder info.
    */
-  public function testFormAlter() {
+  public function testFormAlter(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -973,9 +533,9 @@ class LayoutBuilderTest extends BrowserTestBase {
     ]));
 
     $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
+    $display = LayoutBuilderEntityViewDisplay::load('node.bundle_with_section_field.default');
+    $this->enableLayoutBuilder($display);
     $this->drupalGet("$field_ui_prefix/display/default");
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
 
     $page->clickLink('Manage layout');
     $page->clickLink('Add block');
@@ -983,12 +543,20 @@ class LayoutBuilderTest extends BrowserTestBase {
     $assert_session->pageTextContains('Layout Builder Storage: node.bundle_with_section_field.default');
     $assert_session->pageTextContains('Layout Builder Section: layout_onecol');
     $assert_session->pageTextContains('Layout Builder Component: system_powered_by_block');
+
+    $this->drupalGet("$field_ui_prefix/display/default");
+    $page->clickLink('Manage layout');
+    $page->clickLink('Add section');
+    $page->clickLink('One column');
+    $assert_session->pageTextContains('Layout Builder Storage: node.bundle_with_section_field.default');
+    $assert_session->pageTextContains('Layout Builder Section: layout_onecol');
+    $assert_session->pageTextContains('Layout Builder Layout: layout_onecol');
   }
 
   /**
    * Tests the functionality of custom section labels.
    */
-  public function testSectionLabels() {
+  public function testSectionLabels(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -997,11 +565,8 @@ class LayoutBuilderTest extends BrowserTestBase {
       'administer node display',
     ]));
 
-    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
-    $page->checkField('layout[enabled]');
-    $page->pressButton('Save');
-    $page->checkField('layout[allow_custom]');
-    $page->pressButton('Save');
+    $display = LayoutBuilderEntityViewDisplay::load('node.bundle_with_section_field.default');
+    $this->enableLayoutBuilder($display);
 
     $this->drupalGet('node/1/layout');
     $page->clickLink('Add section');
@@ -1014,9 +579,43 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
+   * Tests that layouts can be context-aware.
+   */
+  public function testContextAwareLayouts(): void {
+    $assert_session = $this->assertSession();
+    $page = $this->getSession()->getPage();
+
+    $account = $this->drupalCreateUser([
+      'configure any layout',
+      'administer node display',
+    ]);
+    $this->drupalLogin($account);
+
+    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $page->clickLink('Manage layout');
+    $page->clickLink('Add section');
+    $page->clickLink('Layout Builder Test: Context Aware');
+    $page->pressButton('Add section');
+    // See \Drupal\layout_builder_test\Plugin\Layout\TestContextAwareLayout::build().
+    $assert_session->elementExists('css', '.user--' . $account->getAccountName());
+    $page->clickLink('Configure Section 1');
+    $page->fillField('layout_settings[label]', 'My section');
+    $page->pressButton('Update');
+    $assert_session->linkExists('Configure My section');
+    $page->clickLink('Add block');
+    $page->clickLink('Powered by Drupal');
+    $page->pressButton('Add block');
+    $page->pressButton('Save layout');
+    $this->drupalGet('node/1');
+    // See \Drupal\layout_builder_test\Plugin\Layout\TestContextAwareLayout::build().
+    $assert_session->elementExists('css', '.user--' . $account->getAccountName());
+  }
+
+  /**
    * Tests that sections can provide custom attributes.
    */
-  public function testCustomSectionAttributes() {
+  public function testCustomSectionAttributes(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -1025,7 +624,8 @@ class LayoutBuilderTest extends BrowserTestBase {
       'administer node display',
     ]));
 
-    $this->drupalPostForm('admin/structure/types/manage/bundle_with_section_field/display/default', ['layout[enabled]' => TRUE], 'Save');
+    $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
     $page->clickLink('Manage layout');
     $page->clickLink('Add section');
     $page->clickLink('Layout Builder Test Plugin');
@@ -1035,107 +635,9 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
-   * Tests the usage of placeholders for empty blocks.
-   *
-   * @see \Drupal\Core\Block\BlockPluginInterface::getPlaceholderString()
-   * @see \Drupal\layout_builder\EventSubscriber\BlockComponentRenderArray::onBuildRender()
-   */
-  public function testBlockPlaceholder() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-    ]));
-
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-
-    // Customize the default view mode.
-    $this->drupalGet("$field_ui_prefix/display/default/layout");
-
-    // Add a block whose content is controlled by state and is empty by default.
-    $this->clickLink('Add block');
-    $this->clickLink('Test block caching');
-    $page->fillField('settings[label]', 'The block label');
-    $page->pressButton('Add block');
-
-    $block_content = 'I am content';
-    $placeholder_content = 'Placeholder for the "The block label" block';
-
-    // The block placeholder is displayed and there is no content.
-    $assert_session->pageTextContains($placeholder_content);
-    $assert_session->pageTextNotContains($block_content);
-
-    // Set block content and reload the page.
-    \Drupal::state()->set('block_test.content', $block_content);
-    $this->getSession()->reload();
-
-    // The block placeholder is no longer displayed and the content is visible.
-    $assert_session->pageTextNotContains($placeholder_content);
-    $assert_session->pageTextContains($block_content);
-  }
-
-  /**
-   * Tests a custom alter of the overrides form.
-   */
-  public function testOverridesFormAlter() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'configure any layout',
-      'administer node display',
-      'administer nodes',
-    ]));
-
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
-    // Enable overrides.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
-    $this->drupalGet('node/1');
-
-    // The status checkbox should be checked by default.
-    $page->clickLink('Layout');
-    $assert_session->checkboxChecked('status[value]');
-    $page->pressButton('Save layout');
-    $assert_session->pageTextContains('The layout override has been saved.');
-
-    // Unchecking the status checkbox will unpublish the entity.
-    $page->clickLink('Layout');
-    $page->uncheckField('status[value]');
-    $page->pressButton('Save layout');
-    $assert_session->statusCodeEquals(403);
-    $assert_session->pageTextContains('The layout override has been saved.');
-  }
-
-  /**
-   * Tests the Block UI when Layout Builder is installed.
-   */
-  public function testBlockUiListing() {
-    $assert_session = $this->assertSession();
-    $page = $this->getSession()->getPage();
-
-    $this->drupalLogin($this->drupalCreateUser([
-      'administer blocks',
-    ]));
-
-    $this->drupalGet('admin/structure/block');
-    $page->clickLink('Place block');
-
-    // Ensure that blocks expected to appear are available.
-    $assert_session->pageTextContains('Test HTML block');
-    $assert_session->pageTextContains('Block test');
-    // Ensure that blocks not expected to appear are not available.
-    $assert_session->pageTextNotContains('Body');
-    $assert_session->pageTextNotContains('Content fields');
-  }
-
-  /**
    * Tests the expected breadcrumbs of the Layout Builder UI.
    */
-  public function testBreadcrumb() {
+  public function testBreadcrumb(): void {
     $page = $this->getSession()->getPage();
 
     $this->drupalPlaceBlock('system_breadcrumb_block');
@@ -1149,8 +651,8 @@ class LayoutBuilderTest extends BrowserTestBase {
 
     // From the manage display page, go to manage the layout.
     $this->drupalGet('admin/structure/types/manage/bundle_with_section_field/display/default');
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm(NULL, ['layout[allow_custom]' => TRUE], 'Save');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
     $page->clickLink('Manage layout');
 
     $breadcrumb_titles = [];
@@ -1165,6 +667,7 @@ class LayoutBuilderTest extends BrowserTestBase {
       'Content types' => $base_path . 'admin/structure/types',
       'Bundle with section field' => $base_path . 'admin/structure/types/manage/bundle_with_section_field',
       'Manage display' => $base_path . 'admin/structure/types/manage/bundle_with_section_field/display/default',
+      'External link' => 'http://www.example.com',
     ];
     $this->assertSame($expected, $breadcrumb_titles);
   }
@@ -1174,7 +677,7 @@ class LayoutBuilderTest extends BrowserTestBase {
    *
    * @see \Drupal\layout_builder_test\Plugin\SectionStorage\SimpleConfigSectionStorage
    */
-  public function testSimpleConfigBasedLayout() {
+  public function testSimpleConfigBasedLayout(): void {
     $assert_session = $this->assertSession();
 
     $this->drupalLogin($this->createUser(['configure any layout']));
@@ -1182,6 +685,10 @@ class LayoutBuilderTest extends BrowserTestBase {
     // Prepare an object with a pre-existing section.
     $this->container->get('config.factory')->getEditable('layout_builder_test.test_simple_config.existing')
       ->set('sections', [(new Section('layout_twocol'))->toArray()])
+      // `layout_builder_test.test_simple_config.existing.sections.0.layout_settings.label`
+      // contains a translatable label, so a `langcode` is required.
+      // @see \Drupal\Core\Config\Plugin\Validation\Constraint\LangcodeRequiredIfTranslatableValuesConstraint
+      ->set('langcode', 'en')
       ->save();
 
     // The pre-existing section is found.
@@ -1195,103 +702,45 @@ class LayoutBuilderTest extends BrowserTestBase {
   }
 
   /**
-   * Tests removing all sections from overrides and defaults.
+   * Tests removing section without layout label configuration.
    */
-  public function testRemovingAllSections() {
+  public function testRemovingSectionWithoutLayoutLabel(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
-    // Install Quick Edit as well.
-    $this->container->get('module_installer')->install(['quickedit']);
     $this->drupalLogin($this->drupalCreateUser([
       'configure any layout',
       'administer node display',
-      'access in-place editing',
     ]));
 
-    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
     // Enable overrides.
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[enabled]' => TRUE], 'Save');
-    $this->drupalPostForm("$field_ui_prefix/display/default", ['layout[allow_custom]' => TRUE], 'Save');
+    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
+    $this->drupalGet("$field_ui_prefix/display/default");
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[allow_custom]' => TRUE], 'Save');
 
-    // By default, there is one section.
-    $this->drupalGet('node/1');
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->pageTextContains('The first node body');
-
-    $page->clickLink('Layout');
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 2);
-
-    // Remove the only section from the override.
-    $page->clickLink('Remove Section 1');
-    $page->pressButton('Remove');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 1);
-
-    // The override is still used instead of the default, despite being empty.
-    $page->pressButton('Save layout');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->pageTextNotContains('The first node body');
-
-    $page->clickLink('Layout');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 1);
-
-    // Add one section to the override.
-    $page->clickLink('Add section');
-    $page->clickLink('One column');
-    $page->pressButton('Add section');
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 2);
-
-    $page->pressButton('Save layout');
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->pageTextNotContains('The first node body');
-
-    // By default, the default has one section.
     $this->drupalGet("$field_ui_prefix/display/default/layout");
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 2);
+    $page->clickLink('Add section');
 
-    // Remove the only section from the default.
-    $page->clickLink('Remove Section 1');
+    $assert_session->linkExists('Layout Without Label');
+    $page->clickLink('Layout Without Label');
+    $page->pressButton('Add section');
+    $assert_session->elementsCount('css', '.layout', 2);
+
+    $assert_session->linkExists('Remove Section 1');
+    $this->clickLink('Remove Section 1');
     $page->pressButton('Remove');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 1);
 
-    $page->pressButton('Save layout');
-    $page->clickLink('Manage layout');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 0);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 1);
-
-    // The override is still in use.
-    $this->drupalGet('node/1');
+    $assert_session->statusCodeEquals(200);
     $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->pageTextNotContains('The first node body');
-    $page->clickLink('Layout');
-    $assert_session->elementsCount('css', '.layout', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-block', 1);
-    $assert_session->elementsCount('css', '.layout-builder__add-section', 2);
-
-    // Revert the override.
-    $page->pressButton('Revert to defaults');
-    $page->pressButton('Revert');
-    $assert_session->elementsCount('css', '.layout', 0);
-    $assert_session->pageTextNotContains('The first node body');
   }
 
   /**
    * Asserts that the correct layouts are available.
+   *
+   * @internal
    */
-  protected function assertCorrectLayouts() {
+  protected function assertCorrectLayouts(): void {
     $assert_session = $this->assertSession();
     // Ensure the layouts provided by layout_builder are available.
     $expected_layouts_hrefs = [
@@ -1314,6 +763,50 @@ class LayoutBuilderTest extends BrowserTestBase {
       $assert_session->linkByHrefNotExists("layout_builder/add/section/overrides/node.1/0/$unexpected_layout");
       $assert_session->linkByHrefNotExists("layout_builder/configure/section/overrides/node.1/0/$unexpected_layout");
     }
+  }
+
+  /**
+   * Tests the Layout Builder UI with a context defined at runtime.
+   */
+  public function testLayoutBuilderContexts(): void {
+    $node_url = 'node/1';
+
+    $assert_session = $this->assertSession();
+    $page = $this->getSession()->getPage();
+
+    $this->drupalLogin($this->drupalCreateUser([
+      'configure any layout',
+      'administer node display',
+    ]));
+    $field_ui_prefix = 'admin/structure/types/manage/bundle_with_section_field';
+    $this->drupalGet("$field_ui_prefix/display/default");
+    $this->submitForm([
+      'layout[enabled]' => TRUE,
+    ], 'Save');
+
+    $this->drupalGet("$field_ui_prefix/display/default");
+    $this->submitForm([
+      'layout[allow_custom]' => TRUE,
+    ], 'Save');
+
+    $this->drupalGet($node_url);
+    $assert_session->linkExists('Layout');
+    $this->clickLink('Layout');
+    $assert_session->linkExists('Add section');
+
+    // Add the testing block.
+    $page->clickLink('Add block');
+    $this->clickLink('Can I have runtime contexts');
+    $page->pressButton('Add block');
+
+    // Ensure the runtime context value is rendered before saving.
+    $assert_session->pageTextContains('for sure you can');
+
+    // Save the layout, and test that the value is rendered after save.
+    $page->pressButton('Save layout');
+    $assert_session->addressEquals($node_url);
+    $assert_session->pageTextContains('for sure you can');
+    $assert_session->elementExists('css', '.layout');
   }
 
 }

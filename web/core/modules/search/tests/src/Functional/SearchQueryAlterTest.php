@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -24,7 +26,7 @@ class SearchQueryAlterTest extends BrowserTestBase {
   /**
    * Tests that the query alter works.
    */
-  public function testQueryAlter() {
+  public function testQueryAlter(): void {
     $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
     $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
 
@@ -51,10 +53,11 @@ class SearchQueryAlterTest extends BrowserTestBase {
     $this->container->get('plugin.manager.search')->createInstance('node_search')->updateIndex();
 
     // Search for the body keyword 'pizza'.
-    $this->drupalPostForm('search/node', ['keys' => 'pizza'], t('Search'));
+    $this->drupalGet('search/node');
+    $this->submitForm(['keys' => 'pizza'], 'Search');
     // The article should be there but not the page.
-    $this->assertText('article', 'Article is in search results');
-    $this->assertNoText('page', 'Page is not in search results');
+    $this->assertSession()->pageTextContains('article');
+    $this->assertSession()->pageTextNotContains('page');
   }
 
 }

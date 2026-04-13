@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
 use Drupal\Core\Database\Database;
@@ -29,7 +31,7 @@ class EntityUpdateInitialTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->ensureUpdatesToRun();
     $connection = Database::getConnection();
@@ -56,7 +58,7 @@ class EntityUpdateInitialTest extends BrowserTestBase {
   /**
    * Tests that a pre-existing initial key in the field schema is not a change.
    */
-  public function testInitialIsIgnored() {
+  public function testInitialIsIgnored(): void {
     $this->runUpdates();
   }
 

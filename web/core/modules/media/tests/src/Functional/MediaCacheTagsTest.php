@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\Functional;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -19,7 +21,7 @@ class MediaCacheTagsTest extends EntityWithUriCacheTagsTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'media',
     'media_test_source',
   ];
@@ -32,7 +34,7 @@ class MediaCacheTagsTest extends EntityWithUriCacheTagsTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     \Drupal::configFactory()
       ->getEditable('media.settings')
@@ -61,14 +63,14 @@ class MediaCacheTagsTest extends EntityWithUriCacheTagsTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getAdditionalCacheContextsForEntity(EntityInterface $media) {
+  protected function getAdditionalCacheContextsForEntity(EntityInterface $media): array {
     return ['timezone'];
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getAdditionalCacheTagsForEntity(EntityInterface $media) {
+  protected function getAdditionalCacheTagsForEntity(EntityInterface $media): array {
     // Each media item must have an author and a thumbnail.
     return [
       'user:' . $media->getOwnerId(),

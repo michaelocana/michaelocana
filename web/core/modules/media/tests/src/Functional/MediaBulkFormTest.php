@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\Functional;
 
 use Drupal\media\Entity\Media;
@@ -17,7 +19,7 @@ class MediaBulkFormTest extends MediaFunctionalTestBase {
    *
    * @var array
    */
-  public static $modules = ['media_test_views'];
+  protected static $modules = ['media_test_views'];
 
   /**
    * {@inheritdoc}
@@ -41,7 +43,7 @@ class MediaBulkFormTest extends MediaFunctionalTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->testMediaType = $this->createMediaType('test');
@@ -60,7 +62,7 @@ class MediaBulkFormTest extends MediaFunctionalTestBase {
   /**
    * Tests the media bulk form.
    */
-  public function testBulkForm() {
+  public function testBulkForm(): void {
     $session = $this->getSession();
     $page = $session->getPage();
     $assert_session = $this->assertSession();

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Config;
 
 use Drupal\Core\Config\Config;
@@ -30,7 +32,7 @@ class ConfigFactoryTest extends UnitTestCase {
   /**
    * Event Dispatcher.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Symfony\Contracts\EventDispatcher\EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject
    */
   protected $eventDispatcher;
 
@@ -51,9 +53,11 @@ class ConfigFactoryTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
+    parent::setUp();
+
     $this->storage = $this->createMock('Drupal\Core\Config\StorageInterface');
-    $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+    $this->eventDispatcher = $this->createMock('Symfony\Contracts\EventDispatcher\EventDispatcherInterface');
     $this->typedConfig = $this->createMock('\Drupal\Core\Config\TypedConfigManagerInterface');
     $this->configFactory = new ConfigFactory($this->storage, $this->eventDispatcher, $this->typedConfig);
 
@@ -67,7 +71,7 @@ class ConfigFactoryTest extends UnitTestCase {
   /**
    * @covers ::rename
    */
-  public function testRename() {
+  public function testRename(): void {
     $old = new Config($this->randomMachineName(), $this->storage, $this->eventDispatcher, $this->typedConfig);
     $new = new Config($this->randomMachineName(), $this->storage, $this->eventDispatcher, $this->typedConfig);
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Installer;
 
 use Drupal\Core\Serialization\Yaml;
@@ -31,7 +33,7 @@ class InstallerNonEnglishProfileWithoutLocaleModuleTest extends InstallerTestBas
   /**
    * {@inheritdoc}
    */
-  protected function prepareEnvironment() {
+  protected function prepareEnvironment(): void {
     parent::prepareEnvironment();
 
     // Create a self::PROFILE testing profile that depends on the 'language'
@@ -53,23 +55,21 @@ class InstallerNonEnglishProfileWithoutLocaleModuleTest extends InstallerTestBas
     file_put_contents($profile_info_file, Yaml::encode($profile_info));
 
     // Copy a non-English language config YAML to be installed with the profile.
-    copy($this->root . '/core/profiles/testing_multilingual/config/install/language.entity.de.yml', $profile_config_dir . '/language.entity.de.yml');
+    copy($this->root . '/core/profiles/tests/testing_multilingual/config/install/language.entity.de.yml', $profile_config_dir . '/language.entity.de.yml');
   }
 
   /**
    * Tests installing a profile with non-English language and no locale module.
    */
-  public function testNonEnglishProfileWithoutLocaleModule() {
+  public function testNonEnglishProfileWithoutLocaleModule(): void {
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertUrl('user/1');
+    $this->assertSession()->addressEquals('user/1');
     // Confirm that we are logged-in after installation.
-    $this->assertText($this->rootUser->getAccountName());
+    $this->assertSession()->pageTextContains($this->rootUser->getAccountName());
 
     // Verify that the confirmation message appears.
     require_once $this->root . '/core/includes/install.inc';
-    $this->assertRaw(t('Congratulations, you installed @drupal!', [
-      '@drupal' => drupal_install_profile_distribution_name(),
-    ]));
+    $this->assertSession()->pageTextContains('Congratulations, you installed Drupal!');
 
     $this->assertFalse(\Drupal::service('module_handler')->moduleExists('locale'), 'The Locale module is not installed.');
     $this->assertTrue(\Drupal::service('module_handler')->moduleExists('language'), 'The Language module is installed.');

@@ -13,6 +13,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Url;
+use Drupal\file\FileRepositoryInterface;
 use Drupal\file\FileInterface;
 use Drupal\file\FileUsage\FileUsageInterface;
 use Drupal\file\Plugin\Field\FieldType\FileFieldItemList;
@@ -60,6 +61,13 @@ class FileUploadForm extends AddFormBase {
   protected $fileUsage;
 
   /**
+   * The file repository service.
+   *
+   * @var \Drupal\file\FileRepositoryInterface
+   */
+  protected $fileRepository;
+
+  /**
    * Constructs a new FileUploadForm.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
@@ -76,17 +84,16 @@ class FileUploadForm extends AddFormBase {
    *   The opener resolver.
    * @param \Drupal\file\FileUsage\FileUsageInterface $file_usage
    *   The file usage service.
+   * @param \Drupal\file\FileRepositoryInterface $file_repository
+   *   The file repository service.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, MediaLibraryUiBuilder $library_ui_builder, ElementInfoManagerInterface $element_info, RendererInterface $renderer, FileSystemInterface $file_system, OpenerResolverInterface $opener_resolver = NULL, FileUsageInterface $file_usage = NULL) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, MediaLibraryUiBuilder $library_ui_builder, ElementInfoManagerInterface $element_info, RendererInterface $renderer, FileSystemInterface $file_system, OpenerResolverInterface $opener_resolver, FileUsageInterface $file_usage, FileRepositoryInterface $file_repository) {
     parent::__construct($entity_type_manager, $library_ui_builder, $opener_resolver);
     $this->elementInfo = $element_info;
     $this->renderer = $renderer;
     $this->fileSystem = $file_system;
-    if (!$file_usage) {
-      @trigger_error('Calling FileUploadForm::__construct() without the `file.usage` service is deprecated in drupal:8.8.0 and is removed in drupal:9.0.0. Pass the `file.usage` service to the constructor. See https://www.drupal.org/node/3075165', E_USER_DEPRECATED);
-      $file_usage = \Drupal::service('file.usage');
-    }
     $this->fileUsage = $file_usage;
+    $this->fileRepository = $file_repository;
   }
 
   /**
@@ -100,7 +107,8 @@ class FileUploadForm extends AddFormBase {
       $container->get('renderer'),
       $container->get('file_system'),
       $container->get('media_library.opener_resolver'),
-      $container->get('file.usage')
+      $container->get('file.usage'),
+      $container->get('file.repository')
     );
   }
 
@@ -157,8 +165,13 @@ class FileUploadForm extends AddFormBase {
       // @todo Move validation in https://www.drupal.org/node/2988215
       '#process' => array_merge(['::validateUploadElement'], $process, ['::processUploadElement']),
       '#upload_validators' => $item->getUploadValidators(),
-      '#multiple' => $slots > 1 || $slots === FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
-      '#cardinality' => $slots,
+      // Set multiple to true only if available slots is not exactly one
+      // to ensure correct language (singular or plural) in UI
+      '#multiple' => $slots != 1 ? TRUE : FALSE,
+      // Do not limit the number uploaded. There is validation based on the
+      // number selected in the media library that prevents overages.
+      // @see Drupal\media_library\Form\AddFormBase::updateLibrary()
+      '#cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
       '#remaining_slots' => $slots,
     ];
 
@@ -173,7 +186,7 @@ class FileUploadForm extends AddFormBase {
     // upload help in the same way, so any theming improvements made to file
     // fields would also be applied to this upload field.
     // @see \Drupal\file\Plugin\Field\FieldWidget\FileWidget::formElement()
-    $form['container']['upload']['#description'] = $this->renderer->renderPlain($file_upload_help);
+    $form['container']['upload']['#description'] = $this->renderer->renderInIsolation($file_upload_help);
 
     return $form;
   }
@@ -263,7 +276,7 @@ class FileUploadForm extends AddFormBase {
    *   The entity form source field element.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The current form state.
-   * @param $form
+   * @param array $form
    *   The complete form.
    *
    * @return array
@@ -319,7 +332,7 @@ class FileUploadForm extends AddFormBase {
     if (!$this->fileSystem->prepareDirectory($upload_location, FileSystemInterface::CREATE_DIRECTORY)) {
       throw new FileWriteException("The destination directory '$upload_location' is not writable");
     }
-    $file = file_move($file, $upload_location);
+    $file = $this->fileRepository->move($file, $upload_location);
     if (!$file) {
       throw new \RuntimeException("Unable to move file to '$upload_location'");
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel\Views;
 
 use Drupal\node\Entity\Node;
@@ -19,7 +21,7 @@ class ArgumentUidRevisionTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'field',
     'text',
@@ -35,7 +37,7 @@ class ArgumentUidRevisionTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
 
     $this->installEntitySchema('node');
@@ -43,13 +45,13 @@ class ArgumentUidRevisionTest extends ViewsKernelTestBase {
     $this->installEntitySchema('user');
     $this->installConfig(['node', 'field']);
 
-    ViewTestData::createTestViews(get_class($this), ['node_test_views']);
+    ViewTestData::createTestViews(static::class, ['node_test_views']);
   }
 
   /**
    * Tests the node_uid_revision argument.
    */
-  public function testArgument() {
+  public function testArgument(): void {
     $expected_result = [];
 
     $author = $this->createUser();

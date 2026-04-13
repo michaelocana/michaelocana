@@ -73,15 +73,11 @@ class MediaLibraryUiBuilder {
    * @param \Drupal\media_library\OpenerResolverInterface $opener_resolver
    *   The opener resolver.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, RequestStack $request_stack, ViewExecutableFactory $views_executable_factory, FormBuilderInterface $form_builder, OpenerResolverInterface $opener_resolver = NULL) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, RequestStack $request_stack, ViewExecutableFactory $views_executable_factory, FormBuilderInterface $form_builder, OpenerResolverInterface $opener_resolver) {
     $this->entityTypeManager = $entity_type_manager;
     $this->request = $request_stack->getCurrentRequest();
     $this->viewsExecutableFactory = $views_executable_factory;
     $this->formBuilder = $form_builder;
-    if (!$opener_resolver) {
-      @trigger_error('The media_library.opener_resolver service must be passed to ' . __METHOD__ . ' and will be required before Drupal 9.0.0.', E_USER_DEPRECATED);
-      $opener_resolver = \Drupal::service('media_library.opener_resolver');
-    }
     $this->openerResolver = $opener_resolver;
   }
 
@@ -93,7 +89,9 @@ class MediaLibraryUiBuilder {
    */
   public static function dialogOptions() {
     return [
-      'dialogClass' => 'media-library-widget-modal',
+      'classes' => [
+        'ui-dialog' => 'media-library-widget-modal',
+      ],
       'title' => t('Add or select media'),
       'height' => '75%',
       'width' => '75%',
@@ -110,7 +108,7 @@ class MediaLibraryUiBuilder {
    * @return array
    *   The render array for the media library.
    */
-  public function buildUi(MediaLibraryState $state = NULL) {
+  public function buildUi(?MediaLibraryState $state = NULL) {
     if (!$state) {
       $state = MediaLibraryState::fromRequest($this->request);
     }
@@ -178,7 +176,7 @@ class MediaLibraryUiBuilder {
    * @return \Drupal\Core\Access\AccessResult
    *   The access result.
    */
-  public function checkAccess(AccountInterface $account, MediaLibraryState $state = NULL) {
+  public function checkAccess(AccountInterface $account, ?MediaLibraryState $state = NULL) {
     if (!$state) {
       try {
         $state = MediaLibraryState::fromRequest($this->request);
@@ -229,7 +227,7 @@ class MediaLibraryUiBuilder {
       return [];
     }
 
-    // @todo: Add a class to the li element.
+    // @todo Add a class to the li element.
     //   https://www.drupal.org/project/drupal/issues/3029227
     $menu = [
       '#theme' => 'links__media_library_menu',
@@ -250,13 +248,9 @@ class MediaLibraryUiBuilder {
       $link_state->set('media_library_content', 1);
 
       $title = $allowed_type->label();
-      $display_title = [
-        '#markup' => $this->t('<span class="visually-hidden">Show </span>@title<span class="visually-hidden"> media</span>', ['@title' => $title]),
-      ];
+      $display_title = $this->t('<span class="visually-hidden">Show </span>@title<span class="visually-hidden"> media</span>', ['@title' => $title]);
       if ($allowed_type_id === $selected_type_id) {
-        $display_title = [
-          '#markup' => $this->t('<span class="visually-hidden">Show </span>@title<span class="visually-hidden"> media</span><span class="active-tab visually-hidden"> (selected)</span>', ['@title' => $title]),
-        ];
+        $display_title = $this->t('<span class="visually-hidden">Show </span>@title<span class="visually-hidden"> media</span><span class="active-tab visually-hidden"> (selected)</span>', ['@title' => $title]);
       }
 
       $menu['#links']['media-library-menu-' . $allowed_type_id] = [
@@ -289,7 +283,11 @@ class MediaLibraryUiBuilder {
   protected function buildMediaTypeAddForm(MediaLibraryState $state) {
     $selected_type_id = $state->getSelectedTypeId();
 
-    if (!$this->entityTypeManager->getAccessControlHandler('media')->createAccess($selected_type_id)) {
+    $access_handler = $this->entityTypeManager->getAccessControlHandler('media');
+    $context = [
+      'media_library_state' => $state,
+    ];
+    if (!$access_handler->createAccess($selected_type_id, NULL, $context)) {
       return [];
     }
 
@@ -336,12 +334,6 @@ class MediaLibraryUiBuilder {
     $view_executable->setRequest($view_request);
 
     $args = [$state->getSelectedTypeId()];
-
-    // Make sure the state parameters are set in the request so the view can
-    // pass the parameters along in the pager, filters etc.
-    $request = $view_executable->getRequest();
-    $request->query->add($state->all());
-    $view_executable->setRequest($request);
 
     $view_executable->setDisplay($display_id);
     $view_executable->preExecute($args);

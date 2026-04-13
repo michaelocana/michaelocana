@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
 use Drupal\Core\Entity\FieldableEntityInterface;
@@ -16,7 +18,7 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
   /**
    * Tests field SQL storage.
    */
-  public function testFieldSqlStorage() {
+  public function testFieldSqlStorage(): void {
     $entity_type = 'entity_test_mul';
 
     $controller = $this->entityTypeManager->getStorage($entity_type);
@@ -46,7 +48,7 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
     $this->toggleFieldTranslatability($entity_type, $entity_type);
     $entity = $this->reloadEntity($entity);
     foreach ([$this->fieldName, $this->untranslatableFieldName] as $field_name) {
-      $this->assertEqual($entity->get($field_name)->value, $values[$field_name], 'Field language works as expected after switching translatability.');
+      $this->assertEquals($values[$field_name], $entity->get($field_name)->value, 'Field language works as expected after switching translatability.');
     }
 
     // Test that after disabling field translatability translated values are not
@@ -60,7 +62,7 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
     $translation->save();
     $this->toggleFieldTranslatability($entity_type, $entity_type);
     $entity = $this->reloadEntity($entity);
-    $this->assertEqual($entity->getTranslation($this->langcodes[1])->get($this->fieldName)->value, $values[$this->fieldName], 'Existing field translations are not loaded for untranslatable fields.');
+    $this->assertEquals($values[$this->fieldName], $entity->getTranslation($this->langcodes[1])->get($this->fieldName)->value, 'Existing field translations are not loaded for untranslatable fields.');
   }
 
   /**
@@ -70,8 +72,10 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
    *   The entity fields are attached to.
    * @param string $message
    *   (optional) A message to display with the assertion.
+   *
+   * @internal
    */
-  protected function assertFieldStorageLangcode(FieldableEntityInterface $entity, $message = '') {
+  protected function assertFieldStorageLangcode(FieldableEntityInterface $entity, string $message = ''): void {
     $status = TRUE;
     $entity_type = $entity->getEntityTypeId();
     $id = $entity->id();
@@ -98,7 +102,7 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
       }
     }
 
-    return $this->assertTrue($status, $message);
+    $this->assertTrue($status, $message);
   }
 
 }

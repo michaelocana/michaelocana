@@ -3,23 +3,24 @@
 namespace Drupal\views\Plugin\views\row;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\views\Attribute\ViewsRow;
 
 /**
- * The basic 'fields' row plugin
+ * The basic 'fields' row plugin.
  *
  * This displays fields one after another, giving options for inline
  * or not.
  *
  * @ingroup views_row_plugins
- *
- * @ViewsRow(
- *   id = "fields",
- *   title = @Translation("Fields"),
- *   help = @Translation("Displays the fields with an optional template."),
- *   theme = "views_view_fields",
- *   display_types = {"normal"}
- * )
  */
+#[ViewsRow(
+  id: "fields",
+  title: new TranslatableMarkup("Fields"),
+  help: new TranslatableMarkup("Displays the fields with an optional template."),
+  theme: "views_view_fields",
+  display_types: ["normal"]
+)]
 class Fields extends RowPluginBase {
 
   /**
@@ -29,6 +30,9 @@ class Fields extends RowPluginBase {
    */
   protected $usesFields = TRUE;
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -74,7 +78,7 @@ class Fields extends RowPluginBase {
       '#title' => $this->t('Separator'),
       '#type' => 'textfield',
       '#size' => 10,
-      '#default_value' => isset($this->options['separator']) ? $this->options['separator'] : '',
+      '#default_value' => $this->options['separator'] ?? '',
       '#description' => $this->t('The separator may be placed between inline fields to keep them from squishing up next to each other. You can use HTML in this field.'),
       '#states' => [
         'visible' => [
@@ -94,6 +98,7 @@ class Fields extends RowPluginBase {
 
   /**
    * Perform any necessary changes to the form values prior to storage.
+   *
    * There is no need for this function to actually store the data.
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {

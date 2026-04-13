@@ -15,6 +15,9 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
    * @param string $entity_type_id
    *   (optional) The ID of the entity type, or NULL if the entity type is
    *   unknown. Defaults to NULL.
+   * @param string $bundle
+   *   (optional) The bundle of the entity type, or NULL if the bundle is
+   *   unknown. Defaults to NULL.
    *
    * @return static
    */
@@ -57,10 +60,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
     if ($parts[0] != 'entity') {
       throw new \InvalidArgumentException('Data type must be in the form of "entity:ENTITY_TYPE:BUNDLE."');
     }
-    return static::create(
-      isset($parts[1]) ? $parts[1] : NULL,
-      isset($parts[2]) ? $parts[2] : NULL
-    );
+    return static::create($parts[1] ?? NULL, $parts[2] ?? NULL);
   }
 
   /**
@@ -75,7 +75,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
           $this->propertyDefinitions = [];
         }
         else {
-          // @todo: Add support for handling multiple bundles.
+          // @todo Add support for handling multiple bundles.
           // See https://www.drupal.org/node/2169813.
           $bundles = $this->getBundles();
           if (is_array($bundles) && count($bundles) == 1) {
@@ -117,7 +117,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
    * {@inheritdoc}
    */
   public function getEntityTypeId() {
-    return isset($this->definition['constraints']['EntityType']) ? $this->definition['constraints']['EntityType'] : NULL;
+    return $this->definition['constraints']['EntityType'] ?? NULL;
   }
 
   /**
@@ -131,14 +131,14 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
    * {@inheritdoc}
    */
   public function getBundles() {
-    $bundle = isset($this->definition['constraints']['Bundle']) ? $this->definition['constraints']['Bundle'] : NULL;
+    $bundle = $this->definition['constraints']['Bundle'] ?? NULL;
     return is_string($bundle) ? [$bundle] : $bundle;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setBundles(array $bundles = NULL) {
+  public function setBundles(?array $bundles = NULL) {
     if (isset($bundles)) {
       $this->addConstraint('Bundle', $bundles);
     }

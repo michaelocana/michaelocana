@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\config_test;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -32,7 +34,7 @@ class SchemaListenerController extends ControllerBase {
   }
 
   /**
-   * Tests the WebTestBase tests can use strict schema checking.
+   * Tests the BrowserTestBase tests can use strict schema checking.
    */
   public function test() {
     try {

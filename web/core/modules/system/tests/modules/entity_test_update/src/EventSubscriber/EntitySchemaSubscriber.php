@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\entity_test_update\EventSubscriber;
 
 use Drupal\Core\Entity\EntityDefinitionUpdateManagerInterface;
@@ -48,7 +50,7 @@ class EntitySchemaSubscriber implements EntityTypeListenerInterface, EventSubscr
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     return static::getEntityTypeEvents();
   }
 

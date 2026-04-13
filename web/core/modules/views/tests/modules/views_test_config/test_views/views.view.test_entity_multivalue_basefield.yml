@@ -1,10 +1,11 @@
+# cspell:ignore basefield
 langcode: en
 status: true
 dependencies:
   module:
     - entity_test
 id: test_entity_multivalue_basefield
-label: ''
+label: test_entity_multivalue_basefield
 module: views
 description: ''
 tag: ''
@@ -14,7 +15,7 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: 0
     display_options:
       fields:

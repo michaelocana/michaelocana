@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_translation\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -11,7 +13,10 @@ use Drupal\Tests\BrowserTestBase;
  */
 class ContentTranslationEntityBundleUITest extends BrowserTestBase {
 
-  public static $modules = [
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = [
     'language',
     'content_translation',
     'node',
@@ -24,7 +29,10 @@ class ContentTranslationEntityBundleUITest extends BrowserTestBase {
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     $user = $this->drupalCreateUser([
       'access administration pages',
@@ -38,17 +46,18 @@ class ContentTranslationEntityBundleUITest extends BrowserTestBase {
   /**
    * Tests content types default translation behavior.
    */
-  public function testContentTypeUI() {
+  public function testContentTypeUI(): void {
     // Create first content type.
     $this->drupalCreateContentType(['type' => 'article']);
     // Enable content translation.
     $edit = ['language_configuration[content_translation]' => TRUE];
-    $this->drupalPostForm('admin/structure/types/manage/article', $edit, 'Save content type');
+    $this->drupalGet('admin/structure/types/manage/article');
+    $this->submitForm($edit, 'Save');
 
     // Make sure add page does not inherit translation configuration from first
     // content type.
     $this->drupalGet('admin/structure/types/add');
-    $this->assertNoFieldChecked('edit-language-configuration-content-translation');
+    $this->assertSession()->checkboxNotChecked('edit-language-configuration-content-translation');
 
     // Create second content type and set content translation.
     $edit = [
@@ -56,11 +65,12 @@ class ContentTranslationEntityBundleUITest extends BrowserTestBase {
       'type' => 'page',
       'language_configuration[content_translation]' => TRUE,
     ];
-    $this->drupalPostForm('admin/structure/types/add', $edit, 'Save and manage fields');
+    $this->drupalGet('admin/structure/types/add');
+    $this->submitForm($edit, 'Save and manage fields');
 
     // Make sure the settings are saved when creating the content type.
     $this->drupalGet('admin/structure/types/manage/page');
-    $this->assertFieldChecked('edit-language-configuration-content-translation');
+    $this->assertSession()->checkboxChecked('edit-language-configuration-content-translation');
 
   }
 

@@ -60,7 +60,7 @@ class ImageStyleEditForm extends ImageStyleFormBase {
     $preview_arguments = ['#theme' => 'image_style_preview', '#style' => $this->entity];
     $form['preview'] = [
       '#type' => 'item',
-      '#title' => $this->t('Preview'),
+      '#title' => $this->t('Preview (Click for actual images)'),
       '#markup' => \Drupal::service('renderer')->render($preview_arguments),
       // Render preview above parent elements.
       '#weight' => -5,
@@ -84,7 +84,7 @@ class ImageStyleEditForm extends ImageStyleFormBase {
       '#attributes' => [
         'id' => 'image-style-effects',
       ],
-      '#empty' => t('There are currently no effects in this style. Add one by selecting an option below.'),
+      '#empty' => $this->t('There are currently no effects in this style. Add one by selecting an option below.'),
       // Render effects below parent elements.
       '#weight' => 5,
     ];
@@ -153,7 +153,7 @@ class ImageStyleEditForm extends ImageStyleFormBase {
     }
     $form['effects']['new'] = [
       '#tree' => FALSE,
-      '#weight' => isset($user_input['weight']) ? $user_input['weight'] : NULL,
+      '#weight' => $user_input['weight'] ?? NULL,
       '#attributes' => ['class' => ['draggable']],
     ];
     $form['effects']['new']['effect'] = [
@@ -220,6 +220,7 @@ class ImageStyleEditForm extends ImageStyleFormBase {
         ],
         ['query' => ['weight' => $form_state->getValue('weight')]]
       );
+      $form_state->setIgnoreDestination();
     }
     // If there's no form, immediately add the image effect.
     else {

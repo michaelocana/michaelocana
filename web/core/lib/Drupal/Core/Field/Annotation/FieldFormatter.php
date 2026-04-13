@@ -32,18 +32,18 @@ class FieldFormatter extends Plugin {
   /**
    * The human-readable name of the formatter type.
    *
-   * @ingroup plugin_translatable
-   *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $label;
 
   /**
    * A short description of the formatter type.
    *
-   * @ingroup plugin_translatable
-   *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $description;
 
@@ -64,11 +64,14 @@ class FieldFormatter extends Plugin {
   public $field_types = [];
 
   /**
-   * An integer to determine the weight of this formatter relative to other
-   * formatter in the Field UI when selecting a formatter for a given field
-   * instance.
+   * An integer to determine the weight of this formatter.
    *
-   * @var int optional
+   * Weight is relative to other formatter in the Field UI when selecting a
+   * formatter for a given field instance.
+   *
+   * This property is optional and it does not need to be declared.
+   *
+   * @var int
    */
   public $weight = NULL;
 

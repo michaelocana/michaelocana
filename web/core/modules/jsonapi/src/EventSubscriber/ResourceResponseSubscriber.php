@@ -9,7 +9,7 @@ use Drupal\jsonapi\ResourceResponse;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Serializer\SerializerInterface;
 
@@ -61,8 +61,8 @@ class ResourceResponseSubscriber implements EventSubscriberInterface {
    * @see \Drupal\rest\EventSubscriber\ResourceResponseSubscriber::getSubscribedEvents()
    * @see \Drupal\dynamic_page_cache\EventSubscriber\DynamicPageCacheSubscriber
    */
-  public static function getSubscribedEvents() {
-    // Run before the dynamic page cache subscriber (priority 100), so that
+  public static function getSubscribedEvents(): array {
+    // Run before the dynamic page cache subscriber (priority 7), so that
     // Dynamic Page Cache can cache flattened responses.
     $events[KernelEvents::RESPONSE][] = ['onResponse', 128];
     return $events;
@@ -71,10 +71,10 @@ class ResourceResponseSubscriber implements EventSubscriberInterface {
   /**
    * Serializes ResourceResponse responses' data, and removes that data.
    *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
+   * @param \Symfony\Component\HttpKernel\Event\ResponseEvent $event
    *   The event to process.
    */
-  public function onResponse(FilterResponseEvent $event) {
+  public function onResponse(ResponseEvent $event) {
     $response = $event->getResponse();
     if (!$response instanceof ResourceResponse) {
       return;
@@ -120,8 +120,10 @@ class ResourceResponseSubscriber implements EventSubscriberInterface {
       $jsonapi_doc_object = $serializer->normalize($data, $format, $context);
       // Having just normalized the data, we can associate its cacheability with
       // the response object.
-      assert($jsonapi_doc_object instanceof CacheableNormalization);
-      $response->addCacheableDependency($jsonapi_doc_object);
+      if ($response instanceof CacheableResponseInterface) {
+        assert($jsonapi_doc_object instanceof CacheableNormalization);
+        $response->addCacheableDependency($jsonapi_doc_object);
+      }
       // Finally, encode the normalized data (JSON:API's encoder rasterizes it
       // automatically).
       $response->setContent($serializer->encode($jsonapi_doc_object->getNormalization(), $format));
@@ -144,10 +146,10 @@ class ResourceResponseSubscriber implements EventSubscriberInterface {
       'account' => NULL,
       'sparse_fieldset' => NULL,
     ];
-    if ($request->query->get('fields')) {
+    if ($request->query->has('fields')) {
       $context['sparse_fieldset'] = array_map(function ($item) {
         return explode(',', $item);
-      }, $request->query->get('fields'));
+      }, $request->query->all('fields'));
     }
     return $context;
   }

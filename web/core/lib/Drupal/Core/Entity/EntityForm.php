@@ -2,6 +2,7 @@
 
 namespace Drupal\Core\Entity;
 
+use Drupal\Component\Serialization\Json;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -33,18 +34,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
   protected $moduleHandler;
 
   /**
-   * The entity manager.
-   *
-   * This member exists for BC reasons and should be removed when the
-   *   drupal:9.0.0 branch opens.
-   *
-   * @var \Drupal\Core\Entity\EntityManagerInterface
-   *
-   * @see https://www.drupal.org/node/2549139
-   */
-  private $privateEntityManager;
-
-  /**
    * The entity type manager.
    *
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
@@ -61,37 +50,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * {@inheritdoc}
    */
-  public function __get($name) {
-    // Removing core's usage of ::setEntityManager means that this deprecated
-    // service wont be set. We provide it here for backwards compatibility.
-    if ($name === 'entityManager') {
-      @trigger_error('EntityForm::entityManager is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityForm::entityTypeManager instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-      return $this->privateEntityManager ?: \Drupal::entityManager();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __set($name, $value) {
-    // We've changed the entityManager property from protected to private so
-    // access is funnelled through __get above. This method is provided for BC
-    // purposes, in case any extended class attempts to set the previously
-    // accessible property directly.
-    if ($name === 'entityManager') {
-      @trigger_error('EntityForm::entityManager is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityForm::entityTypeManager instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-      $this->privateEntityManager = $value;
-    }
-    else {
-      // Ensure usual PHP behaviour of dynamically declaring properties works as
-      // expected.
-      $this->$name = $value;
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function setOperation($operation) {
     // If NULL is passed, do not overwrite the operation.
     if ($operation) {
@@ -104,7 +62,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * {@inheritdoc}
    */
   public function getBaseFormId() {
-    // Assign ENTITYTYPE_form as base form ID to invoke corresponding
+    // Assign ENTITY_TYPE_form as base form ID to invoke corresponding
     // hook_form_alter(), #validate, #submit, and #theme callbacks, but only if
     // it is different from the actual form ID, since callbacks would be invoked
     // twice otherwise.
@@ -289,10 +247,17 @@ class EntityForm extends FormBase implements EntityFormInterface {
         '#title' => $this->t('Delete'),
         '#access' => $this->entity->access('delete'),
         '#attributes' => [
-          'class' => ['button', 'button--danger'],
+          'class' => ['button', 'button--danger', 'use-ajax'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => 880,
+          ]),
+        ],
+        '#url' => $route_info,
+        '#attached' => [
+          'library' => ['core/drupal.dialog.ajax'],
         ],
       ];
-      $actions['delete']['#url'] = $route_info;
     }
 
     return $actions;
@@ -339,7 +304,12 @@ class EntityForm extends FormBase implements EntityFormInterface {
     // properties.
     if (isset($form['#entity_builders'])) {
       foreach ($form['#entity_builders'] as $function) {
-        call_user_func_array($form_state->prepareCallback($function), [$entity->getEntityTypeId(), $entity, &$form, &$form_state]);
+        call_user_func_array($form_state->prepareCallback($function), [
+          $entity->getEntityTypeId(),
+          $entity,
+          &$form,
+          &$form_state,
+        ]);
       }
     }
 
@@ -347,7 +317,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
   }
 
   /**
-   * Copies top-level form values to entity properties
+   * Copies top-level form values to entity properties.
    *
    * This should not change existing entity properties that are not being edited
    * by this form.
@@ -358,6 +328,8 @@ class EntityForm extends FormBase implements EntityFormInterface {
    *   A nested array of form elements comprising the form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The current state of the form.
+   *
+   * @see \Drupal\Core\Form\ConfigFormBase::copyFormValuesToConfig()
    */
   protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
     $values = $form_state->getValues();
@@ -367,7 +339,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
       $values = array_diff_key($values, $this->entity->getPluginCollections());
     }
 
-    // @todo: This relies on a method that only exists for config and content
+    // @todo This relies on a method that only exists for config and content
     //   entities, in a different way. Consider moving this logic to a config
     //   entity specific implementation.
     foreach ($values as $key => $value) {
@@ -430,16 +402,11 @@ class EntityForm extends FormBase implements EntityFormInterface {
    *   The current state of the form.
    */
   protected function prepareInvokeAll($hook, FormStateInterface $form_state) {
-    $implementations = $this->moduleHandler->getImplementations($hook);
-    foreach ($implementations as $module) {
-      $function = $module . '_' . $hook;
-      if (function_exists($function)) {
-        // Ensure we pass an updated translation object and form display at
-        // each invocation, since they depend on form state which is alterable.
-        $args = [$this->entity, $this->operation, &$form_state];
-        call_user_func_array($function, $args);
-      }
-    }
+    $this->moduleHandler->invokeAllWith($hook, function (callable $hook, string $module) use ($form_state) {
+      // Ensure we pass an updated translation object and form display at
+      // each invocation, since they depend on form state which is alterable.
+      $hook($this->entity, $this->operation, $form_state);
+    });
   }
 
   /**
@@ -454,15 +421,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
    */
   public function setModuleHandler(ModuleHandlerInterface $module_handler) {
     $this->moduleHandler = $module_handler;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setEntityManager(EntityManagerInterface $entity_manager) {
-    @trigger_error('EntityForm::setEntityTypeManager() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityFormInterface::setEntityTypeManager() instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-    $this->privateEntityManager = $entity_manager;
     return $this;
   }
 

@@ -154,11 +154,11 @@ class PoDatabaseWriter implements PoWriterInterface {
    * @param \Drupal\Component\Gettext\PoHeader $header
    *   Header metadata.
    *
-   * @throws Exception
+   * @throws \Exception
    */
   public function setHeader(PoHeader $header) {
     $this->header = $header;
-    $locale_plurals = \Drupal::state()->get('locale.translation.plurals') ?: [];
+    $locale_plurals = \Drupal::state()->get('locale.translation.plurals', []);
 
     // Check for options.
     $options = $this->getOptions();
@@ -177,7 +177,7 @@ class PoDatabaseWriter implements PoWriterInterface {
       // Get and store the plural formula if available.
       $plural = $header->getPluralForms();
       if (isset($plural) && $p = $header->parsePluralForms($plural)) {
-        list($nplurals, $formula) = $p;
+        [$nplurals, $formula] = $p;
         \Drupal::service('locale.plural.formula')->setPluralFormula($langcode, $nplurals, $formula);
       }
     }
@@ -198,10 +198,15 @@ class PoDatabaseWriter implements PoWriterInterface {
    * {@inheritdoc}
    */
   public function writeItems(PoReaderInterface $reader, $count = -1) {
+    // Processing multiple writes in a transaction is quicker than committing
+    // each individual write.
+    $transaction = \Drupal::database()->startTransaction();
     $forever = $count == -1;
     while (($count-- > 0 || $forever) && ($item = $reader->readItem())) {
       $this->writeItem($item);
     }
+    // Commit the transaction.
+    unset($transaction);
   }
 
   /**

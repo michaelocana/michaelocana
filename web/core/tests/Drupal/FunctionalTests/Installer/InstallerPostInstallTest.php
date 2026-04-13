@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Installer;
 
 /**
@@ -22,19 +24,19 @@ class InstallerPostInstallTest extends InstallerTestBase {
   /**
    * Confirms that visiting the installer does not break things post-install.
    */
-  public function testVisitInstallerPostInstall() {
+  public function testVisitInstallerPostInstall(): void {
     \Drupal::service('module_installer')->install(['system_test']);
     // Clear caches to ensure that system_test's routes are available.
     $this->resetAll();
     // Confirm that the install_profile is correct.
     $this->drupalGet('/system-test/get-install-profile');
-    $this->assertText('minimal');
+    $this->assertSession()->pageTextContains('minimal');
     // Make an anonymous visit to the installer
     $this->drupalLogout();
     $this->visitInstaller();
     // Ensure that the install profile is still correct.
     $this->drupalGet('/system-test/get-install-profile');
-    $this->assertText('minimal');
+    $this->assertSession()->pageTextContains('minimal');
   }
 
 }

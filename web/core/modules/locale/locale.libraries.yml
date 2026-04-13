@@ -1,7 +1,7 @@
 drupal.locale.admin:
   version: VERSION
   js:
-    locale.admin.js: {}
+    js/locale.admin.js: {}
   css:
     component:
       css/locale.admin.css: {}
@@ -9,17 +9,14 @@ drupal.locale.admin:
     - core/jquery
     - core/drupal
     - core/drupal.form
-    - core/jquery.once
-
-drupal.locale.datepicker:
-  version: VERSION
-  js:
-    locale.datepicker.js: {}
-  dependencies:
-    - core/jquery
-    - core/drupal
-    - core/drupalSettings
-  deprecated: The "%library_id%" asset library is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. See https://www.drupal.org/node/3081864
+    - core/once
+  moved_files:
+    locale/locale.admin.js:
+      deprecation_version: drupal:11.1.0
+      removed_version: drupal:12.0.0
+      deprecation_link: https://www.drupal.org/node/3471539
+      js:
+        locale.admin.js: 'js/locale.admin.js'
 
 translations:
   # No sensible version can be specified, since the translations may change at

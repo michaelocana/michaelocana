@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test;
 
 use Drupal\Core\Form\ConfigFormBase;
@@ -58,7 +60,7 @@ class FormTestServiceObject extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->messenger()->addStatus($this->t('The FormTestServiceObject::submitForm() method was used for this form.'));
-    $this->config('form_test.object', FALSE)
+    $this->config('form_test.object')
       ->set('bananas', $form_state->getValue('bananas'))
       ->save();
   }

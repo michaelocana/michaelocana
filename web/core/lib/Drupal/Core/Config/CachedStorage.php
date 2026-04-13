@@ -97,7 +97,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
       // missing configuration objects as an explicit FALSE.
       $items = [];
       foreach ($names_to_get as $name) {
-        $data = isset($list[$name]) ? $list[$name] : FALSE;
+        $data = $list[$name] ?? FALSE;
         $data_to_return[$name] = $data;
         $items[$cache_keys_map[$name]] = ['data' => $data];
       }
@@ -196,7 +196,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
    * names.
    *
    * @param string $prefix
-   *   The prefix to search for
+   *   The prefix to search for.
    *
    * @return array
    *   An array containing matching configuration object names.

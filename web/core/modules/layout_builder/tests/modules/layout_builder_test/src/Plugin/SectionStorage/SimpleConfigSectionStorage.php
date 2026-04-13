@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\layout_builder_test\Plugin\SectionStorage;
 
 use Drupal\Core\Access\AccessResult;
@@ -8,31 +10,34 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\Context\Context;
 use Drupal\Core\Plugin\Context\ContextDefinition;
-use Drupal\Core\Plugin\ContextAwarePluginBase;
+use Drupal\Core\Plugin\ContextAwarePluginTrait;
+use Drupal\Core\Plugin\PluginBase;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
+use Drupal\layout_builder\Attribute\SectionStorage;
 use Drupal\layout_builder\Plugin\SectionStorage\SectionStorageLocalTaskProviderInterface;
 use Drupal\layout_builder\Routing\LayoutBuilderRoutesTrait;
 use Drupal\layout_builder\Section;
-use Drupal\layout_builder\SectionStorage\SectionStorageTrait;
+use Drupal\layout_builder\SectionListTrait;
 use Drupal\layout_builder\SectionStorageInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
  * Provides section storage utilizing simple config.
- *
- * @SectionStorage(
- *   id = "test_simple_config",
- *   context_definitions = {
- *     "config_id" = @ContextDefinition("string"),
- *   }
- * )
  */
-class SimpleConfigSectionStorage extends ContextAwarePluginBase implements SectionStorageInterface, SectionStorageLocalTaskProviderInterface, ContainerFactoryPluginInterface {
+#[SectionStorage(id: "test_simple_config", context_definitions: [
+  "config_id" => new ContextDefinition(
+    data_type: "string",
+    label: new TranslatableMarkup("Configuration ID"),
+  ),
+])]
+class SimpleConfigSectionStorage extends PluginBase implements SectionStorageInterface, SectionStorageLocalTaskProviderInterface, ContainerFactoryPluginInterface {
 
+  use ContextAwarePluginTrait;
   use LayoutBuilderRoutesTrait;
-  use SectionStorageTrait;
+  use SectionListTrait;
 
   /**
    * The config factory.
@@ -92,7 +97,7 @@ class SimpleConfigSectionStorage extends ContextAwarePluginBase implements Secti
   /**
    * Returns the name to be used to store in the config system.
    */
-  protected function getConfigName() {
+  protected function getConfigName(): string {
     return 'layout_builder_test.' . $this->getStorageType() . '.' . $this->getStorageId();
   }
 
@@ -186,7 +191,7 @@ class SimpleConfigSectionStorage extends ContextAwarePluginBase implements Secti
   /**
    * {@inheritdoc}
    */
-  public function access($operation, AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $result = AccessResult::allowed();
     return $return_as_object ? $result : $result->isAllowed();
   }
@@ -196,22 +201,6 @@ class SimpleConfigSectionStorage extends ContextAwarePluginBase implements Secti
    */
   public function getContextsDuringPreview() {
     return $this->getContexts();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getSectionListFromId($id) {
-    @trigger_error('\Drupal\layout_builder\SectionStorageInterface::getSectionListFromId() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. The section list should be derived from context. See https://www.drupal.org/node/3016262.', E_USER_DEPRECATED);
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function extractIdFromRoute($value, $definition, $name, array $defaults) {
-    @trigger_error('\Drupal\layout_builder\SectionStorageInterface::extractIdFromRoute() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. \Drupal\layout_builder\SectionStorageInterface::deriveContextsFromRoute() should be used instead. See https://www.drupal.org/node/3016262.', E_USER_DEPRECATED);
-    return $value ?: $defaults['id'];
   }
 
   /**

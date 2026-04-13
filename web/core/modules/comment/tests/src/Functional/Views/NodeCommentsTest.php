@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Functional\Views;
 
 /**
@@ -10,11 +12,9 @@ namespace Drupal\Tests\comment\Functional\Views;
 class NodeCommentsTest extends CommentTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['history'];
+  protected static $modules = ['history'];
 
   /**
    * {@inheritdoc}
@@ -29,9 +29,9 @@ class NodeCommentsTest extends CommentTestBase {
   public static $testViews = ['test_new_comments', 'test_comment_count'];
 
   /**
-   * Test the new comments field plugin.
+   * Tests the new comments field plugin.
    */
-  public function testNewComments() {
+  public function testNewComments(): void {
     $this->drupalGet('test-new-comments');
     $this->assertSession()->statusCodeEquals(200);
     $new_comments = $this->cssSelect(".views-field-new-comments a:contains('1')");
@@ -41,7 +41,7 @@ class NodeCommentsTest extends CommentTestBase {
   /**
    * Test the comment count field.
    */
-  public function testCommentCount() {
+  public function testCommentCount(): void {
     $this->drupalGet('test-comment-count');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertCount(2, $this->cssSelect('.views-row'));
@@ -51,7 +51,7 @@ class NodeCommentsTest extends CommentTestBase {
     $this->assertCount(1, $comment_count_without_comment);
 
     // Create a content type with no comment field, and add a node.
-    $this->drupalCreateContentType(['type' => 'no_comment', 'name' => t('No comment page')]);
+    $this->drupalCreateContentType(['type' => 'no_comment', 'name' => 'No comment page']);
     $this->nodeUserPosted = $this->drupalCreateNode(['type' => 'no_comment']);
     $this->drupalGet('test-comment-count');
 

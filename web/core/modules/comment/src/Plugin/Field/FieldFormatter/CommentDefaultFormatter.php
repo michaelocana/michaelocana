@@ -3,42 +3,31 @@
 namespace Drupal\comment\Plugin\Field\FieldFormatter;
 
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\Entity\EntityViewDisplay;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Entity\EntityFormBuilderInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Field\Attribute\FieldFormatter;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FormatterBase;
-use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides a default comment formatter.
- *
- * @FieldFormatter(
- *   id = "comment_default",
- *   module = "comment",
- *   label = @Translation("Comment list"),
- *   field_types = {
- *     "comment"
- *   },
- *   quickedit = {
- *     "editor" = "disabled"
- *   }
- * )
  */
-class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryPluginInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
+#[FieldFormatter(
+  id: 'comment_default',
+  label: new TranslatableMarkup('Comment list'),
+  field_types: [
+    'comment',
+  ],
+)]
+class CommentDefaultFormatter extends FormatterBase {
 
   /**
    * {@inheritdoc}
@@ -114,7 +103,7 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
    * Constructs a new CommentDefaultFormatter.
    *
    * @param string $plugin_id
-   *   The plugin_id for the formatter.
+   *   The plugin ID for the formatter.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
@@ -138,17 +127,13 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
    * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository
    *   The entity display repository.
    */
-  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, AccountInterface $current_user, EntityTypeManagerInterface $entity_type_manager, EntityFormBuilderInterface $entity_form_builder, RouteMatchInterface $route_match, EntityDisplayRepositoryInterface $entity_display_repository = NULL) {
+  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, AccountInterface $current_user, EntityTypeManagerInterface $entity_type_manager, EntityFormBuilderInterface $entity_form_builder, RouteMatchInterface $route_match, EntityDisplayRepositoryInterface $entity_display_repository) {
     parent::__construct($plugin_id, $plugin_definition, $field_definition, $settings, $label, $view_mode, $third_party_settings);
     $this->viewBuilder = $entity_type_manager->getViewBuilder('comment');
     $this->storage = $entity_type_manager->getStorage('comment');
     $this->currentUser = $current_user;
     $this->entityFormBuilder = $entity_form_builder;
     $this->routeMatch = $route_match;
-    if (!$entity_display_repository) {
-      @trigger_error('Calling RssPluginBase::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_display_repository = \Drupal::service('entity_display.repository');
-    }
     $this->entityDisplayRepository = $entity_display_repository;
   }
 
@@ -187,10 +172,10 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
             $build = $this->viewBuilder->viewMultiple($comments, $this->getSetting('view_mode'));
             $build['pager']['#type'] = 'pager';
             // CommentController::commentPermalink() calculates the page number
-            // where a specific comment appears and does a subrequest pointing to
-            // that page, we need to pass that subrequest route to our pager to
-            // keep the pager working.
-            $build['pager']['#route_name'] = $this->routeMatch->getRouteObject();
+            // where a specific comment appears and does a subrequest pointing
+            // to that page, we need to pass that subrequest route to our pager
+            // to keep the pager working.
+            $build['pager']['#route_name'] = $this->routeMatch->getRouteName();
             $build['pager']['#route_parameters'] = $this->routeMatch->getRawParameters()->all();
             if ($this->getSetting('pager_id')) {
               $build['pager']['#element'] = $this->getSetting('pager_id');
@@ -263,7 +248,7 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
   public function settingsSummary() {
     $view_mode = $this->getSetting('view_mode');
     $view_modes = $this->getViewModes();
-    $view_mode_label = isset($view_modes[$view_mode]) ? $view_modes[$view_mode] : 'default';
+    $view_mode_label = $view_modes[$view_mode] ?? 'default';
     $summary = [$this->t('Comment view mode: @mode', ['@mode' => $view_mode_label])];
     if ($pager_id = $this->getSetting('pager_id')) {
       $summary[] = $this->t('Pager ID: @id', ['@id' => $pager_id]);

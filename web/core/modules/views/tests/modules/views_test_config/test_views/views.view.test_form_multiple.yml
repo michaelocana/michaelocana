@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_form_multiple
-label: ''
+label: test_form_multiple
 module: views
 description: ''
 tag: ''
@@ -13,7 +13,7 @@ base_field: nid
 display:
   default:
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
     display_options:
@@ -40,6 +40,7 @@ display:
         type: table
         options:
           grouping: {  }
+          class: ''
           row_class: ''
           default_row_class: true
           override: true

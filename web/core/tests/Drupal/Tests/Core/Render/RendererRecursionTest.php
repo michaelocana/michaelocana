@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Render;
 
 /**
@@ -8,8 +10,7 @@ namespace Drupal\Tests\Core\Render;
  */
 class RendererRecursionTest extends RendererTestBase {
 
-  protected function setUpRenderRecursionComplexElements() {
-    $complex_child_markup = '<p>Imagine this is a render array for an entity.</p>';
+  protected function setUpRenderRecursionComplexElements(): array {
     $parent_markup = '<p>Rendered!</p>';
 
     $complex_child_template = [
@@ -22,18 +23,18 @@ class RendererRecursionTest extends RendererTestBase {
       '#create_placeholder' => TRUE,
     ];
 
-    return [$complex_child_markup, $parent_markup, $complex_child_template];
+    return [$parent_markup, $complex_child_template];
   }
 
   /**
-   * ::renderRoot() may not be called inside of another ::renderRoot() call.
+   * Tests that renderRoot() may not be called recursively.
    *
    * @covers ::renderRoot
    * @covers ::render
    * @covers ::doRender
    */
-  public function testRenderRecursionWithNestedRenderRoot() {
-    list($complex_child_markup, $parent_markup, $complex_child_template) = $this->setUpRenderRecursionComplexElements();
+  public function testRenderRecursionWithNestedRenderRoot(): void {
+    [$parent_markup, $complex_child_template] = $this->setUpRenderRecursionComplexElements();
     $renderer = $this->renderer;
     $this->setUpRequest();
 
@@ -55,7 +56,7 @@ class RendererRecursionTest extends RendererTestBase {
   }
 
   /**
-   * ::render() may be called from anywhere.
+   * Tests that render() may be called from anywhere.
    *
    * Including from inside of another ::renderRoot() call. Bubbling must be
    * performed.
@@ -64,12 +65,12 @@ class RendererRecursionTest extends RendererTestBase {
    * @covers ::render
    * @covers ::doRender
    */
-  public function testRenderRecursionWithNestedRender() {
-    list($complex_child_markup, $parent_markup, $complex_child_template) = $this->setUpRenderRecursionComplexElements();
+  public function testRenderRecursionWithNestedRender(): void {
+    [$parent_markup, $complex_child_template] = $this->setUpRenderRecursionComplexElements();
     $renderer = $this->renderer;
     $this->setUpRequest();
 
-    $callable = function ($markup) use ($renderer, $complex_child_template) {
+    $callable = function ($markup) {
       $this->assertStringStartsWith('<drupal-render-placeholder', (string) $markup, 'Rendered complex child output as expected, without the placeholder replaced, i.e. with just the placeholder.');
       return $markup;
     };
@@ -91,22 +92,20 @@ class RendererRecursionTest extends RendererTestBase {
   }
 
   /**
-   * ::renderPlain() may be called from anywhere.
-   *
-   * Including from inside of another ::renderRoot() call.
+   * Tests that renderRoot() can be called from anywhere including recursively.
    *
    * @covers ::renderRoot
-   * @covers ::renderPlain
+   * @covers ::renderInIsolation
    */
-  public function testRenderRecursionWithNestedRenderPlain() {
-    list($complex_child_markup, $parent_markup, $complex_child_template) = $this->setUpRenderRecursionComplexElements();
+  public function testRenderRecursionWithNestedRenderInIsolation(): void {
+    [$parent_markup, $complex_child_template] = $this->setUpRenderRecursionComplexElements();
     $renderer = $this->renderer;
     $this->setUpRequest();
 
     $complex_child = $complex_child_template;
 
-    $callable = function ($elements) use ($renderer, $complex_child, $parent_markup) {
-      $elements['#markup'] = $renderer->renderPlain($complex_child);
+    $callable = function ($elements) use ($renderer, $complex_child) {
+      $elements['#markup'] = $renderer->renderInIsolation($complex_child);
       $this->assertEquals('<p>This is a rendered placeholder!</p>', $elements['#markup'], 'Rendered complex child output as expected, with the placeholder replaced.');
       return $elements;
     };
@@ -122,7 +121,7 @@ class RendererRecursionTest extends RendererTestBase {
     $output = $renderer->renderRoot($page);
     $this->assertEquals('<p>This is a rendered placeholder!</p>' . $parent_markup, $output, 'Rendered output as expected, with the placeholder replaced.');
     $this->assertNotContains('test:complex_child', $page['#cache']['tags'], 'Cache tag bubbling not performed.');
-    $this->assertTrue(empty($page['#attached']), 'Asset bubbling not performed.');
+    $this->assertEmpty($page['#attached'], 'Asset bubbling not performed.');
   }
 
 }

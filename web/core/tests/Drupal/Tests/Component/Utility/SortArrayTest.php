@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Component\Utility;
 
 use Drupal\Component\Utility\SortArray;
-use Drupal\Tests\PhpunitCompatibilityTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,14 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class SortArrayTest extends TestCase {
 
-  use PhpunitCompatibilityTrait;
-
   /**
    * Tests SortArray::sortByWeightElement() input against expected output.
-   *
-   * @dataProvider providerSortByWeightElement
-   * @covers ::sortByWeightElement
-   * @covers ::sortByKeyInt
    *
    * @param array $a
    *   The first input array for the SortArray::sortByWeightElement() method.
@@ -30,8 +25,13 @@ class SortArrayTest extends TestCase {
    *   The second input array for the SortArray::sortByWeightElement().
    * @param int $expected
    *   The expected output from calling the method.
+   *
+   * @covers ::sortByWeightElement
+   * @covers ::sortByKeyInt
+   *
+   * @dataProvider providerSortByWeightElement
    */
-  public function testSortByWeightElement($a, $b, $expected) {
+  public function testSortByWeightElement($a, $b, $expected): void {
     $result = SortArray::sortByWeightElement($a, $b);
     $this->assertBothNegativePositiveOrZero($expected, $result);
   }
@@ -45,7 +45,7 @@ class SortArrayTest extends TestCase {
    *
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByWeightElement()
    */
-  public function providerSortByWeightElement() {
+  public static function providerSortByWeightElement() {
     $tests = [];
 
     // Weights set and equal.
@@ -96,18 +96,18 @@ class SortArrayTest extends TestCase {
   /**
    * Tests SortArray::sortByWeightProperty() input against expected output.
    *
-   * @dataProvider providerSortByWeightProperty
-   * @covers ::sortByWeightProperty
-   * @covers ::sortByKeyInt
-   *
    * @param array $a
    *   The first input array for the SortArray::sortByWeightProperty() method.
    * @param array $b
    *   The second input array for the SortArray::sortByWeightProperty().
    * @param int $expected
    *   The expected output from calling the method.
+   *
+   * @dataProvider providerSortByWeightProperty
+   * @covers ::sortByWeightProperty
+   * @covers ::sortByKeyInt
    */
-  public function testSortByWeightProperty($a, $b, $expected) {
+  public function testSortByWeightProperty($a, $b, $expected): void {
     $result = SortArray::sortByWeightProperty($a, $b);
     $this->assertBothNegativePositiveOrZero($expected, $result);
   }
@@ -121,7 +121,7 @@ class SortArrayTest extends TestCase {
    *
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByWeightProperty()
    */
-  public function providerSortByWeightProperty() {
+  public static function providerSortByWeightProperty() {
     $tests = [];
 
     // Weights set and equal.
@@ -172,18 +172,18 @@ class SortArrayTest extends TestCase {
   /**
    * Tests SortArray::sortByTitleElement() input against expected output.
    *
-   * @dataProvider providerSortByTitleElement
-   * @covers ::sortByTitleElement
-   * @covers ::sortByKeyString
-   *
    * @param array $a
    *   The first input item for comparison.
    * @param array $b
    *   The second item for comparison.
    * @param int $expected
    *   The expected output from calling the method.
+   *
+   * @dataProvider providerSortByTitleElement
+   * @covers ::sortByTitleElement
+   * @covers ::sortByKeyString
    */
-  public function testSortByTitleElement($a, $b, $expected) {
+  public function testSortByTitleElement($a, $b, $expected): void {
     $result = SortArray::sortByTitleElement($a, $b);
     $this->assertBothNegativePositiveOrZero($expected, $result);
   }
@@ -197,7 +197,7 @@ class SortArrayTest extends TestCase {
    *
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByTitleElement()
    */
-  public function providerSortByTitleElement() {
+  public static function providerSortByTitleElement() {
     $tests = [];
 
     // Titles set and equal.
@@ -241,18 +241,18 @@ class SortArrayTest extends TestCase {
   /**
    * Tests SortArray::sortByTitleProperty() input against expected output.
    *
-   * @dataProvider providerSortByTitleProperty
-   * @covers ::sortByTitleProperty
-   * @covers ::sortByKeyString
-   *
    * @param array $a
    *   The first input item for comparison.
    * @param array $b
    *   The second item for comparison.
    * @param int $expected
    *   The expected output from calling the method.
+   *
+   * @dataProvider providerSortByTitleProperty
+   * @covers ::sortByTitleProperty
+   * @covers ::sortByKeyString
    */
-  public function testSortByTitleProperty($a, $b, $expected) {
+  public function testSortByTitleProperty($a, $b, $expected): void {
     $result = SortArray::sortByTitleProperty($a, $b);
     $this->assertBothNegativePositiveOrZero($expected, $result);
   }
@@ -266,7 +266,7 @@ class SortArrayTest extends TestCase {
    *
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByTitleProperty()
    */
-  public function providerSortByTitleProperty() {
+  public static function providerSortByTitleProperty() {
     $tests = [];
 
     // Titles set and equal.
@@ -317,11 +317,22 @@ class SortArrayTest extends TestCase {
    *   Expected comparison function return value.
    * @param int $result
    *   Actual comparison function return value.
+   *
+   * @internal
    */
-  protected function assertBothNegativePositiveOrZero($expected, $result) {
+  protected function assertBothNegativePositiveOrZero(int $expected, int $result): void {
     $this->assertIsNumeric($expected);
     $this->assertIsNumeric($result);
-    $this->assertTrue(($expected < 0 && $result < 0) || ($expected > 0 && $result > 0) || ($expected === 0 && $result === 0), 'Numbers are either both negative, both positive or both zero.');
+    $message = "Numbers should be both negative, both positive or both zero. Expected: $expected, actual: $result";
+    if ($expected > 0) {
+      $this->assertGreaterThan(0, $result, $message);
+    }
+    elseif ($expected < 0) {
+      $this->assertLessThan(0, $result, $message);
+    }
+    else {
+      $this->assertEquals(0, $result, $message);
+    }
   }
 
 }

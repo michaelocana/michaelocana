@@ -2,9 +2,9 @@
 
 /**
  * @file
- * Content administration and module settings user interface.
  */
 
+use Drupal\Core\Batch\BatchBuilder;
 use Drupal\Core\Link;
 use Drupal\node\NodeInterface;
 
@@ -30,25 +30,22 @@ use Drupal\node\NodeInterface;
  *   (optional) TRUE if $nodes contains an array of revision IDs instead of
  *   node IDs. Defaults to FALSE; will be ignored if $load is FALSE.
  */
-function node_mass_update(array $nodes, array $updates, $langcode = NULL, $load = FALSE, $revisions = FALSE) {
+function node_mass_update(array $nodes, array $updates, $langcode = NULL, $load = FALSE, $revisions = FALSE): void {
   // We use batch processing to prevent timeout when updating a large number
   // of nodes.
   if (count($nodes) > 10) {
-    $batch = [
-      'operations' => [
-        ['_node_mass_update_batch_process', [$nodes, $updates, $langcode, $load, $revisions]],
-      ],
-      'finished' => '_node_mass_update_batch_finished',
-      'title' => t('Processing'),
-      // We use a single multi-pass operation, so the default
-      // 'Remaining x of y operations' message will be confusing here.
-      'progress_message' => '',
-      'error_message' => t('The update has encountered an error.'),
+    $batch_builder = (new BatchBuilder())
       // The operations do not live in the .module file, so we need to
       // tell the batch engine which file to load before calling them.
-      'file' => drupal_get_path('module', 'node') . '/node.admin.inc',
-    ];
-    batch_set($batch);
+      ->setFile(\Drupal::service('extension.list.module')->getPath('node') . '/node.admin.inc')
+      ->addOperation('_node_mass_update_batch_process', [$nodes, $updates, $langcode, $load, $revisions])
+      ->setFinishCallback('_node_mass_update_batch_finished')
+      ->setTitle(t('Processing'))
+      ->setErrorMessage(t('The update has encountered an error.'))
+      // We use a single multi-pass operation, so the default
+      // 'Remaining x of y operations' message will be confusing here.
+      ->setProgressMessage('');
+    batch_set($batch_builder->toArray());
   }
   else {
     $storage = \Drupal::entityTypeManager()->getStorage('node');
@@ -84,7 +81,7 @@ function node_mass_update(array $nodes, array $updates, $langcode = NULL, $load 
 function _node_mass_update_helper(NodeInterface $node, array $updates, $langcode = NULL) {
   $langcodes = isset($langcode) ? [$langcode] : array_keys($node->getTranslationLanguages());
   // For efficiency manually save the original node before applying any changes.
-  $node->original = clone $node;
+  $node->setOriginal(clone $node);
   foreach ($langcodes as $langcode) {
     foreach ($updates as $name => $value) {
       $node->getTranslation($langcode)->$name = $value;
@@ -115,7 +112,7 @@ function _node_mass_update_helper(NodeInterface $node, array $updates, $langcode
  * @param array|\ArrayAccess $context
  *   An array of contextual key/values.
  */
-function _node_mass_update_batch_process(array $nodes, array $updates, $langcode, $load, $revisions, &$context) {
+function _node_mass_update_batch_process(array $nodes, array $updates, $langcode, $load, $revisions, &$context): void {
   if (!isset($context['sandbox']['progress'])) {
     $context['sandbox']['progress'] = 0;
     $context['sandbox']['max'] = count($nodes);
@@ -163,7 +160,7 @@ function _node_mass_update_batch_process(array $nodes, array $updates, $langcode
  *
  * @see _node_mass_update_batch_process()
  */
-function _node_mass_update_batch_finished($success, $results, $operations) {
+function _node_mass_update_batch_finished($success, $results, $operations): void {
   if ($success) {
     \Drupal::messenger()->addStatus(t('The update has been performed.'));
   }

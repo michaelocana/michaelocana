@@ -1,8 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\search\SearchTextProcessorInterface;
+
+// cspell:ignore bopomofo jamo lisu
 
 /**
  * Tests that CJK tokenizer works as intended.
@@ -17,14 +22,22 @@ class SearchTokenizerTest extends KernelTestBase {
   protected static $modules = ['search'];
 
   /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+    $this->installConfig(['search']);
+  }
+
+  /**
    * Verifies that strings of CJK characters are tokenized.
    *
-   * The search_simplify() function does special things with numbers, symbols,
+   * The text analysis function does special things with numbers, symbols
    * and punctuation. So we only test that CJK characters that are not in these
    * character classes are tokenized properly. See PREG_CLASS_CKJ for more
    * information.
    */
-  public function testTokenizer() {
+  public function testTokenizer(): void {
     // Set the minimum word size to 1 (to split all CJK characters) and make
     // sure CJK tokenizing is turned on.
     $this->config('search.settings')
@@ -32,8 +45,8 @@ class SearchTokenizerTest extends KernelTestBase {
       ->set('index.overlap_cjk', TRUE)
       ->save();
 
-    // Create a string of CJK characters from various character ranges in
-    // the Unicode tables.
+    // Create a string of CJK characters from various character ranges in the
+    // Unicode tables.
 
     // Beginnings of the character ranges.
     $starts = [
@@ -53,8 +66,8 @@ class SearchTokenizerTest extends KernelTestBase {
       'Katakana Ext' => 0x31f0,
       'CJK Reserve 1' => 0x20000,
       'CJK Reserve 2' => 0x30000,
-      'Bomofo' => 0x3100,
-      'Bomofo Ext' => 0x31a0,
+      'Bopomofo' => 0x3100,
+      'Bopomofo Ext' => 0x31a0,
       'Lisu' => 0xa4d0,
       'Yi' => 0xa000,
     ];
@@ -77,32 +90,30 @@ class SearchTokenizerTest extends KernelTestBase {
       'Katakana Ext' => 0x31ff,
       'CJK Reserve 1' => 0x2fffd,
       'CJK Reserve 2' => 0x3fffd,
-      'Bomofo' => 0x312f,
-      'Bomofo Ext' => 0x31b7,
+      'Bopomofo' => 0x312f,
+      'Bopomofo Ext' => 0x31b7,
       'Lisu' => 0xa4fd,
       'Yi' => 0xa48f,
     ];
 
     // Generate characters consisting of starts, midpoints, and ends.
     $chars = [];
-    $charcodes = [];
     foreach ($starts as $key => $value) {
-      $charcodes[] = $starts[$key];
       $chars[] = $this->code2utf($starts[$key]);
       $mid = round(0.5 * ($starts[$key] + $ends[$key]));
-      $charcodes[] = $mid;
       $chars[] = $this->code2utf($mid);
-      $charcodes[] = $ends[$key];
       $chars[] = $this->code2utf($ends[$key]);
     }
 
     // Merge into a string and tokenize.
     $string = implode('', $chars);
-    $out = trim(search_simplify($string));
+    $text_processor = \Drupal::service('search.text_processor');
+    assert($text_processor instanceof SearchTextProcessorInterface);
+    $out = trim($text_processor->analyze($string));
     $expected = mb_strtolower(implode(' ', $chars));
 
     // Verify that the output matches what we expect.
-    $this->assertEqual($out, $expected, 'CJK tokenizer worked on all supplied CJK characters');
+    $this->assertEquals($expected, $out, 'CJK tokenizer worked on all supplied CJK characters');
   }
 
   /**
@@ -111,7 +122,7 @@ class SearchTokenizerTest extends KernelTestBase {
    * This is just a sanity check - it verifies that strings of letters are
    * not tokenized.
    */
-  public function testNoTokenizer() {
+  public function testNoTokenizer(): void {
     // Set the minimum word size to 1 (to split all CJK characters) and make
     // sure CJK tokenizing is turned on.
     $this->config('search.settings')
@@ -120,9 +131,11 @@ class SearchTokenizerTest extends KernelTestBase {
       ->save();
 
     $letters = 'abcdefghijklmnopqrstuvwxyz';
-    $out = trim(search_simplify($letters));
+    $text_processor = \Drupal::service('search.text_processor');
+    assert($text_processor instanceof SearchTextProcessorInterface);
+    $out = trim($text_processor->analyze($letters));
 
-    $this->assertEqual($letters, $out, 'Letters are not CJK tokenized');
+    $this->assertEquals($letters, $out, 'Letters are not CJK tokenized');
   }
 
   /**

@@ -21,6 +21,7 @@ class FilterPluginCollection extends DefaultLazyPluginCollection {
    * {@inheritdoc}
    *
    * @return \Drupal\filter\Plugin\FilterInterface
+   *   The filter plugin instance.
    */
   public function &get($instance_id) {
     return parent::get($instance_id);
@@ -70,7 +71,7 @@ class FilterPluginCollection extends DefaultLazyPluginCollection {
     $configuration = $this->manager->getDefinition($instance_id);
     // Merge the actual configuration into the default configuration.
     if (isset($this->configurations[$instance_id])) {
-      $configuration = NestedArray::mergeDeep($configuration, $this->configurations[$instance_id]);
+      $configuration = NestedArray::mergeDeepArray([$configuration, $this->configurations[$instance_id]], TRUE);
     }
     $this->configurations[$instance_id] = $configuration;
     parent::initializePlugin($instance_id);
@@ -94,7 +95,7 @@ class FilterPluginCollection extends DefaultLazyPluginCollection {
       return !empty($a->status) ? -1 : 1;
     }
     if ($a->weight != $b->weight) {
-      return $a->weight < $b->weight ? -1 : 1;
+      return $a->weight <=> $b->weight;
     }
     if ($a->provider != $b->provider) {
       return strnatcasecmp($a->provider, $b->provider);

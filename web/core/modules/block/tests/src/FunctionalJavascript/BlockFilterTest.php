@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\FunctionalJavascript;
 
 use Behat\Mink\Element\NodeElement;
@@ -15,7 +17,7 @@ class BlockFilterTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user', 'block'];
+  protected static $modules = ['user', 'block'];
 
   /**
    * {@inheritdoc}
@@ -25,7 +27,7 @@ class BlockFilterTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $admin_user = $this->drupalCreateUser([
@@ -38,7 +40,7 @@ class BlockFilterTest extends WebDriverTestBase {
   /**
    * Tests block filter.
    */
-  public function testBlockFilter() {
+  public function testBlockFilter(): void {
     $this->drupalGet('admin/structure/block');
     $assertSession = $this->assertSession();
     $session = $this->getSession();
@@ -56,12 +58,12 @@ class BlockFilterTest extends WebDriverTestBase {
     $session->wait(10000, 'jQuery("#drupal-live-announce").html().indexOf("blocks are available") > -1');
     $visible_rows = $this->filterVisibleElements($block_rows);
     if (count($block_rows) > 0) {
-      $this->assertNotEquals(count($block_rows), count($visible_rows));
+      $this->assertNotSameSize($block_rows, $visible_rows);
     }
 
     // Test Drupal.announce() message when multiple matches are expected.
     $expected_message = count($visible_rows) . ' blocks are available in the modified list.';
-    $assertSession->elementTextContains('css', '#drupal-live-announce', $expected_message);
+    $this->assertAnnounceContains($expected_message);
 
     // Test Drupal.announce() message when only one match is expected.
     $filter->setValue('Powered by');
@@ -69,7 +71,7 @@ class BlockFilterTest extends WebDriverTestBase {
     $visible_rows = $this->filterVisibleElements($block_rows);
     $this->assertCount(1, $visible_rows);
     $expected_message = '1 block is available in the modified list.';
-    $assertSession->elementTextContains('css', '#drupal-live-announce', $expected_message);
+    $this->assertAnnounceContains($expected_message);
 
     // Test Drupal.announce() message when no matches are expected.
     $filter->setValue('Pan-Galactic Gargle Blaster');
@@ -77,7 +79,7 @@ class BlockFilterTest extends WebDriverTestBase {
     $visible_rows = $this->filterVisibleElements($block_rows);
     $this->assertCount(0, $visible_rows);
     $expected_message = '0 blocks are available in the modified list.';
-    $assertSession->elementTextContains('css', '#drupal-live-announce', $expected_message);
+    $this->assertAnnounceContains($expected_message);
   }
 
   /**
@@ -87,12 +89,26 @@ class BlockFilterTest extends WebDriverTestBase {
    *   An array of node elements.
    *
    * @return \Behat\Mink\Element\NodeElement[]
+   *   An array of visible elements.
    */
-  protected function filterVisibleElements(array $elements) {
+  protected function filterVisibleElements(array $elements): array {
     $elements = array_filter($elements, function (NodeElement $element) {
       return $element->isVisible();
     });
     return $elements;
+  }
+
+  /**
+   * Checks for inclusion of text in #drupal-live-announce.
+   *
+   * @param string $expected_message
+   *   The text expected to be present in #drupal-live-announce.
+   *
+   * @internal
+   */
+  protected function assertAnnounceContains(string $expected_message): void {
+    $assert_session = $this->assertSession();
+    $this->assertNotEmpty($assert_session->waitForElement('css', "#drupal-live-announce:contains('$expected_message')"));
   }
 
 }

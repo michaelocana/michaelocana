@@ -2,32 +2,41 @@
 
 namespace Drupal\comment\Plugin\views\row;
 
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\views\Attribute\ViewsRow;
 use Drupal\views\Plugin\views\row\RssPluginBase;
 
 /**
  * Plugin which formats the comments as RSS items.
- *
- * @ViewsRow(
- *   id = "comment_rss",
- *   title = @Translation("Comment"),
- *   help = @Translation("Display the comment as RSS."),
- *   theme = "views_view_row_rss",
- *   register_theme = FALSE,
- *   base = {"comment_field_data"},
- *   display_types = {"feed"}
- * )
  */
+#[ViewsRow(
+  id: "comment_rss",
+  title: new TranslatableMarkup("Comment"),
+  help: new TranslatableMarkup("Display the comment as RSS."),
+  theme: "views_view_row_rss",
+  register_theme: FALSE,
+  base: ["comment_field_data"],
+  display_types: ["feed"]
+)]
 class Rss extends RssPluginBase {
 
   /**
    * {@inheritdoc}
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $base_table = 'comment_field_data';
 
   /**
    * {@inheritdoc}
    */
-  protected $base_field = 'cid';
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $base_field = 'cid';
+
+  /**
+   * The field alias.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $field_alias;
 
   /**
    * @var \Drupal\comment\CommentInterface[]
@@ -39,6 +48,9 @@ class Rss extends RssPluginBase {
    */
   protected $entityTypeId = 'comment';
 
+  /**
+   * {@inheritdoc}
+   */
   public function preRender($result) {
     $cids = [];
 
@@ -59,6 +71,9 @@ class Rss extends RssPluginBase {
     return $options;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function render($row) {
     global $base_url;
 
@@ -73,13 +88,12 @@ class Rss extends RssPluginBase {
     }
 
     // Load the specified comment and its associated node:
-    /** @var $comment \Drupal\comment\CommentInterface */
+    /** @var \Drupal\comment\CommentInterface $comment */
     $comment = $this->comments[$cid];
     if (empty($comment)) {
       return;
     }
 
-    $comment->link = $comment->toUrl('canonical', ['absolute' => TRUE])->toString();
     $comment->rss_namespaces = [];
     $comment->rss_elements = [
       [
@@ -112,7 +126,7 @@ class Rss extends RssPluginBase {
       $item->description = $build;
     }
     $item->title = $comment->label();
-    $item->link = $comment->link;
+    $item->link = $comment->toUrl('canonical', ['absolute' => TRUE])->toString();
     // Provide a reference so that the render call in
     // template_preprocess_views_view_row_rss() can still access it.
     $item->elements = &$comment->rss_elements;

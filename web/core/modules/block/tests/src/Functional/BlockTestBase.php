@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\Functional;
 
 use Drupal\filter\Entity\FilterFormat;
@@ -11,11 +13,9 @@ use Drupal\Tests\BrowserTestBase;
 abstract class BlockTestBase extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'block',
     'filter',
     'test_page_test',
@@ -40,7 +40,7 @@ abstract class BlockTestBase extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Use the test page as the front page.

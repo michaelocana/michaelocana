@@ -3,6 +3,7 @@
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Component\Datetime\DateTimePlus;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Cache\Context\CacheContextsManager;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -12,7 +13,7 @@ use Drupal\Core\PageCache\ResponsePolicyInterface;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -22,13 +23,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class FinishResponseSubscriber implements EventSubscriberInterface {
 
   /**
-   * The language manager object for retrieving the correct language code.
-   *
-   * @var \Drupal\Core\Language\LanguageManagerInterface
-   */
-  protected $languageManager;
-
-  /**
    * A config object for the system performance configuration.
    *
    * @var \Drupal\Core\Config\Config
@@ -36,65 +30,42 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
   protected $config;
 
   /**
-   * A policy rule determining the cacheability of a request.
-   *
-   * @var \Drupal\Core\PageCache\RequestPolicyInterface
-   */
-  protected $requestPolicy;
-
-  /**
-   * A policy rule determining the cacheability of the response.
-   *
-   * @var \Drupal\Core\PageCache\ResponsePolicyInterface
-   */
-  protected $responsePolicy;
-
-  /**
-   * The cache contexts manager service.
-   *
-   * @var \Drupal\Core\Cache\Context\CacheContextsManager
-   */
-  protected $cacheContexts;
-
-  /**
-   * Whether to send cacheability headers for debugging purposes.
-   *
-   * @var bool
-   */
-  protected $debugCacheabilityHeaders = FALSE;
-
-  /**
    * Constructs a FinishResponseSubscriber object.
    *
-   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+   * @param \Drupal\Core\Language\LanguageManagerInterface $languageManager
    *   The language manager object for retrieving the correct language code.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   A config factory for retrieving required config objects.
-   * @param \Drupal\Core\PageCache\RequestPolicyInterface $request_policy
+   * @param \Drupal\Core\PageCache\RequestPolicyInterface $requestPolicy
    *   A policy rule determining the cacheability of a request.
-   * @param \Drupal\Core\PageCache\ResponsePolicyInterface $response_policy
+   * @param \Drupal\Core\PageCache\ResponsePolicyInterface $responsePolicy
    *   A policy rule determining the cacheability of a response.
-   * @param \Drupal\Core\Cache\Context\CacheContextsManager $cache_contexts_manager
+   * @param \Drupal\Core\Cache\Context\CacheContextsManager $cacheContextsManager
    *   The cache contexts manager service.
-   * @param bool $http_response_debug_cacheability_headers
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
+   * @param bool $debugCacheabilityHeaders
    *   (optional) Whether to send cacheability headers for debugging purposes.
    */
-  public function __construct(LanguageManagerInterface $language_manager, ConfigFactoryInterface $config_factory, RequestPolicyInterface $request_policy, ResponsePolicyInterface $response_policy, CacheContextsManager $cache_contexts_manager, $http_response_debug_cacheability_headers = FALSE) {
-    $this->languageManager = $language_manager;
+  public function __construct(
+    protected LanguageManagerInterface $languageManager,
+    ConfigFactoryInterface $config_factory,
+    protected RequestPolicyInterface $requestPolicy,
+    protected ResponsePolicyInterface $responsePolicy,
+    protected CacheContextsManager $cacheContextsManager,
+    protected TimeInterface $time,
+    protected bool $debugCacheabilityHeaders = FALSE,
+  ) {
     $this->config = $config_factory->get('system.performance');
-    $this->requestPolicy = $request_policy;
-    $this->responsePolicy = $response_policy;
-    $this->cacheContextsManager = $cache_contexts_manager;
-    $this->debugCacheabilityHeaders = $http_response_debug_cacheability_headers;
   }
 
   /**
    * Sets extra headers on any responses, also subrequest ones.
    *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
+   * @param \Symfony\Component\HttpKernel\Event\ResponseEvent $event
    *   The event to process.
    */
-  public function onAllResponds(FilterResponseEvent $event) {
+  public function onAllResponds(ResponseEvent $event) {
     $response = $event->getResponse();
     // Always add the 'http_response' cache tag to be able to invalidate every
     // response, for example after rebuilding routes.
@@ -106,20 +77,16 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
   /**
    * Sets extra headers on successful responses.
    *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
+   * @param \Symfony\Component\HttpKernel\Event\ResponseEvent $event
    *   The event to process.
    */
-  public function onRespond(FilterResponseEvent $event) {
-    if (!$event->isMasterRequest()) {
+  public function onRespond(ResponseEvent $event) {
+    if (!$event->isMainRequest()) {
       return;
     }
 
     $request = $event->getRequest();
     $response = $event->getResponse();
-
-    // Set the X-UA-Compatible HTTP header to force IE to use the most recent
-    // rendering engine.
-    $response->headers->set('X-UA-Compatible', 'IE=edge', FALSE);
 
     // Set the Content-language header.
     $response->headers->set('Content-language', $this->languageManager->getCurrentLanguage()->getId());
@@ -127,9 +94,11 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
     // Prevent browsers from sniffing a response and picking a MIME type
     // different from the declared content-type, since that can lead to
     // XSS and other vulnerabilities.
-    // https://www.owasp.org/index.php/List_of_useful_HTTP_headers
-    $response->headers->set('X-Content-Type-Options', 'nosniff', FALSE);
-    $response->headers->set('X-Frame-Options', 'SAMEORIGIN', FALSE);
+    // https://owasp.org/www-project-secure-headers
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    if (!$response->headers->has('X-Frame-Options')) {
+      $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+    }
 
     // If the current response isn't an implementation of the
     // CacheableResponseInterface, we assume that a Response is either
@@ -154,8 +123,20 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
       // Expose the cache contexts and cache tags associated with this page in a
       // X-Drupal-Cache-Contexts and X-Drupal-Cache-Tags header respectively.
       $response_cacheability = $response->getCacheableMetadata();
-      $response->headers->set('X-Drupal-Cache-Tags', implode(' ', $response_cacheability->getCacheTags()));
-      $response->headers->set('X-Drupal-Cache-Contexts', implode(' ', $this->cacheContextsManager->optimizeTokens($response_cacheability->getCacheContexts())));
+      $cache_tags = $response_cacheability->getCacheTags();
+      sort($cache_tags);
+      $response->headers->set('X-Drupal-Cache-Tags', implode(' ', $cache_tags));
+      $cache_contexts = $this->cacheContextsManager->optimizeTokens($response_cacheability->getCacheContexts());
+      sort($cache_contexts);
+      $response->headers->set('X-Drupal-Cache-Contexts', implode(' ', $cache_contexts));
+      $max_age_message = $response_cacheability->getCacheMaxAge();
+      if ($max_age_message === 0) {
+        $max_age_message = '0 (Uncacheable)';
+      }
+      elseif ($max_age_message === -1) {
+        $max_age_message = '-1 (Permanent)';
+      }
+      $response->headers->set('X-Drupal-Cache-Max-Age', $max_age_message);
     }
 
     $is_cacheable = ($this->requestPolicy->check($request) === RequestPolicyInterface::ALLOW) && ($this->responsePolicy->check($response, $request) !== ResponsePolicyInterface::DENY);
@@ -193,14 +174,23 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    * not Cache-Control, then 'private, must-revalidate' (in exactly this order)
    * is returned.
    *
-   * @see \Symfony\Component\HttpFoundation\ResponseHeaderBag::computeCacheControlValue()
-   *
    * @param \Symfony\Component\HttpFoundation\Response $response
+   *   The response object.
    *
    * @return bool
    *   TRUE when Cache-Control header was set explicitly on the given response.
+   *
+   * @see \Symfony\Component\HttpFoundation\ResponseHeaderBag::computeCacheControlValue()
    */
   protected function isCacheControlCustomized(Response $response) {
+    // Symfony >= 3.2 explicitly removes the Cache-Control header for 301
+    // redirects which do not have a custom Cache-Control header. Treat those
+    // redirect responses as not customized.
+    // @see https://github.com/symfony/symfony/issues/17139
+    if ($response->getStatusCode() === 301 && !$response->headers->has('Cache-Control')) {
+      return FALSE;
+    }
+
     $cache_control = $response->headers->get('Cache-Control');
     return $cache_control != 'no-cache, private' && $cache_control != 'private, must-revalidate';
   }
@@ -248,8 +238,8 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
     // In order to support HTTP cache-revalidation, ensure that there is a
     // Last-Modified and an ETag header on the response.
     if (!$response->headers->has('Last-Modified')) {
-      $timestamp = REQUEST_TIME;
-      $response->setLastModified(new \DateTime(gmdate(DateTimePlus::RFC7231, REQUEST_TIME)));
+      $timestamp = $this->time->getRequestTime();
+      $response->setLastModified(new \DateTime(gmdate(DateTimePlus::RFC7231, $this->time->getRequestTime())));
     }
     else {
       $timestamp = $response->getLastModified()->getTimestamp();
@@ -297,7 +287,7 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    * @return array
    *   An array of event listener definitions.
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     $events[KernelEvents::RESPONSE][] = ['onRespond'];
     // There is no specific reason for choosing 16 beside it should be executed
     // before ::onRespond().

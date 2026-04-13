@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
+
+use Drupal\entity_test\EntityTestHelper;
 
 /**
  * Tests creation, saving, and loading of entity UUIDs.
@@ -9,10 +13,13 @@ namespace Drupal\KernelTests\Core\Entity;
  */
 class EntityUUIDTest extends EntityKernelTestBase {
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
-    foreach (entity_test_entity_types() as $entity_type_id) {
+    foreach (EntityTestHelper::getEntityTypes() as $entity_type_id) {
       // The entity_test schema is installed by the parent.
       if ($entity_type_id != 'entity_test') {
         $this->installEntitySchema($entity_type_id);
@@ -23,9 +30,9 @@ class EntityUUIDTest extends EntityKernelTestBase {
   /**
    * Tests UUID generation in entity CRUD operations.
    */
-  public function testCRUD() {
+  public function testCRUD(): void {
     // All entity variations have to have the same results.
-    foreach (entity_test_entity_types() as $entity_type) {
+    foreach (EntityTestHelper::getEntityTypes() as $entity_type) {
       $this->assertCRUD($entity_type);
     }
   }
@@ -35,8 +42,10 @@ class EntityUUIDTest extends EntityKernelTestBase {
    *
    * @param string $entity_type
    *   The entity type to run the tests with.
+   *
+   * @internal
    */
-  protected function assertCRUD($entity_type) {
+  protected function assertCRUD(string $entity_type): void {
     // Verify that no UUID is auto-generated when passing one for creation.
     $uuid_service = $this->container->get('uuid');
     $uuid = $uuid_service->generate();
@@ -46,23 +55,23 @@ class EntityUUIDTest extends EntityKernelTestBase {
         'name' => $this->randomMachineName(),
         'uuid' => $uuid,
       ]);
-    $this->assertIdentical($custom_entity->uuid(), $uuid);
+    $this->assertSame($uuid, $custom_entity->uuid());
     // Save this entity, so we have more than one later.
     $custom_entity->save();
 
     // Verify that a new UUID is generated upon creating an entity.
     $entity = $this->container->get('entity_type.manager')
       ->getStorage($entity_type)
-      ->create(['name' => $this->randomMachineName()]);
+      ->create(['name' => 'UUID CRUD test entity']);
     $uuid = $entity->uuid();
     $this->assertNotEmpty($uuid);
 
     // Verify that the new UUID is different.
-    $this->assertNotEqual($custom_entity->uuid(), $uuid);
+    $this->assertNotEquals($custom_entity->uuid(), $uuid);
 
     // Verify that the UUID is retained upon saving.
     $entity->save();
-    $this->assertIdentical($entity->uuid(), $uuid);
+    $this->assertSame($uuid, $entity->uuid());
 
     // Verify that the UUID is retained upon loading.
     /** @var \Drupal\Core\Entity\EntityStorageInterface $storage */
@@ -70,12 +79,13 @@ class EntityUUIDTest extends EntityKernelTestBase {
       ->getStorage($entity_type);
     $storage->resetCache([$entity->id()]);
     $entity_loaded = $storage->load($entity->id());
-    $this->assertIdentical($entity_loaded->uuid(), $uuid);
+    $this->assertSame($uuid, $entity_loaded->uuid());
 
-    // Verify that \Drupal::service('entity.repository')->loadEntityByUuid() loads the same entity.
+    // Verify that \Drupal::service('entity.repository')->loadEntityByUuid()
+    // loads the same entity.
     $entity_loaded_by_uuid = \Drupal::service('entity.repository')->loadEntityByUuid($entity_type, $uuid, TRUE);
-    $this->assertIdentical($entity_loaded_by_uuid->uuid(), $uuid);
-    $this->assertEqual($entity_loaded_by_uuid->id(), $entity_loaded->id());
+    $this->assertSame($uuid, $entity_loaded_by_uuid->uuid());
+    $this->assertEquals($entity_loaded->id(), $entity_loaded_by_uuid->id());
 
     // Creating a duplicate needs to result in a new UUID.
     $entity_duplicate = $entity->createDuplicate();
@@ -84,28 +94,39 @@ class EntityUUIDTest extends EntityKernelTestBase {
         case 'uuid':
           $this->assertNotNull($entity_duplicate->uuid());
           $this->assertNotNull($entity->uuid());
-          $this->assertNotEqual($entity_duplicate->uuid(), $entity->uuid());
+          $this->assertNotEquals($entity->uuid(), $entity_duplicate->uuid());
           break;
 
         case 'id':
           $this->assertNull($entity_duplicate->id());
           $this->assertNotNull($entity->id());
-          $this->assertNotEqual($entity_duplicate->id(), $entity->id());
+          $this->assertNotEquals($entity->id(), $entity_duplicate->id());
           break;
 
         case 'revision_id':
           $this->assertNull($entity_duplicate->getRevisionId());
           $this->assertNotNull($entity->getRevisionId());
-          $this->assertNotEqual($entity_duplicate->getRevisionId(), $entity->getRevisionId());
-          $this->assertNotEqual($entity_duplicate->{$property}->getValue(), $entity->{$property}->getValue());
+          $this->assertNotEquals($entity->getRevisionId(), $entity_duplicate->getRevisionId());
+          $this->assertNotEquals($entity->{$property}->getValue(), $entity_duplicate->{$property}->getValue());
+          break;
+
+        case 'name':
+          // Assert alter hooks in \Drupal\entity_test\Hook\EntityTestHooks.
+          if ($entity_type === 'entity_test') {
+            $this->assertEquals('prefix UUID CRUD test entity duplicate', $entity_duplicate->label());
+          }
+          else {
+            $this->assertEquals('UUID CRUD test entity duplicate', $entity_duplicate->label());
+          }
+          $this->assertEquals('UUID CRUD test entity', $entity->label());
           break;
 
         default:
-          $this->assertEqual($entity_duplicate->{$property}->getValue(), $entity->{$property}->getValue());
+          $this->assertEquals($entity->{$property}->getValue(), $entity_duplicate->{$property}->getValue());
       }
     }
     $entity_duplicate->save();
-    $this->assertNotEqual($entity->id(), $entity_duplicate->id());
+    $this->assertNotEquals($entity_duplicate->id(), $entity->id());
   }
 
 }

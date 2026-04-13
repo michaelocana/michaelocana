@@ -3,14 +3,14 @@
 namespace Drupal\Core\Access;
 
 /**
- * Value object indicating a forbidden access result, with cacheability metadata.
+ * Value object for a forbidden access result, with cacheability metadata.
  */
 class AccessResultForbidden extends AccessResult implements AccessResultReasonInterface {
 
   /**
    * The reason why access is forbidden. For use in error messages.
    *
-   * @var string|null
+   * @var string
    */
   protected $reason;
 
@@ -35,7 +35,7 @@ class AccessResultForbidden extends AccessResult implements AccessResultReasonIn
    * {@inheritdoc}
    */
   public function getReason() {
-    return $this->reason;
+    return (string) $this->reason;
   }
 
   /**

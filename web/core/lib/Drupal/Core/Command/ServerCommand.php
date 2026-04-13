@@ -58,7 +58,7 @@ class ServerCommand extends Command {
   /**
    * {@inheritdoc}
    */
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $io = new SymfonyStyle($input, $output);
 
     $host = $input->getOption('host');
@@ -73,7 +73,7 @@ class ServerCommand extends Command {
     try {
       $kernel = $this->boot();
     }
-    catch (ConnectionNotDefinedException $e) {
+    catch (ConnectionNotDefinedException) {
       $io->getErrorStyle()->error("No installation found. Use the 'install' command.");
       return 1;
     }
@@ -148,8 +148,8 @@ class ServerCommand extends Command {
       $url = escapeshellarg($url);
     }
 
-    $is_linux = (new Process('which xdg-open'))->run();
-    $is_osx = (new Process('which open'))->run();
+    $is_linux = Process::fromShellCommandline('which xdg-open')->run();
+    $is_osx = Process::fromShellCommandline('which open')->run();
     if ($is_linux === 0) {
       $cmd = 'xdg-open ' . $url;
     }
@@ -245,8 +245,8 @@ class ServerCommand extends Command {
     $server = proc_open($process->getCommandLine(), $descriptors, $pipes, $kernel->getAppRoot());
     if (is_resource($server)) {
       if ($io->isVerbose()) {
-        // Write a blank line so that server output and the useful information are
-        // visually separated.
+        // Write a blank line so that server output and the useful information
+        // are visually separated.
         $io->writeln('');
       }
       $server_status = proc_get_status($server);

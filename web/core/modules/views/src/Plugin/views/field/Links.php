@@ -4,14 +4,44 @@ namespace Drupal\views\Plugin\views\field;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\RedirectDestinationInterface;
 use Drupal\Core\Url as UrlObject;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * A abstract handler which provides a collection of links.
+ * An abstract handler which provides a collection of links.
  *
  * @ingroup views_field_handlers
  */
 abstract class Links extends FieldPluginBase {
+
+  /**
+   * Constructs a Links object.
+   *
+   * @param array $configuration
+   *   A configuration array containing information about the plugin instance.
+   * @param string $plugin_id
+   *   The plugin ID for the plugin instance.
+   * @param mixed $plugin_definition
+   *   The plugin implementation definition.
+   * @param \Drupal\Core\Routing\RedirectDestinationInterface $redirectDestination
+   *   The redirect destination service.
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, protected RedirectDestinationInterface $redirectDestination) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('redirect.destination')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -84,7 +114,7 @@ abstract class Links extends FieldPluginBase {
         'title' => $title,
       ];
       if (!empty($this->options['destination'])) {
-        $links[$field]['query'] = \Drupal::destination()->getAsArray();
+        $links[$field]['query'] = $this->redirectDestination->getAsArray();
       }
     }
 

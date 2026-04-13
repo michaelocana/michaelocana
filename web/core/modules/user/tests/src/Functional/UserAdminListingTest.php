@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -16,12 +18,12 @@ class UserAdminListingTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * Tests the listing.
    */
-  public function testUserListing() {
+  public function testUserListing(): void {
     // Ensure the anonymous user cannot access the admin listing.
     $this->drupalGet('admin/people');
     $this->assertSession()->statusCodeEquals(403);
@@ -49,9 +51,7 @@ class UserAdminListingTest extends BrowserTestBase {
     $rid_2 = $this->drupalCreateRole([], 'custom_role_2', 'custom_role_2');
 
     $account = $this->drupalCreateUser();
-    $account->addRole($rid_1);
-    $account->addRole($rid_2);
-    $account->save();
+    $account->addRole($rid_1)->addRole($rid_2)->save();
     $accounts[$account->label()] = $account;
     $role_account_name = $account->label();
 
@@ -73,7 +73,7 @@ class UserAdminListingTest extends BrowserTestBase {
       $account_columns = $account->findAll('css', 'td');
       $name = $account_columns[0]->find('css', 'a')->getText();
       $roles = [];
-      $account_roles = $account_columns[2]->findAll('css', 'td div ul li');
+      $account_roles = $account_columns[2]->findAll('css', 'td ul li');
       if (!empty($account_roles)) {
         foreach ($account_roles as $element) {
           $roles[] = $element->getText();
@@ -91,15 +91,15 @@ class UserAdminListingTest extends BrowserTestBase {
 
     $this->assertEmpty(array_keys(array_diff_key($result_accounts, $accounts)), 'Ensure all accounts are listed.');
     foreach ($result_accounts as $name => $values) {
-      $this->assertEqual($values['status'] == t('active'), $accounts[$name]->status->value, 'Ensure the status is displayed properly.');
+      $this->assertEquals($accounts[$name]->status->value, $values['status'] == 'active');
     }
 
     $expected_roles = ['custom_role_1', 'custom_role_2'];
-    $this->assertEqual($result_accounts[$role_account_name]['roles'], $expected_roles, 'Ensure roles are listed properly.');
+    $this->assertEquals($expected_roles, $result_accounts[$role_account_name]['roles'], 'Ensure roles are listed properly.');
 
-    $this->assertEqual($result_accounts[$timestamp_user]['member_for'], \Drupal::service('date.formatter')->formatTimeDiffSince($accounts[$timestamp_user]->created->value), 'Ensure the right member time is displayed.');
+    $this->assertEquals(\Drupal::service('date.formatter')->formatTimeDiffSince($accounts[$timestamp_user]->created->value), $result_accounts[$timestamp_user]['member_for'], 'Ensure the right member time is displayed.');
 
-    $this->assertEqual($result_accounts[$timestamp_user]['last_access'], 'never', 'Ensure the last access time is "never".');
+    $this->assertEquals('never', $result_accounts[$timestamp_user]['last_access'], 'Ensure the last access time is "never".');
   }
 
 }

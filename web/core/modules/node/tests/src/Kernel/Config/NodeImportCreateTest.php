@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel\Config;
 
 use Drupal\Core\Site\Settings;
@@ -15,16 +17,14 @@ use Drupal\KernelTests\KernelTestBase;
 class NodeImportCreateTest extends KernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'field', 'text', 'system', 'user'];
+  protected static $modules = ['node', 'field', 'text', 'system', 'user'];
 
   /**
    * Set the default field storage backend for fields created during tests.
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('user');
 
@@ -35,7 +35,7 @@ class NodeImportCreateTest extends KernelTestBase {
   /**
    * Tests creating a content type during default config import.
    */
-  public function testImportCreateDefault() {
+  public function testImportCreateDefault(): void {
     $node_type_id = 'default';
 
     // Check that the content type does not exist yet.
@@ -51,7 +51,7 @@ class NodeImportCreateTest extends KernelTestBase {
   /**
    * Tests creating a content type during config import.
    */
-  public function testImportCreate() {
+  public function testImportCreate(): void {
     $node_type_id = 'import';
     $node_type_config_name = "node.type.$node_type_id";
 

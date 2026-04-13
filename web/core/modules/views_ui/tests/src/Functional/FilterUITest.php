@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views_ui\Functional;
 
 /**
@@ -9,7 +11,6 @@ namespace Drupal\Tests\views_ui\Functional;
  */
 class FilterUITest extends UITestBase {
 
-
   /**
    * Views used by this test.
    *
@@ -18,11 +19,9 @@ class FilterUITest extends UITestBase {
   public static $testViews = ['test_filter_in_operator_ui', 'test_filter_groups'];
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['views_ui', 'node'];
+  protected static $modules = ['views_ui', 'node'];
 
   /**
    * {@inheritdoc}
@@ -32,15 +31,15 @@ class FilterUITest extends UITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp($import_test_views);
+  protected function setUp($import_test_views = TRUE, $modules = ['views_test_config']): void {
+    parent::setUp($import_test_views, $modules);
     $this->drupalCreateContentType(['type' => 'page']);
   }
 
   /**
    * Tests that an option for a filter is saved as expected from the UI.
    */
-  public function testFilterInOperatorUi() {
+  public function testFilterInOperatorUi(): void {
     $admin_user = $this->drupalCreateUser([
       'administer views',
       'administer site configuration',
@@ -50,23 +49,24 @@ class FilterUITest extends UITestBase {
     $path = 'admin/structure/views/nojs/handler/test_filter_in_operator_ui/default/filter/type';
     $this->drupalGet($path);
     // Verifies that "Limit list to selected items" option is not selected.
-    $this->assertFieldByName('options[expose][reduce]', FALSE);
+    $this->assertSession()->fieldValueEquals('options[expose][reduce]', FALSE);
 
     // Select "Limit list to selected items" option and apply.
     $edit = [
       'options[expose][reduce]' => TRUE,
     ];
-    $this->drupalPostForm($path, $edit, t('Apply'));
+    $this->drupalGet($path);
+    $this->submitForm($edit, 'Apply');
 
     // Verifies that the option was saved as expected.
     $this->drupalGet($path);
-    $this->assertFieldByName('options[expose][reduce]', TRUE);
+    $this->assertSession()->fieldValueEquals('options[expose][reduce]', TRUE);
   }
 
   /**
    * Tests the filters from the UI.
    */
-  public function testFiltersUI() {
+  public function testFiltersUI(): void {
     $admin_user = $this->drupalCreateUser([
       'administer views',
       'administer site configuration',
@@ -79,29 +79,29 @@ class FilterUITest extends UITestBase {
 
     // Tests that we can create a new filter group from UI.
     $this->drupalGet('admin/structure/views/nojs/rearrange-filter/test_filter_groups/page');
-    $this->assertNoRaw('<span>Group 3</span>', 'Group 3 has not been added yet.');
+    $this->assertSession()->elementNotExists('xpath', '//span[text()="Group 3"]');
 
     // Create 2 new groups.
-    $this->drupalPostForm(NULL, [], t('Create new filter group'));
-    $this->drupalPostForm(NULL, [], t('Create new filter group'));
+    $this->submitForm([], 'Create new filter group');
+    $this->submitForm([], 'Create new filter group');
 
     // Remove the new group 3.
-    $this->drupalPostForm(NULL, [], t('Remove group 3'));
+    $this->submitForm([], 'Remove group 3');
 
     // Verify that the group 4 is now named as 3.
-    $this->assertRaw('<span>Group 3</span>', 'Group 3 still exists.');
+    $this->assertSession()->responseContains('<span>Group 3</span>');
 
     // Remove the group 3 again.
-    $this->drupalPostForm(NULL, [], t('Remove group 3'));
+    $this->submitForm([], 'Remove group 3');
 
     // Group 3 now does not exist.
-    $this->assertNoRaw('<span>Group 3</span>', 'Group 3 has not been added yet.');
+    $this->assertSession()->elementNotExists('xpath', '//span[text()="Group 3"]');
   }
 
   /**
    * Tests the identifier settings and restrictions.
    */
-  public function testFilterIdentifier() {
+  public function testFilterIdentifier(): void {
     $admin_user = $this->drupalCreateUser([
       'administer views',
       'administer site configuration',
@@ -113,23 +113,26 @@ class FilterUITest extends UITestBase {
     $edit = [
       'options[expose][identifier]' => '',
     ];
-    $this->drupalPostForm($path, $edit, t('Apply'));
-    $this->assertText('The identifier is required if the filter is exposed.');
+    $this->drupalGet($path);
+    $this->submitForm($edit, 'Apply');
+    $this->assertSession()->pageTextContains('The identifier is required if the filter is exposed.');
 
     // Set the identifier to 'value'.
     $edit = [
       'options[expose][identifier]' => 'value',
     ];
-    $this->drupalPostForm($path, $edit, t('Apply'));
-    $this->assertText('This identifier is not allowed.');
+    $this->drupalGet($path);
+    $this->submitForm($edit, 'Apply');
+    $this->assertSession()->pageTextContains('This identifier is not allowed.');
 
     // Try a few restricted values for the identifier.
     foreach (['value value', 'value^value'] as $identifier) {
       $edit = [
         'options[expose][identifier]' => $identifier,
       ];
-      $this->drupalPostForm($path, $edit, t('Apply'));
-      $this->assertText('This identifier has illegal characters.');
+      $this->drupalGet($path);
+      $this->submitForm($edit, 'Apply');
+      $this->assertSession()->pageTextContains('This identifier has illegal characters.');
     }
   }
 

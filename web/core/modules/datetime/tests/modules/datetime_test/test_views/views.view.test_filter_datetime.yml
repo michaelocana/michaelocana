@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_filter_datetime
-label: ''
+label: test_filter_datetime
 module: views
 description: ''
 tag: ''
@@ -50,6 +50,6 @@ display:
       row:
         type: fields
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

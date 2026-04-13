@@ -3,7 +3,6 @@
 namespace Drupal\Core\Extension;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Extension\Exception\UninstalledExtensionException;
 use Drupal\Core\Extension\Exception\UnknownExtensionException;
 
 /**
@@ -47,7 +46,7 @@ class ThemeHandler implements ThemeHandlerInterface {
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The config factory to get the installed themes.
    * @param \Drupal\Core\Extension\ThemeExtensionList $theme_list
-   *   A extension discovery instance.
+   *   An extension discovery instance.
    */
   public function __construct($root, ConfigFactoryInterface $config_factory, ThemeExtensionList $theme_list) {
     $this->root = $root;
@@ -65,48 +64,22 @@ class ThemeHandler implements ThemeHandlerInterface {
   /**
    * {@inheritdoc}
    */
-  public function setDefault($name) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use the configuration system to edit the system.theme config directly. See https://www.drupal.org/node/3082630', E_USER_DEPRECATED);
-    $list = $this->listInfo();
-    if (!isset($list[$name])) {
-      throw new UninstalledExtensionException("$name theme is not installed.");
-    }
-    $this->configFactory->getEditable('system.theme')
-      ->set('default', $name)
-      ->save();
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function install(array $theme_list, $install_dependencies = TRUE) {
-    // We keep the old install() method as BC layer but redirect directly to the
-    // theme installer.
-    @trigger_error('\Drupal\Core\Extension\ThemeHandlerInterface::install() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Extension\ThemeInstallerInterface::install() instead. See https://www.drupal.org/node/3017233', E_USER_DEPRECATED);
-    return \Drupal::service('theme_installer')->install($theme_list, $install_dependencies);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function uninstall(array $theme_list) {
-    // We keep the old uninstall() method as BC layer but redirect directly to
-    // the theme installer.
-    @trigger_error('\Drupal\Core\Extension\ThemeHandlerInterface::uninstall() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Extension\ThemeInstallerInterface::uninstall() instead. See https://www.drupal.org/node/3017233', E_USER_DEPRECATED);
-    \Drupal::service('theme_installer')->uninstall($theme_list);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function listInfo() {
     if (!isset($this->list)) {
       $this->list = [];
-      $installed_themes = $this->configFactory->get('core.extension')->get('theme');
+      $installed_themes = array_keys($this->configFactory->get('core.extension')->get('theme'));
       if (!empty($installed_themes)) {
-        $installed_themes = array_intersect_key($this->themeList->getList(), $installed_themes);
-        array_map([$this, 'addTheme'], $installed_themes);
+        $list = $this->themeList->getList();
+        foreach ($installed_themes as $theme) {
+          // Do not add installed themes that cannot be found by the
+          // extension.list.theme service. If a theme does go missing from the
+          // file system any call to ::getTheme() will result in an exception
+          // and an error being logged. Ignoring the problem here allows the
+          // theme system to fix itself while updating.
+          if (isset($list[$theme])) {
+            $this->addTheme($list[$theme]);
+          }
+        }
       }
     }
     return $this->list;
@@ -161,6 +134,7 @@ class ThemeHandler implements ThemeHandlerInterface {
    * {@inheritdoc}
    */
   public function rebuildThemeData() {
+    @trigger_error("\Drupal\Core\Extension\ThemeHandlerInterface::rebuildThemeData() is deprecated in drupal:10.3.0 and is removed from drupal:12.0.0. Use \Drupal::service('extension.list.theme')->reset()->getList() instead. See https://www.drupal.org/node/3413196", E_USER_DEPRECATED);
     return $this->themeList->reset()->getList();
   }
 
@@ -168,6 +142,7 @@ class ThemeHandler implements ThemeHandlerInterface {
    * {@inheritdoc}
    */
   public function getBaseThemes(array $themes, $theme) {
+    @trigger_error("\Drupal\Core\Extension\ThemeHandlerInterface::getBaseThemes() is deprecated in drupal:10.3.0 and is removed from drupal:12.0.0. There is no direct replacement. See https://www.drupal.org/node/3413187", E_USER_DEPRECATED);
     return $this->themeList->getBaseThemes($themes, $theme);
   }
 

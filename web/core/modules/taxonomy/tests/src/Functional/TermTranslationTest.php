@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\taxonomy\Functional;
 
 use Drupal\Core\Url;
@@ -36,17 +38,17 @@ class TermTranslationTest extends TaxonomyTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['taxonomy', 'language', 'content_translation'];
+  protected static $modules = ['taxonomy', 'language', 'content_translation'];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->setupLanguages();
     $this->vocabulary = $this->createVocabulary();
@@ -56,9 +58,9 @@ class TermTranslationTest extends TaxonomyTestBase {
   }
 
   /**
-   * Test translated breadcrumbs.
+   * Tests translated breadcrumbs.
    */
-  public function testTranslatedBreadcrumbs() {
+  public function testTranslatedBreadcrumbs(): void {
     // Ensure non-translated breadcrumb is correct.
     $breadcrumb = [Url::fromRoute('<front>')->toString() => 'Home'];
     foreach ($this->terms as $term) {
@@ -90,9 +92,9 @@ class TermTranslationTest extends TaxonomyTestBase {
   }
 
   /**
-   * Test translation of terms are showed in the node.
+   * Tests translation of terms are showed in the node.
    */
-  public function testTermsTranslation() {
+  public function testTermsTranslation(): void {
 
     // Set the display of the term reference field on the article content type
     // to "Check boxes/radio buttons".
@@ -105,22 +107,22 @@ class TermTranslationTest extends TaxonomyTestBase {
     $this->drupalLogin($this->drupalCreateUser(['create article content']));
 
     // Test terms are listed.
-    $this->drupalget('node/add/article');
-    $this->assertText('one');
-    $this->assertText('two');
-    $this->assertText('three');
+    $this->drupalGet('node/add/article');
+    $this->assertSession()->pageTextContains('one');
+    $this->assertSession()->pageTextContains('two');
+    $this->assertSession()->pageTextContains('three');
 
     // Test terms translated are listed.
-    $this->drupalget('hu/node/add/article');
-    $this->assertText('translatedOne');
-    $this->assertText('translatedTwo');
-    $this->assertText('translatedThree');
+    $this->drupalGet('hu/node/add/article');
+    $this->assertSession()->pageTextContains('translatedOne');
+    $this->assertSession()->pageTextContains('translatedTwo');
+    $this->assertSession()->pageTextContains('translatedThree');
   }
 
   /**
    * Setup translated terms in a hierarchy.
    */
-  protected function setUpTerms() {
+  protected function setUpTerms(): void {
     $parent_vid = 0;
     foreach ($this->termTranslationMap as $name => $translation) {
 

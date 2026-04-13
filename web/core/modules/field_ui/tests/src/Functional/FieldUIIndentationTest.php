@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field_ui\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,11 +14,9 @@ use Drupal\Tests\BrowserTestBase;
 class FieldUIIndentationTest extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'field_ui', 'field_ui_test'];
+  protected static $modules = ['node', 'field_ui', 'field_ui_test'];
 
   /**
    * {@inheritdoc}
@@ -26,7 +26,7 @@ class FieldUIIndentationTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Create a test user.
@@ -42,9 +42,12 @@ class FieldUIIndentationTest extends BrowserTestBase {
 
   }
 
-  public function testIndentation() {
+  /**
+   * Tests that the indentation classes are present in the content type display settings.
+   */
+  public function testIndentation(): void {
     $this->drupalGet('admin/structure/types/manage/page/display');
-    $this->assertRaw('js-indentation indentation');
+    $this->assertSession()->responseContains('js-indentation indentation');
   }
 
 }

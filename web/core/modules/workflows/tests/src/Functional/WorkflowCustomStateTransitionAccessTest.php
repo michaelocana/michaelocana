@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workflows\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -15,7 +17,7 @@ class WorkflowCustomStateTransitionAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'workflows',
     'workflow_type_test',
   ];
@@ -42,7 +44,7 @@ class WorkflowCustomStateTransitionAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->adminUser = $this->createUser(['administer workflows']);
     $this->testWorkflow = Workflow::create([
@@ -54,9 +56,9 @@ class WorkflowCustomStateTransitionAccessTest extends BrowserTestBase {
   }
 
   /**
-   * Test the custom state/transition operation access rules.
+   * Tests the custom state/transition operation access rules.
    */
-  public function testCustomWorkflowAccessOperations() {
+  public function testCustomWorkflowAccessOperations(): void {
     $this->drupalLogin($this->adminUser);
     $forbidden_paths = [
       'admin/config/workflow/workflows/manage/test_type/state/cannot_delete/delete',

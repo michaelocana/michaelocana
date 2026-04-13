@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel;
 
+use Drupal\views\Exception\ViewRenderElementException;
 use Drupal\views\Views;
 
 /**
@@ -21,7 +24,7 @@ class ViewElementTest extends ViewsKernelTestBase {
   /**
    * Tests the rendered output and form output of a view element.
    */
-  public function testViewElement() {
+  public function testViewElement(): void {
     /** @var \Drupal\Core\Render\RendererInterface $renderer */
     $renderer = $this->container->get('renderer');
     $view = Views::getView('test_view_embed');
@@ -29,7 +32,7 @@ class ViewElementTest extends ViewsKernelTestBase {
     // Get the render array, #embed must be FALSE since this is the default
     // display.
     $render = $view->buildRenderable();
-    $this->assertEqual($render['#embed'], FALSE);
+    $this->assertFalse($render['#embed']);
     $this->setRawContent($renderer->renderRoot($render));
 
     $xpath = $this->xpath('//div[@class="views-element-container"]');
@@ -69,17 +72,16 @@ class ViewElementTest extends ViewsKernelTestBase {
   }
 
   /**
-   * Tests the rendered output and form output of a view element, using the
-   * embed display plugin.
+   * Tests the rendered output and form output of the "embed" display plugin.
    */
-  public function testViewElementEmbed() {
+  public function testViewElementEmbed(): void {
     /** @var \Drupal\Core\Render\RendererInterface $renderer */
     $renderer = $this->container->get('renderer');
     $view = Views::getView('test_view_embed');
 
     // Get the render array, #embed must be TRUE since this is an embed display.
     $render = $view->buildRenderable('embed_1');
-    $this->assertEqual($render['#embed'], TRUE);
+    $this->assertTrue($render['#embed']);
     $this->setRawContent($renderer->renderRoot($render));
 
     // Ensure that the render array can be serialized.
@@ -127,6 +129,21 @@ class ViewElementTest extends ViewsKernelTestBase {
 
     // Ensure that the exposed form is rendered.
     $this->assertCount(1, $this->xpath('//form[@class="views-exposed-form"]'));
+  }
+
+  /**
+   * Tests that an exception is thrown when an invalid View is passed.
+   */
+  public function testInvalidView(): void {
+    $renderer = $this->container->get('renderer');
+    $render_element = [
+      '#type' => 'view',
+      '#name' => 'invalid_view_name',
+      '#embed' => FALSE,
+    ];
+    $this->expectException(ViewRenderElementException::class);
+    $this->expectExceptionMessage("Invalid View name ({$render_element['#name']}) given.");
+    $renderer->renderRoot($render_element);
   }
 
 }

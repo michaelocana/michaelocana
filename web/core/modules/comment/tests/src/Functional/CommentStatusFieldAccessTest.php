@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Functional;
 
 use Drupal\comment\Tests\CommentTestTrait;
@@ -42,7 +44,7 @@ class CommentStatusFieldAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'comment',
     'user',
@@ -53,11 +55,11 @@ class CommentStatusFieldAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $node_type = NodeType::create([
       'type' => 'article',
-      'name' => t('Article'),
+      'name' => 'Article',
     ]);
     $node_type->save();
     $this->nodeAuthor = $this->drupalCreateUser([
@@ -83,21 +85,17 @@ class CommentStatusFieldAccessTest extends BrowserTestBase {
   /**
    * Tests comment status field access.
    */
-  public function testCommentStatusFieldAccessStatus() {
+  public function testCommentStatusFieldAccessStatus(): void {
     $this->drupalLogin($this->nodeAuthor);
     $this->drupalGet('node/add/article');
     $assert = $this->assertSession();
     $assert->fieldNotExists('comment[0][status]');
-    $this->submitForm([
-      'title[0][value]' => 'Node 1',
-    ], t('Save'));
+    $this->submitForm(['title[0][value]' => 'Node 1'], 'Save');
     $assert->fieldExists('subject[0][value]');
     $this->drupalLogin($this->commentAdmin);
     $this->drupalGet('node/add/article');
     $assert->fieldExists('comment[0][status]');
-    $this->submitForm([
-      'title[0][value]' => 'Node 2',
-    ], t('Save'));
+    $this->submitForm(['title[0][value]' => 'Node 2'], 'Save');
     $assert->fieldExists('subject[0][value]');
   }
 

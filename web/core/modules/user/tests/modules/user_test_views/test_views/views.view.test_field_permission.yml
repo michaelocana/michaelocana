@@ -4,7 +4,7 @@ dependencies:
   module:
     - user
 id: test_field_permission
-label: null
+label: test_node_revision_vid
 module: views
 description: ''
 tag: ''
@@ -14,7 +14,7 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: null
     display_options:
       access:

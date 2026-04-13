@@ -77,7 +77,7 @@ class ScaffoldFileCollection implements \IteratorAggregate {
    * Matching is done via destination path.
    *
    * @param string[] $files_to_filter
-   *   List of destination paths
+   *   List of destination paths.
    */
   public function filterFiles(array $files_to_filter) {
     foreach ($this->scaffoldFilesByProject as $project_name => $scaffold_files) {
@@ -96,14 +96,14 @@ class ScaffoldFileCollection implements \IteratorAggregate {
   /**
    * Scans through a list of scaffold files and determines if any has contents.
    *
-   * @param Drupal\Composer\Plugin\Scaffold\ScaffoldFileInfo[] $scaffold_files
-   *   List of scaffold files, path: ScaffoldFileInfo
+   * @param \Drupal\Composer\Plugin\Scaffold\ScaffoldFileInfo[] $scaffold_files
+   *   List of scaffold files, path: ScaffoldFileInfo.
    *
    * @return bool
    *   TRUE if at least one item in the list has content
    */
   protected function checkListHasItemWithContent(array $scaffold_files) {
-    foreach ($scaffold_files as $destination_rel_path => $scaffold_file) {
+    foreach ($scaffold_files as $scaffold_file) {
       $contents = $scaffold_file->op()->contents();
       if (!empty($contents)) {
         return TRUE;
@@ -115,7 +115,7 @@ class ScaffoldFileCollection implements \IteratorAggregate {
   /**
    * {@inheritdoc}
    */
-  public function getIterator() {
+  public function getIterator(): \ArrayIterator {
     return new \ArrayIterator($this->scaffoldFilesByProject);
   }
 
@@ -185,7 +185,7 @@ class ScaffoldFileCollection implements \IteratorAggregate {
    */
   public function checkUnchanged() {
     $results = [];
-    foreach ($this as $project_name => $scaffold_files) {
+    foreach ($this as $scaffold_files) {
       foreach ($scaffold_files as $scaffold_file) {
         if (!$scaffold_file->hasChanged()) {
           $results[] = $scaffold_file->destination()->relativePath();

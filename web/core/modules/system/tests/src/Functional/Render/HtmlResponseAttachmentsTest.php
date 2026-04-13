@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\Render;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,11 +14,9 @@ use Drupal\Tests\BrowserTestBase;
 class HtmlResponseAttachmentsTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['render_attached_test'];
+  protected static $modules = ['render_attached_test'];
 
   /**
    * {@inheritdoc}
@@ -24,9 +24,9 @@ class HtmlResponseAttachmentsTest extends BrowserTestBase {
   protected $defaultTheme = 'stark';
 
   /**
-   * Test rendering of ['#attached'].
+   * Tests rendering of ['#attached'].
    */
-  public function testAttachments() {
+  public function testAttachments(): void {
     // Test ['#attached']['http_header] = ['Status', $code].
     $this->drupalGet('/render_attached_test/teapot');
     $this->assertSession()->statusCodeEquals(418);
@@ -63,23 +63,28 @@ class HtmlResponseAttachmentsTest extends BrowserTestBase {
     // Test ['#attached']['html_head_link'] when outputted as HTTP header.
     $this->drupalGet('/render_attached_test/html_header_link');
     $expected_link_headers = [
-      '</foo?bar=&lt;baz&gt;&amp;baz=false>; rel="alternate"',
+      '</foo?bar=<baz>&baz=false>; rel="alternate"',
       '</foo/bar>; hreflang="nl"; rel="alternate"',
+      '</foo/bar>; hreflang="de"; rel="alternate"',
     ];
-    $this->assertEqual($this->getSession()->getResponseHeaders()['Link'], $expected_link_headers);
+    $this->assertEquals($expected_link_headers, $this->getSession()->getResponseHeaders()['Link']);
+
+    // Check that duplicate alternate URLs with different hreflang attributes
+    // are allowed.
+    $this->assertSession()->elementsCount('xpath', '//head/link[@rel="alternate"][@href="/foo/bar"]', 2);
   }
 
   /**
-   * Test caching of ['#attached'].
+   * Tests caching of ['#attached'].
    */
-  public function testRenderCachedBlock() {
+  public function testRenderCachedBlock(): void {
     // Make sure our test block is visible.
     $this->drupalPlaceBlock('attached_rendering_block', ['region' => 'content']);
 
     // Get the front page, which should now have our visible block.
     $this->drupalGet('');
     // Make sure our block is visible.
-    $this->assertText('Markup from attached_rendering_block.');
+    $this->assertSession()->pageTextContains('Markup from attached_rendering_block.');
     // Test that all our attached items are present.
     $this->assertFeed();
     $this->assertHead();
@@ -89,25 +94,28 @@ class HtmlResponseAttachmentsTest extends BrowserTestBase {
     // Reload the page, to test caching.
     $this->drupalGet('');
     // Make sure our block is visible.
-    $this->assertText('Markup from attached_rendering_block.');
+    $this->assertSession()->pageTextContains('Markup from attached_rendering_block.');
     // The header should be present again.
     $this->assertSession()->responseHeaderEquals('X-Test-Teapot', 'Teapot Mode Active');
   }
 
   /**
    * Helper function to make assertions about added HTTP headers.
+   *
+   * @internal
    */
-  protected function assertTeapotHeaders() {
-    $headers = $this->getSession()->getResponseHeaders();
-    $this->assertEquals($headers['X-Test-Teapot'], ['Teapot Mode Active']);
-    $this->assertEquals($headers['X-Test-Teapot-Replace'], ['Teapot replaced']);
-    $this->assertEquals($headers['X-Test-Teapot-No-Replace'], ['This value is not replaced', 'This one is added']);
+  protected function assertTeapotHeaders(): void {
+    $this->assertSession()->responseHeaderEquals('X-Test-Teapot', 'Teapot Mode Active');
+    $this->assertSession()->responseHeaderEquals('X-Test-Teapot-Replace', 'Teapot replaced');
+    $this->assertSession()->responseHeaderEquals('X-Test-Teapot-No-Replace', 'This value is not replaced');
   }
 
   /**
    * Helper function to make assertions about the presence of an RSS feed.
+   *
+   * @internal
    */
-  protected function assertFeed() {
+  protected function assertFeed(): void {
     // Discover the DOM element for the feed link.
     $test_meta = $this->xpath('//head/link[@href="test://url"]');
     $this->assertCount(1, $test_meta, 'Link has URL.');
@@ -131,10 +139,12 @@ class HtmlResponseAttachmentsTest extends BrowserTestBase {
 
   /**
    * Helper function to make assertions about HTML head elements.
+   *
+   * @internal
    */
-  protected function assertHead() {
+  protected function assertHead(): void {
     // Discover the DOM element for the meta link.
-    $test_meta = $this->xpath('//head/meta[@test-attribute="testvalue"]');
+    $test_meta = $this->xpath('//head/meta[@test-attribute="test_value"]');
     $this->assertCount(1, $test_meta, 'There\'s only one test attribute.');
     // Grab the only DOM element.
     $test_meta = reset($test_meta);
@@ -142,7 +152,7 @@ class HtmlResponseAttachmentsTest extends BrowserTestBase {
       $this->fail('Unable to find the head meta.');
     }
     else {
-      $this->assertEqual($test_meta->getAttribute('test-attribute'), 'testvalue');
+      $this->assertEquals('test_value', $test_meta->getAttribute('test-attribute'));
     }
   }
 

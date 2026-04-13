@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Database;
 
 /**
@@ -13,7 +15,7 @@ trait SchemaIntrospectionTestTrait {
    * @param string $table_name
    *   A non-prefixed table name.
    * @param array $column_names
-   *   An array of column names
+   *   An array of column names.
    * @param string $index_type
    *   (optional) The type of the index. Can be one of 'index', 'unique' or
    *   'primary'. Defaults to 'index'.
@@ -34,7 +36,7 @@ trait SchemaIntrospectionTestTrait {
    * @param string $table_name
    *   A non-prefixed table name.
    * @param array $column_names
-   *   An array of column names
+   *   An array of column names.
    * @param string $index_type
    *   (optional) The type of the index. Can be one of 'index', 'unique' or
    *   'primary'. Defaults to 'index'.
@@ -65,7 +67,6 @@ trait SchemaIntrospectionTestTrait {
 
     $schema = \Drupal::database()->schema();
     $introspect_index_schema = new \ReflectionMethod(get_class($schema), 'introspectIndexSchema');
-    $introspect_index_schema->setAccessible(TRUE);
     $index_schema = $introspect_index_schema->invoke($schema, $table_name);
 
     // Filter the indexes by type.

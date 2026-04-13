@@ -4,7 +4,7 @@ namespace Drupal\Core\Config;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
@@ -34,7 +34,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
   /**
    * An event dispatcher instance to use for configuration events.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   * @var \Symfony\Contracts\EventDispatcher\EventDispatcherInterface
    */
   protected $eventDispatcher;
 
@@ -64,7 +64,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *
    * @param \Drupal\Core\Config\StorageInterface $storage
    *   The configuration storage engine.
-   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   * @param \Symfony\Contracts\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   An event dispatcher instance to use for configuration events.
    * @param \Drupal\Core\Config\TypedConfigManagerInterface $typed_config
    *   The typed configuration manager.
@@ -260,7 +260,8 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
 
     // Prime the cache and load the configuration with the correct overrides.
     $config = $this->get($new_name);
-    $this->eventDispatcher->dispatch(ConfigEvents::RENAME, new ConfigRenameEvent($config, $old_name));
+    $event_name = $this->storage->getCollectionName() === StorageInterface::DEFAULT_COLLECTION ? ConfigEvents::RENAME : ConfigCollectionEvents::RENAME_IN_COLLECTION;
+    $this->eventDispatcher->dispatch(new ConfigRenameEvent($config, $old_name), $event_name);
     return $this;
   }
 
@@ -309,7 +310,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
     return array_filter(array_keys($this->cache), function ($key) use ($name) {
       // Return TRUE if the key is the name or starts with the configuration
       // name plus the delimiter.
-      return $key === $name || strpos($key, $name . ':') === 0;
+      return $key === $name || str_starts_with($key, $name . ':');
     });
   }
 
@@ -382,7 +383,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     $events[ConfigEvents::SAVE][] = ['onConfigSave', 255];
     $events[ConfigEvents::DELETE][] = ['onConfigDelete', 255];
     return $events;

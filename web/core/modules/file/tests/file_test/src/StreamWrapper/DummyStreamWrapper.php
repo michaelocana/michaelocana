@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\file_test\StreamWrapper;
 
 use Drupal\Core\StreamWrapper\LocalStream;
@@ -15,18 +17,18 @@ class DummyStreamWrapper extends LocalStream {
    * {@inheritdoc}
    */
   public function getName() {
-    return t('Dummy files');
+    return 'Dummy files';
   }
 
   /**
    * {@inheritdoc}
    */
   public function getDescription() {
-    return t('Dummy wrapper for simpletest.');
+    return 'Dummy wrapper for testing.';
   }
 
   public function getDirectoryPath() {
-    return \Drupal::service('site.path') . '/files';
+    return \Drupal::getContainer()->getParameter('site.path') . '/files';
   }
 
   /**

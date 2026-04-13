@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\dblog\Kernel;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
@@ -26,11 +28,9 @@ class DbLogFormInjectionTest extends KernelTestBase implements FormInterface {
   protected $logger;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['system', 'dblog', 'user'];
+  protected static $modules = ['system', 'dblog', 'user'];
 
   /**
    * {@inheritdoc}
@@ -43,7 +43,7 @@ class DbLogFormInjectionTest extends KernelTestBase implements FormInterface {
    * Process callback.
    *
    * @param array $element
-   *   Form element
+   *   Form element.
    *
    * @return array
    *   Processed element.
@@ -68,17 +68,16 @@ class DbLogFormInjectionTest extends KernelTestBase implements FormInterface {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, FormStateInterface $form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
     $form_state->setRebuild();
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installSchema('dblog', ['watchdog']);
-    $this->installSchema('system', ['key_value_expire', 'sequences']);
     $this->installEntitySchema('user');
     $this->logger = \Drupal::logger('test_logger');
     $test_user = User::create([
@@ -92,7 +91,7 @@ class DbLogFormInjectionTest extends KernelTestBase implements FormInterface {
   /**
    * Tests db log injection serialization.
    */
-  public function testLoggerSerialization() {
+  public function testLoggerSerialization(): void {
     $form_state = new FormState();
 
     // Forms are only serialized during POST requests.

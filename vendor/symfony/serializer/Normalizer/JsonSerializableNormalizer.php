@@ -19,49 +19,44 @@ use Symfony\Component\Serializer\Exception\LogicException;
  *
  * @author Fred Cox <mcfedr@gmail.com>
  */
-class JsonSerializableNormalizer extends AbstractNormalizer
+final class JsonSerializableNormalizer extends AbstractNormalizer
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function normalize($object, $format = null, array $context = [])
+    public function normalize(mixed $data, ?string $format = null, array $context = []): array|string|int|float|bool|\ArrayObject|null
     {
-        if ($this->isCircularReference($object, $context)) {
-            return $this->handleCircularReference($object);
+        if ($this->isCircularReference($data, $context)) {
+            return $this->handleCircularReference($data, $format, $context);
         }
 
-        if (!$object instanceof \JsonSerializable) {
-            throw new InvalidArgumentException(sprintf('The object must implement "%s".', \JsonSerializable::class));
+        if (!$data instanceof \JsonSerializable) {
+            throw new InvalidArgumentException(\sprintf('The object must implement "%s".', \JsonSerializable::class));
         }
 
         if (!$this->serializer instanceof NormalizerInterface) {
             throw new LogicException('Cannot normalize object because injected serializer is not a normalizer.');
         }
 
-        return $this->serializer->normalize($object->jsonSerialize(), $format, $context);
+        return $this->serializer->normalize($data->jsonSerialize(), $format, $context);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function supportsNormalization($data, $format = null)
+    public function getSupportedTypes(?string $format): array
+    {
+        return [
+            \JsonSerializable::class => true,
+        ];
+    }
+
+    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
         return $data instanceof \JsonSerializable;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function supportsDenormalization($data, $type, $format = null)
+    public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
     {
         return false;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function denormalize($data, $type, $format = null, array $context = [])
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): mixed
     {
-        throw new LogicException(sprintf('Cannot denormalize with "%s".', \JsonSerializable::class));
+        throw new LogicException(\sprintf('Cannot denormalize with "%s".', \JsonSerializable::class));
     }
 }

@@ -53,7 +53,7 @@ abstract class SecuredRedirectResponse extends RedirectResponse {
   /**
    * {@inheritdoc}
    */
-  public function setTargetUrl($url) {
+  public function setTargetUrl($url): static {
     if (!$this->isSafe($url)) {
       throw new \InvalidArgumentException(sprintf('It is not safe to redirect to %s', $url));
     }
@@ -67,6 +67,7 @@ abstract class SecuredRedirectResponse extends RedirectResponse {
    *   The URL checked for safety.
    *
    * @return bool
+   *   Returns TRUE if the URL is safe, FALSE otherwise.
    */
   abstract protected function isSafe($url);
 

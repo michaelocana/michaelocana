@@ -2,7 +2,6 @@
 
 namespace Drupal\Core\Database\Query;
 
-use Drupal\Core\Database\Database;
 use Drupal\Core\Database\Connection;
 
 /**
@@ -32,7 +31,6 @@ class Delete extends Query implements ConditionInterface {
    *   Array of database options.
    */
   public function __construct(Connection $connection, $table, array $options = []) {
-    $options['return'] = Database::RETURN_AFFECTED;
     parent::__construct($connection, $options);
     $this->table = $table;
 
@@ -52,7 +50,14 @@ class Delete extends Query implements ConditionInterface {
       $values = $this->condition->arguments();
     }
 
-    return $this->connection->query((string) $this, $values, $this->queryOptions);
+    $stmt = $this->connection->prepareStatement((string) $this, $this->queryOptions, TRUE);
+    try {
+      $stmt->execute($values, $this->queryOptions);
+      return $stmt->rowCount();
+    }
+    catch (\Exception $e) {
+      $this->connection->exceptionHandler()->handleExecutionException($e, $stmt, $values, $this->queryOptions);
+    }
   }
 
   /**

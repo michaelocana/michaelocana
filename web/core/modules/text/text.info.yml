@@ -1,9 +1,8 @@
 name: Text
 type: module
-description: 'Defines simple text field types.'
+description: 'Defines field types for short and long text with optional summaries.'
 package: Field types
 version: VERSION
-core: 8.x
 dependencies:
   - drupal:field
   - drupal:filter

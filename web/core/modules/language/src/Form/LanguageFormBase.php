@@ -44,17 +44,13 @@ abstract class LanguageFormBase extends EntityForm {
    * Common elements of the language addition and editing form.
    */
   public function commonForm(array &$form) {
-    /* @var $language \Drupal\language\ConfigurableLanguageInterface */
+    /** @var \Drupal\language\ConfigurableLanguageInterface $language */
     $language = $this->entity;
     if ($language->getId()) {
       $form['langcode_view'] = [
         '#type' => 'item',
         '#title' => $this->t('Language code'),
         '#markup' => $language->id(),
-      ];
-      $form['langcode'] = [
-        '#type' => 'value',
-        '#value' => $language->id(),
       ];
     }
     else {
@@ -65,7 +61,7 @@ abstract class LanguageFormBase extends EntityForm {
         '#required' => TRUE,
         '#default_value' => '',
         '#disabled' => FALSE,
-        '#description' => $this->t('Use language codes as <a href=":w3ctags">defined by the W3C</a> for interoperability. <em>Examples: "en", "en-gb" and "zh-hant".</em>', [':w3ctags' => 'http://www.w3.org/International/articles/language-tags/']),
+        '#description' => $this->t('Use language codes as <a href=":w3ctags">defined by the W3C</a> for interoperability. <em>Examples: "en", "en-gb" and "zh-hant".</em>', [':w3ctags' => 'https://www.w3.org/International/articles/language-tags/']),
       ];
     }
     $form['label'] = [
@@ -95,10 +91,10 @@ abstract class LanguageFormBase extends EntityForm {
    */
   public function validateCommon(array $form, FormStateInterface $form_state) {
     // Ensure sane field values for langcode and name.
-    if (!isset($form['langcode_view']) && !preg_match('@^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$@', $form_state->getValue('langcode'))) {
+    if (!isset($form['langcode_view']) && !preg_match('@^' . LanguageInterface::VALID_LANGCODE_REGEX . '$@', $form_state->getValue('langcode'))) {
       $form_state->setErrorByName('langcode', $this->t('%field must be a valid language tag as <a href=":url">defined by the W3C</a>.', [
         '%field' => $form['langcode']['#title'],
-        ':url' => 'http://www.w3.org/International/articles/language-tags/',
+        ':url' => 'https://www.w3.org/International/articles/language-tags/',
       ]));
     }
     if ($form_state->getValue('label') != Html::escape($form_state->getValue('label'))) {

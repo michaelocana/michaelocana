@@ -14,8 +14,13 @@ namespace Symfony\Component\Serializer\Normalizer;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
-use Symfony\Component\Serializer\Exception\RuntimeException;
+use Symfony\Component\PropertyInfo\PropertyWriteInfo;
+use Symfony\Component\Serializer\Annotation\Ignore;
+use Symfony\Component\Serializer\Exception\LogicException;
+use Symfony\Component\Serializer\Mapping\ClassDiscriminatorResolverInterface;
 use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactoryInterface;
 use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
@@ -24,37 +29,57 @@ use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
-class ObjectNormalizer extends AbstractObjectNormalizer
+final class ObjectNormalizer extends AbstractObjectNormalizer
 {
-    protected $propertyAccessor;
+    private static $reflectionCache = [];
+    private static $isReadableCache = [];
+    private static $isWritableCache = [];
 
-    public function __construct(ClassMetadataFactoryInterface $classMetadataFactory = null, NameConverterInterface $nameConverter = null, PropertyAccessorInterface $propertyAccessor = null, PropertyTypeExtractorInterface $propertyTypeExtractor = null)
+    protected PropertyAccessorInterface $propertyAccessor;
+    protected $propertyInfoExtractor;
+    private $writeInfoExtractor;
+
+    private readonly \Closure $objectClassResolver;
+
+    public function __construct(?ClassMetadataFactoryInterface $classMetadataFactory = null, ?NameConverterInterface $nameConverter = null, ?PropertyAccessorInterface $propertyAccessor = null, ?PropertyTypeExtractorInterface $propertyTypeExtractor = null, ?ClassDiscriminatorResolverInterface $classDiscriminatorResolver = null, ?callable $objectClassResolver = null, array $defaultContext = [], ?PropertyInfoExtractorInterface $propertyInfoExtractor = null)
     {
         if (!class_exists(PropertyAccess::class)) {
-            throw new RuntimeException('The ObjectNormalizer class requires the "PropertyAccess" component. Install "symfony/property-access" to use it.');
+            throw new LogicException('The ObjectNormalizer class requires the "PropertyAccess" component. Try running "composer require symfony/property-access".');
         }
 
-        parent::__construct($classMetadataFactory, $nameConverter, $propertyTypeExtractor);
+        parent::__construct($classMetadataFactory, $nameConverter, $propertyTypeExtractor, $classDiscriminatorResolver, $objectClassResolver, $defaultContext);
 
         $this->propertyAccessor = $propertyAccessor ?: PropertyAccess::createPropertyAccessor();
+
+        $this->objectClassResolver = ($objectClassResolver ?? static fn ($class) => \is_object($class) ? $class::class : $class)(...);
+        $this->propertyInfoExtractor = $propertyInfoExtractor ?: new ReflectionExtractor();
+        $this->writeInfoExtractor = new ReflectionExtractor();
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    protected function extractAttributes($object, $format = null, array $context = [])
+    public function getSupportedTypes(?string $format): array
     {
+        return ['object' => true];
+    }
+
+    protected function extractAttributes(object $object, ?string $format = null, array $context = []): array
+    {
+        if (\stdClass::class === $object::class) {
+            return array_keys((array) $object);
+        }
+
         // If not using groups, detect manually
         $attributes = [];
 
         // methods
-        $reflClass = new \ReflectionClass($object);
+        $class = ($this->objectClassResolver)($object);
+        $reflClass = new \ReflectionClass($class);
+
         foreach ($reflClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $reflMethod) {
             if (
-                0 !== $reflMethod->getNumberOfRequiredParameters() ||
-                $reflMethod->isStatic() ||
-                $reflMethod->isConstructor() ||
-                $reflMethod->isDestructor()
+                0 !== $reflMethod->getNumberOfRequiredParameters()
+                || $reflMethod->isStatic()
+                || $reflMethod->isConstructor()
+                || $reflMethod->isDestructor()
             ) {
                 continue;
             }
@@ -62,14 +87,20 @@ class ObjectNormalizer extends AbstractObjectNormalizer
             $name = $reflMethod->name;
             $attributeName = null;
 
-            if (0 === strpos($name, 'get') || 0 === strpos($name, 'has')) {
-                // getters and hassers
+            // ctype_lower check to find out if method looks like accessor but actually is not, e.g. hash, cancel
+            if (3 < \strlen($name) && !ctype_lower($name[3]) && match ($name[0]) {
+                'g' => str_starts_with($name, 'get'),
+                'h' => str_starts_with($name, 'has'),
+                'c' => str_starts_with($name, 'can'),
+                default => false,
+            }) {
+                // getters, hassers and canners
                 $attributeName = substr($name, 3);
 
                 if (!$reflClass->hasProperty($attributeName)) {
                     $attributeName = lcfirst($attributeName);
                 }
-            } elseif (0 === strpos($name, 'is')) {
+            } elseif ('is' !== $name && str_starts_with($name, 'is') && !ctype_lower($name[2])) {
                 // issers
                 $attributeName = substr($name, 2);
 
@@ -83,11 +114,9 @@ class ObjectNormalizer extends AbstractObjectNormalizer
             }
         }
 
-        $checkPropertyInitialization = \PHP_VERSION_ID >= 70400;
-
         // properties
-        foreach ($reflClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $reflProperty) {
-            if ($checkPropertyInitialization && !$reflProperty->isInitialized($object)) {
+        foreach ($reflClass->getProperties() as $reflProperty) {
+            if (!$reflProperty->isPublic()) {
                 continue;
             }
 
@@ -101,23 +130,68 @@ class ObjectNormalizer extends AbstractObjectNormalizer
         return array_keys($attributes);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    protected function getAttributeValue($object, $attribute, $format = null, array $context = [])
+    protected function getAttributeValue(object $object, string $attribute, ?string $format = null, array $context = []): mixed
     {
-        return $this->propertyAccessor->getValue($object, $attribute);
+        $mapping = $this->classDiscriminatorResolver?->getMappingForMappedObject($object);
+
+        return $attribute === $mapping?->getTypeProperty()
+            ? $mapping
+            : $this->propertyAccessor->getValue($object, $attribute);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    protected function setAttributeValue($object, $attribute, $value, $format = null, array $context = [])
+    protected function setAttributeValue(object $object, string $attribute, mixed $value, ?string $format = null, array $context = []): void
     {
         try {
             $this->propertyAccessor->setValue($object, $attribute, $value);
-        } catch (NoSuchPropertyException $exception) {
+        } catch (NoSuchPropertyException) {
             // Properties not found are ignored
         }
+    }
+
+    protected function isAllowedAttribute($classOrObject, string $attribute, ?string $format = null, array $context = []): bool
+    {
+        if (!parent::isAllowedAttribute($classOrObject, $attribute, $format, $context)) {
+            return false;
+        }
+
+        $class = \is_object($classOrObject) ? $classOrObject::class : $classOrObject;
+
+        if ($context['_read_attributes'] ?? true) {
+            if (!isset(self::$isReadableCache[$class.$attribute])) {
+                self::$isReadableCache[$class.$attribute] = $this->propertyInfoExtractor->isReadable($class, $attribute) || $this->hasAttributeAccessorMethod($class, $attribute) || (\is_object($classOrObject) && $this->propertyAccessor->isReadable($classOrObject, $attribute));
+            }
+
+            return self::$isReadableCache[$class.$attribute];
+        }
+
+        if (!isset(self::$isWritableCache[$class.$attribute])) {
+            if (str_contains($attribute, '.')) {
+                self::$isWritableCache[$class.$attribute] = true;
+            } else {
+                self::$isWritableCache[$class.$attribute] = $this->propertyInfoExtractor->isWritable($class, $attribute)
+                    || (($writeInfo = $this->writeInfoExtractor->getWriteInfo($class, $attribute)) && PropertyWriteInfo::TYPE_NONE !== $writeInfo->getType());
+            }
+        }
+
+        return self::$isWritableCache[$class.$attribute];
+    }
+
+    private function hasAttributeAccessorMethod(string $class, string $attribute): bool
+    {
+        if (!isset(self::$reflectionCache[$class])) {
+            self::$reflectionCache[$class] = new \ReflectionClass($class);
+        }
+
+        $reflection = self::$reflectionCache[$class];
+
+        if (!$reflection->hasMethod($attribute)) {
+            return false;
+        }
+
+        $method = $reflection->getMethod($attribute);
+
+        return !$method->isStatic()
+            && !$method->getAttributes(Ignore::class)
+            && !$method->getNumberOfRequiredParameters();
     }
 }

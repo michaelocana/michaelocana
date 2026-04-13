@@ -2,28 +2,25 @@
 
 /**
  * @file
- * Administration functions for editor.module.
  */
 
 use Drupal\Component\Utility\Environment;
 use Drupal\Core\StreamWrapper\StreamWrapperInterface;
+use Drupal\Core\StringTranslation\ByteSizeMarkup;
 use Drupal\editor\Entity\Editor;
 
 /**
  * Subform constructor to configure the text editor's image upload settings.
  *
  * Each text editor plugin that is configured to offer the ability to insert
- * images and uses EditorImageDialog for that, should use this form to update
- * the text editor's configuration so that EditorImageDialog knows whether it
- * should allow the user to upload images.
+ * images, should use this form to update the text editor's configuration so
+ * that it knows whether it should allow the user to upload images.
  *
  * @param \Drupal\editor\Entity\Editor $editor
  *   The text editor entity that is being edited.
  *
  * @return array
  *   The image upload settings form.
- *
- * @see \Drupal\editor\Form\EditorImageDialog
  */
 function editor_image_upload_settings_form(Editor $editor) {
   // Defaults.
@@ -43,6 +40,7 @@ function editor_image_upload_settings_form(Editor $editor) {
     '#attributes' => [
       'data-editor-image-upload' => 'status',
     ],
+    '#description' => t('When enabled, images can only be uploaded. When disabled, images can only be added by URL.'),
   ];
   $show_if_image_uploads_enabled = [
     'visible' => [
@@ -64,8 +62,7 @@ function editor_image_upload_settings_form(Editor $editor) {
     ];
   }
   // Set data- attributes with human-readable names for all possible stream
-  // wrappers, so that drupal.ckeditor.drupalimage.admin's summary rendering
-  // can use that.
+  // wrappers, so that it can be used by the summary rendering of other code.
   foreach (\Drupal::service('stream_wrapper_manager')->getNames(StreamWrapperInterface::WRITE_VISIBLE) as $scheme => $name) {
     $form['scheme'][$scheme]['#attributes']['data-label'] = t('Storage: @name', ['@name' => $name]);
   }
@@ -78,7 +75,7 @@ function editor_image_upload_settings_form(Editor $editor) {
     '#states' => $show_if_image_uploads_enabled,
   ];
 
-  $default_max_size = format_size(Environment::getUploadMaxSize());
+  $default_max_size = ByteSizeMarkup::create(Environment::getUploadMaxSize());
   $form['max_size'] = [
     '#type' => 'textfield',
     '#default_value' => $image_upload['max_size'],

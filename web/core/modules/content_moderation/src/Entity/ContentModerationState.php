@@ -2,51 +2,55 @@
 
 namespace Drupal\content_moderation\Entity;
 
+use Drupal\content_moderation\ContentModerationStateAccessControlHandler;
+use Drupal\content_moderation\ContentModerationStateStorageSchema;
+use Drupal\Core\Entity\Attribute\ContentEntityType;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\TypedData\TranslatableInterface;
 use Drupal\user\EntityOwnerTrait;
+use Drupal\views\EntityViewsData;
 
 /**
  * Defines the Content moderation state entity.
- *
- * @ContentEntityType(
- *   id = "content_moderation_state",
- *   label = @Translation("Content moderation state"),
- *   label_singular = @Translation("content moderation state"),
- *   label_plural = @Translation("content moderation states"),
- *   label_count = @PluralTranslation(
- *     singular = "@count content moderation state",
- *     plural = "@count content moderation states"
- *   ),
- *   handlers = {
- *     "storage_schema" = "Drupal\content_moderation\ContentModerationStateStorageSchema",
- *     "views_data" = "\Drupal\views\EntityViewsData",
- *     "access" = "Drupal\content_moderation\ContentModerationStateAccessControlHandler",
- *   },
- *   base_table = "content_moderation_state",
- *   revision_table = "content_moderation_state_revision",
- *   data_table = "content_moderation_state_field_data",
- *   revision_data_table = "content_moderation_state_field_revision",
- *   translatable = TRUE,
- *   internal = TRUE,
- *   entity_keys = {
- *     "id" = "id",
- *     "revision" = "revision_id",
- *     "uuid" = "uuid",
- *     "uid" = "uid",
- *     "owner" = "uid",
- *     "langcode" = "langcode",
- *   }
- * )
  *
  * @internal
  *   This entity is marked internal because it should not be used directly to
  *   alter the moderation state of an entity. Instead, the computed
  *   moderation_state field should be set on the entity directly.
  */
+#[ContentEntityType(
+  id: 'content_moderation_state',
+  label: new TranslatableMarkup('Content moderation state'),
+  label_singular: new TranslatableMarkup('content moderation state'),
+  label_plural: new TranslatableMarkup('content moderation states'),
+  entity_keys: [
+    'id' => 'id',
+    'revision' => 'revision_id',
+    'uuid' => 'uuid',
+    'uid' => 'uid',
+    'owner' => 'uid',
+    'langcode' => 'langcode',
+  ],
+  handlers: [
+    'storage_schema' => ContentModerationStateStorageSchema::class,
+    'views_data' => EntityViewsData::class,
+    'access' => ContentModerationStateAccessControlHandler::class,
+  ],
+  base_table: 'content_moderation_state',
+  data_table: 'content_moderation_state_field_data',
+  revision_table: 'content_moderation_state_revision',
+  revision_data_table: 'content_moderation_state_field_revision',
+  internal: TRUE,
+  translatable: TRUE,
+  label_count: [
+    'singular' => '@count content moderation state',
+    'plural' => '@count content moderation states',
+  ],
+)]
 class ContentModerationState extends ContentEntityBase implements ContentModerationStateInterface {
 
   use EntityOwnerTrait;
@@ -134,11 +138,17 @@ class ContentModerationState extends ContentEntityBase implements ContentModerat
       /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
       $storage = \Drupal::entityTypeManager()->getStorage('content_moderation_state');
 
+      // New entities may not have a loaded revision ID at this point, but the
+      // creation of a content moderation state entity may have already been
+      // triggered elsewhere. In this case we have to match on the revision ID
+      // (instead of the loaded revision ID).
+      $revision_id = $entity->getLoadedRevisionId() ?: $entity->getRevisionId();
       $ids = $storage->getQuery()
+        ->accessCheck(FALSE)
         ->condition('content_entity_type_id', $entity->getEntityTypeId())
         ->condition('content_entity_id', $entity->id())
         ->condition('workflow', $moderation_info->getWorkflowForEntity($entity)->id())
-        ->condition('content_entity_revision_id', $entity->getLoadedRevisionId())
+        ->condition('content_entity_revision_id', $revision_id)
         ->allRevisions()
         ->execute();
 
@@ -152,27 +162,13 @@ class ContentModerationState extends ContentEntityBase implements ContentModerat
   }
 
   /**
-   * Default value callback for the 'uid' base field definition.
-   *
-   * @see \Drupal\content_moderation\Entity\ContentModerationState::baseFieldDefinitions()
-   *
-   * @deprecated The ::getCurrentUserId method is deprecated in 8.6.x and will
-   *   be removed before 9.0.0.
-   *
-   * @return array
-   *   An array of default values.
-   */
-  public static function getCurrentUserId() {
-    @trigger_error('The ::getCurrentUserId method is deprecated in 8.6.x and will be removed before 9.0.0.', E_USER_DEPRECATED);
-    return [\Drupal::currentUser()->id()];
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function save() {
-    $related_entity = \Drupal::entityTypeManager()
-      ->getStorage($this->content_entity_type_id->value)
+    /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
+    $storage = \Drupal::entityTypeManager()
+      ->getStorage($this->content_entity_type_id->value);
+    $related_entity = $storage
       ->loadRevision($this->content_entity_revision_id->value);
     if ($related_entity instanceof TranslatableInterface) {
       $related_entity = $related_entity->getTranslation($this->activeLangcode);

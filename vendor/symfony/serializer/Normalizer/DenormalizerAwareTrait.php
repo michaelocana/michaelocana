@@ -12,23 +12,13 @@
 namespace Symfony\Component\Serializer\Normalizer;
 
 /**
- * DenormalizerAware trait.
- *
  * @author Joel Wurtz <joel.wurtz@gmail.com>
  */
 trait DenormalizerAwareTrait
 {
-    /**
-     * @var DenormalizerInterface
-     */
-    protected $denormalizer;
+    protected DenormalizerInterface $denormalizer;
 
-    /**
-     * Sets the Denormalizer.
-     *
-     * @param DenormalizerInterface $denormalizer A DenormalizerInterface instance
-     */
-    public function setDenormalizer(DenormalizerInterface $denormalizer)
+    public function setDenormalizer(DenormalizerInterface $denormalizer): void
     {
         $this->denormalizer = $denormalizer;
     }

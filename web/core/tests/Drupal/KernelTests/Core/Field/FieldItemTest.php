@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Field;
 
 use Drupal\entity_test\Entity\EntityTest;
@@ -23,7 +25,7 @@ class FieldItemTest extends EntityKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->container->get('state')->set('entity_test.field_test_item', TRUE);
@@ -32,9 +34,8 @@ class FieldItemTest extends EntityKernelTestBase {
     $entity_type_id = 'entity_test_mulrev';
     $this->installEntitySchema($entity_type_id);
 
-    $this->fieldName = mb_strtolower($this->randomMachineName());
+    $this->fieldName = $this->randomMachineName();
 
-    /** @var \Drupal\field\Entity\FieldStorageConfig $field_storage */
     FieldStorageConfig::create([
       'field_name' => $this->fieldName,
       'type' => 'field_test',
@@ -51,13 +52,13 @@ class FieldItemTest extends EntityKernelTestBase {
 
     $this->entityTypeManager->clearCachedDefinitions();
     $definitions = \Drupal::service('entity_field.manager')->getFieldStorageDefinitions($entity_type_id);
-    $this->assertTrue(!empty($definitions[$this->fieldName]));
+    $this->assertNotEmpty($definitions[$this->fieldName]);
   }
 
   /**
    * Tests the field item save workflow.
    */
-  public function testSaveWorkflow() {
+  public function testSaveWorkflow(): void {
     $entity = EntityTestMulRev::create([
       'name' => $this->randomString(),
       'field_test_item' => $this->randomString(),
@@ -83,22 +84,32 @@ class FieldItemTest extends EntityKernelTestBase {
    *
    * @param \Drupal\entity_test\Entity\EntityTest $entity
    *   The test entity.
-   * @param $expected_value
+   * @param string $expected_value
    *   The expected field item value.
    *
-   * @return bool
-   *   TRUE if the item value matches expectations, FALSE otherwise.
+   * @internal
    */
-  protected function assertSavedFieldItemValue(EntityTest $entity, $expected_value) {
+  protected function assertSavedFieldItemValue(EntityTest $entity, string $expected_value): void {
     $entity->setNewRevision(TRUE);
     $entity->save();
     $base_field_expected_value = str_replace($this->fieldName, 'field_test_item', $expected_value);
-    $result = $this->assertEqual($entity->field_test_item->value, $base_field_expected_value);
-    $result = $result && $this->assertEqual($entity->{$this->fieldName}->value, $expected_value);
+    $this->assertEquals($base_field_expected_value, $entity->field_test_item->value);
+    $this->assertEquals($expected_value, $entity->{$this->fieldName}->value);
     $entity = $this->reloadEntity($entity);
-    $result = $result && $this->assertEqual($entity->field_test_item->value, $base_field_expected_value);
-    $result = $result && $this->assertEqual($entity->{$this->fieldName}->value, $expected_value);
-    return $result;
+    $this->assertEquals($base_field_expected_value, $entity->field_test_item->value);
+    $this->assertEquals($expected_value, $entity->{$this->fieldName}->value);
+  }
+
+  /**
+   * Tests \Drupal\Core\Field\TypedData\FieldItemDataDefinition::getLabel().
+   */
+  public function testGetLabel(): void {
+    $data_definition = \Drupal::service('typed_data_manager')->createDataDefinition('field_item:string');
+    $this->assertEquals('Text (plain)', $data_definition->getLabel());
+
+    $label = 'Foo bar';
+    $data_definition->setLabel($label);
+    $this->assertEquals($label, $data_definition->getLabel());
   }
 
 }

@@ -1,13 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\FunctionalJavascript;
 
+use Drupal\Core\Database\Database;
 use Drupal\Core\Entity\Entity\EntityViewDisplay;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\media_test_oembed\Controller\ResourceController;
 use Drupal\node\Entity\Node;
 use Drupal\Tests\media\Traits\OEmbedTestTrait;
+
+// cspell:ignore Drupalin Hustlin Schipulcon
 
 /**
  * Basic tests for Media configuration in the standard profile.
@@ -26,17 +31,12 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['media_test_oembed'];
+  protected static $modules = ['media_test_oembed'];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->lockHttpClientToFixtures();
     $this->hijackProviderEndpoints();
@@ -48,7 +48,14 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
    * This prevents installing the standard profile for every test case and
    * increases the performance of this test.
    */
-  public function testMediaSources() {
+  public function testMediaSources(): void {
+    // This test currently frequently causes the SQLite database to lock, so
+    // skip the test on SQLite until the issue can be resolved.
+    // @todo https://www.drupal.org/project/drupal/issues/3273626
+    if (Database::getConnection()->driver() === 'sqlite') {
+      $this->markTestSkipped('Test frequently causes a locked database on SQLite');
+    }
+
     $storage = FieldStorageConfig::create([
       'entity_type' => 'node',
       'field_name' => 'field_related_media',
@@ -93,9 +100,9 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
   }
 
   /**
-   * Test the standard profile configuration for media type 'audio'.
+   * Tests the standard profile configuration for media type 'audio'.
    */
-  protected function audioTest() {
+  protected function audioTest(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $source_field_id = 'field_media_audio_file';
@@ -124,6 +131,7 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
       ->get('entity_type.manager')
       ->getStorage('media')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->sort('mid', 'DESC')
       ->execute();
     $audio_media_id = reset($audio_media_id);
@@ -147,12 +155,14 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Here we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-audio > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-audio > *', 1);
 
     // Assert the audio file is present inside the media element and that its
     // src attribute matches the audio file.
-    $audio_element = $assert_session->elementExists('css', 'article.media--type-audio .field--name-field-media-audio-file audio > source');
-    $expected_audio_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename)));
+    $audio_element = $assert_session->elementExists('css', 'div.media--type-audio .field--name-field-media-audio-file audio > source');
+    /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+    $file_url_generator = \Drupal::service('file_url_generator');
+    $expected_audio_src = $file_url_generator->generate(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename))->toString();
     $this->assertSame($expected_audio_src, $audio_element->getAttribute('src'));
 
     // Assert the media name is updated through the field mapping when changing
@@ -174,19 +184,19 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Again we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-audio > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-audio > *', 1);
 
     // Assert the audio file is present inside the media element and that its
     // src attribute matches the updated audio file.
-    $audio_element = $assert_session->elementExists('css', 'article.media--type-audio .field--name-field-media-audio-file audio > source');
-    $expected_audio_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename_updated)));
+    $audio_element = $assert_session->elementExists('css', 'div.media--type-audio .field--name-field-media-audio-file audio > source');
+    $expected_audio_src = $file_url_generator->generate(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename_updated))->toString();
     $this->assertSame($expected_audio_src, $audio_element->getAttribute('src'));
   }
 
   /**
-   * Test the standard profile configuration for media type 'image'.
+   * Tests the standard profile configuration for media type 'image'.
    */
-  protected function imageTest() {
+  protected function imageTest(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $source_field_id = 'field_media_image';
@@ -209,6 +219,7 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
       ->get('entity_type.manager')
       ->getStorage('media')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->sort('mid', 'DESC')
       ->execute();
     $image_media_id = reset($image_media_id);
@@ -232,13 +243,16 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Here we expect to see only the image, nothing else. Assert only one
     // element in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-image > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-image > *', 1);
 
     // Assert the image element is present inside the media element and that its
     // src attribute uses the large image style, the label is visually hidden,
     // and there is no link to the image file.
-    $image_element = $assert_session->elementExists('css', 'article.media--type-image img');
-    $expected_image_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://styles/large/public/[date:custom:Y]-[date:custom:m]/' . $image_media_name)));
+    $image_element = $assert_session->elementExists('css', 'div.media--type-image img');
+    /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+    $file_url_generator = \Drupal::service('file_url_generator');
+    $expected_image_src = $file_url_generator->generate(\Drupal::token()->replace('public://styles/large/public/[date:custom:Y]-[date:custom:m]/' . $image_media_name))->toString();
+
     $this->assertStringContainsString($expected_image_src, $image_element->getAttribute('src'));
     $assert_session->elementExists('css', '.field--name-field-media-image .field__label.visually-hidden');
     $assert_session->elementNotExists('css', '.field--name-field-media-image a');
@@ -264,22 +278,22 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Again we expect to see only the image, nothing else. Assert only one
     // element in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-image > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-image > *', 1);
 
     // Assert the image element is present inside the media element and that its
     // src attribute uses the large image style, the label is visually hidden,
     // and there is no link to the image file.
-    $image_element = $assert_session->elementExists('css', 'article.media--type-image img');
-    $expected_image_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://styles/large/public/[date:custom:Y]-[date:custom:m]/' . $image_media_name_updated)));
+    $image_element = $assert_session->elementExists('css', 'div.media--type-image img');
+    $expected_image_src = $file_url_generator->generate(\Drupal::token()->replace('public://styles/large/public/[date:custom:Y]-[date:custom:m]/' . $image_media_name_updated))->toString();
     $this->assertStringContainsString($expected_image_src, $image_element->getAttribute('src'));
     $assert_session->elementExists('css', '.field--name-field-media-image .field__label.visually-hidden');
     $assert_session->elementNotExists('css', '.field--name-field-media-image a');
   }
 
   /**
-   * Test the standard profile configuration for media type 'document'.
+   * Tests the standard profile configuration for media type 'document'.
    */
-  protected function documentTest() {
+  protected function documentTest(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $source_field_id = 'field_media_document';
@@ -308,6 +322,7 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
       ->get('entity_type.manager')
       ->getStorage('media')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->sort('mid', 'DESC')
       ->execute();
     $file_media_id = reset($file_media_id);
@@ -331,11 +346,11 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Here we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-document > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-document > *', 1);
 
     // Assert the file link is present in the media element and its text matches
     // the filename.
-    $link_element = $assert_session->elementExists('css', 'article.media--type-document .field--name-field-media-document a');
+    $link_element = $assert_session->elementExists('css', 'div.media--type-document .field--name-field-media-document a');
     $this->assertSame($test_filename, $link_element->getText());
 
     // Assert the media name is updated through the field mapping when changing
@@ -357,18 +372,18 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Again we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-document > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-document > *', 1);
 
     // Assert the file link is present in the media element and its text matches
     // the updated filename.
-    $link_element = $assert_session->elementExists('css', 'article.media--type-document .field--name-field-media-document a');
+    $link_element = $assert_session->elementExists('css', 'div.media--type-document .field--name-field-media-document a');
     $this->assertSame($test_filename_updated, $link_element->getText());
   }
 
   /**
-   * Test the standard profile configuration for media type 'remote_video'.
+   * Tests the standard profile configuration for media type 'remote_video'.
    */
-  protected function remoteVideoTest() {
+  protected function remoteVideoTest(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $source_field_id = 'field_media_oembed_video';
@@ -395,6 +410,7 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
       ->get('entity_type.manager')
       ->getStorage('media')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->sort('mid', 'DESC')
       ->execute();
     $remote_video_media_id = reset($remote_video_media_id);
@@ -418,11 +434,11 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Here we expect to see only the video iframe. Assert only one element in
     // the content region.
-    $assert_session->elementsCount('css', 'article.media--type-remote-video > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-remote-video > *', 1);
 
     // Assert the iframe is present in the media element and its src attribute
     // matches the URL and query parameters.
-    $iframe_url = $assert_session->elementExists('css', 'article.media--type-remote-video .field--name-field-media-oembed-video iframe')->getAttribute('src');
+    $iframe_url = $assert_session->elementExists('css', 'div.media--type-remote-video .field--name-field-media-oembed-video iframe')->getAttribute('src');
     $iframe_url = parse_url($iframe_url);
     $this->assertStringEndsWith('/media/oembed', $iframe_url['path']);
     $this->assertNotEmpty($iframe_url['query']);
@@ -445,11 +461,11 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Again we expect to see only the video iframe. Assert only one element in
     // the content region.
-    $assert_session->elementsCount('css', 'article.media--type-remote-video > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-remote-video > *', 1);
 
     // Assert the iframe is present in the media element and its src attribute
     // matches the updated URL and query parameters.
-    $iframe_url = $assert_session->elementExists('css', 'article.media--type-remote-video .field--name-field-media-oembed-video iframe')->getAttribute('src');
+    $iframe_url = $assert_session->elementExists('css', 'div.media--type-remote-video .field--name-field-media-oembed-video iframe')->getAttribute('src');
     $iframe_url = parse_url($iframe_url);
     $this->assertStringEndsWith('/media/oembed', $iframe_url['path']);
     $this->assertNotEmpty($iframe_url['query']);
@@ -460,9 +476,9 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
   }
 
   /**
-   * Test the standard profile configuration for media type 'video'.
+   * Tests the standard profile configuration for media type 'video'.
    */
-  protected function videoTest() {
+  protected function videoTest(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $source_field_id = 'field_media_video_file';
@@ -491,6 +507,7 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
       ->get('entity_type.manager')
       ->getStorage('media')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->sort('mid', 'DESC')
       ->execute();
     $video_media_id = reset($video_media_id);
@@ -514,12 +531,14 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Here we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-video > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-video > *', 1);
 
     // Assert the video element is present inside the media element and that its
     // src attribute matches the video file.
-    $video_element = $assert_session->elementExists('css', 'article.media--type-video .field--name-field-media-video-file video > source');
-    $expected_video_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename)));
+    $video_element = $assert_session->elementExists('css', 'div.media--type-video .field--name-field-media-video-file video > source');
+    /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+    $file_url_generator = \Drupal::service('file_url_generator');
+    $expected_video_src = $file_url_generator->generate(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename))->toString();
     $this->assertSame($expected_video_src, $video_element->getAttribute('src'));
 
     // Assert the media name is updated through the field mapping when changing
@@ -541,12 +560,12 @@ class MediaStandardProfileTest extends MediaJavascriptTestBase {
 
     // Again we expect to see only the linked filename. Assert only one element
     // in the content region.
-    $assert_session->elementsCount('css', 'article.media--type-video > *', 1);
+    $assert_session->elementsCount('css', 'div.media--type-video > *', 1);
 
     // Assert the video element is present inside the media element and that its
     // src attribute matches the updated video file.
-    $video_element = $assert_session->elementExists('css', 'article.media--type-video .field--name-field-media-video-file video > source');
-    $expected_video_src = file_url_transform_relative(file_create_url(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename_updated)));
+    $video_element = $assert_session->elementExists('css', 'div.media--type-video .field--name-field-media-video-file video > source');
+    $expected_video_src = $file_url_generator->generate(\Drupal::token()->replace('public://[date:custom:Y]-[date:custom:m]/' . $test_filename_updated))->toString();
     $this->assertSame($expected_video_src, $video_element->getAttribute('src'));
   }
 

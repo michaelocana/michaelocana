@@ -1,3 +1,4 @@
+# cspell:ignore localizable
 id: d6_language_content_taxonomy_vocabulary_settings
 label: Drupal 6 language taxonomy vocabulary settings
 migration_tags:
@@ -49,3 +50,4 @@ destination:
 migration_dependencies:
   required:
     - d6_taxonomy_vocabulary
+    - language

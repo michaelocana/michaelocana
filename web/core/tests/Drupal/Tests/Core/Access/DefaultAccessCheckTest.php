@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Access;
 
 use Drupal\Core\Access\AccessResult;
@@ -31,7 +33,7 @@ class DefaultAccessCheckTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->account = $this->createMock('Drupal\Core\Session\AccountInterface');
@@ -39,9 +41,9 @@ class DefaultAccessCheckTest extends UnitTestCase {
   }
 
   /**
-   * Test the access method.
+   * Tests the access method.
    */
-  public function testAccess() {
+  public function testAccess(): void {
     $request = new Request([]);
 
     $route = new Route('/test-route', [], ['_access' => 'NULL']);

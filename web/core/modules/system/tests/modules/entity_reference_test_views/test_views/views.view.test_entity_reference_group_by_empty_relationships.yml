@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_entity_reference_group_by_empty_relationships
-label: ''
+label: test_entity_reference_group_by_empty_relationships
 module: views
 description: ''
 tag: ''
@@ -77,6 +77,7 @@ display:
         type: table
         options:
           grouping: {  }
+          class: ''
           row_class: ''
           default_row_class: true
           override: true
@@ -122,6 +123,6 @@ display:
           required: false
       group_by: true
     display_plugin: block
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

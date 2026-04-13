@@ -1,0 +1,5 @@
+.solo-inner .solo-keyboard-enabled .mobile-nav button:focus,
+.solo-inner .solo-keyboard-enabled .navigation__menubar a:focus,
+.solo-inner .solo-keyboard-enabled .navigation__menubar button:focus {
+  outline: 3px solid var(--r-br, var(--r-br-b));
+}

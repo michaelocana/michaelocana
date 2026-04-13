@@ -16,8 +16,8 @@ class DateTimeFormatConstraintValidator extends ConstraintValidator {
   /**
    * {@inheritdoc}
    */
-  public function validate($item, Constraint $constraint) {
-    /* @var $item \Drupal\datetime\Plugin\Field\FieldType\DateTimeItem */
+  public function validate($item, Constraint $constraint): void {
+    /** @var \Drupal\datetime\Plugin\Field\FieldType\DateTimeItem $item */
     if (isset($item)) {
       $value = $item->getValue()['value'];
       if (!is_string($value)) {
@@ -30,14 +30,14 @@ class DateTimeFormatConstraintValidator extends ConstraintValidator {
         try {
           $date = DateTimePlus::createFromFormat($format, $value, new \DateTimeZone(DateTimeItemInterface::STORAGE_TIMEZONE));
         }
-        catch (\InvalidArgumentException $e) {
+        catch (\InvalidArgumentException) {
           $this->context->addViolation($constraint->badFormat, [
             '@value' => $value,
             '@format' => $format,
           ]);
           return;
         }
-        catch (\UnexpectedValueException $e) {
+        catch (\UnexpectedValueException) {
           $this->context->addViolation($constraint->badValue, [
             '@value' => $value,
             '@format' => $format,

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Unit;
 
 use Drupal\content_moderation\ModerationInformationInterface;
@@ -10,7 +12,6 @@ use Drupal\content_moderation\StateTransitionValidation;
 use Drupal\Tests\UnitTestCase;
 use Drupal\workflow_type_test\Plugin\WorkflowType\TestType;
 use Drupal\workflows\Entity\Workflow;
-use Drupal\workflows\State;
 use Drupal\workflows\WorkflowTypeManager;
 use Prophecy\Argument;
 
@@ -30,7 +31,7 @@ class StateTransitionValidationTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Create a container so that the plugin manager and workflow type can be
@@ -68,7 +69,7 @@ class StateTransitionValidationTest extends UnitTestCase {
    *
    * @dataProvider userTransitionsProvider
    */
-  public function testUserSensitiveValidTransitions($from_id, $to_id, $permission, $allowed, $result) {
+  public function testUserSensitiveValidTransitions($from_id, $to_id, $permission, $allowed, $result): void {
     $user = $this->prophesize(AccountInterface::class);
     // The one listed permission will be returned as instructed; Any others are
     // always denied.
@@ -95,22 +96,9 @@ class StateTransitionValidationTest extends UnitTestCase {
   }
 
   /**
-   * @expectedDeprecation Omitting the $entity parameter from Drupal\content_moderation\StateTransitionValidation::isTransitionValid is deprecated and will be required in Drupal 9.0.0.
-   * @group legacy
-   */
-  public function testDeprecatedEntityParameter() {
-    $moderation_info = $this->prophesize(ModerationInformationInterface::class);
-    $state = new State($this->workflow->getTypePlugin(), 'draft', 'draft');
-    $user = $this->prophesize(AccountInterface::class);
-
-    $validator = new StateTransitionValidation($moderation_info->reveal());
-    $validator->isTransitionValid($this->workflow, $state, $state, $user->reveal());
-  }
-
-  /**
    * Data provider for the user transition test.
    */
-  public function userTransitionsProvider() {
+  public static function userTransitionsProvider() {
     // The user has the right permission, so let it through.
     $ret[] = ['draft', 'draft', 'use process transition draft', TRUE, TRUE];
 

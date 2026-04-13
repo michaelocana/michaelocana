@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\language_test\Controller;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
@@ -37,6 +39,8 @@ class LanguageTestController implements ContainerInjectionInterface {
    *
    * @param \Symfony\Component\HttpKernel\HttpKernelInterface $httpKernel
    *   An HTTP kernel.
+   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+   *   The language manager.
    */
   public function __construct(HttpKernelInterface $httpKernel, LanguageManagerInterface $language_manager) {
     $this->httpKernel = $httpKernel;
@@ -75,7 +79,7 @@ class LanguageTestController implements ContainerInjectionInterface {
     return [
       'no_language' => [
         '#type' => 'link',
-        '#title' => t('Link to the current path with no langcode provided.'),
+        '#title' => $this->t('Link to the current path with no langcode provided.'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'attributes' => [
@@ -86,7 +90,7 @@ class LanguageTestController implements ContainerInjectionInterface {
       ],
       'fr' => [
         '#type' => 'link',
-        '#title' => t('Link to a French version of the current path.'),
+        '#title' => $this->t('Link to a French version of the current path.'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'language' => $languages['fr'],
@@ -98,7 +102,7 @@ class LanguageTestController implements ContainerInjectionInterface {
       ],
       'en' => [
         '#type' => 'link',
-        '#title' => t('Link to an English version of the current path.'),
+        '#title' => $this->t('Link to an English version of the current path.'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'language' => $languages['en'],

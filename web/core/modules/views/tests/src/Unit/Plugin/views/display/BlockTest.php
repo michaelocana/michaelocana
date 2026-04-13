@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Unit\Plugin\views\display;
 
 use Drupal\Tests\UnitTestCase;
@@ -34,21 +36,21 @@ class BlockTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->executable = $this->getMockBuilder('Drupal\views\ViewExecutable')
       ->disableOriginalConstructor()
-      ->setMethods(['executeDisplay', 'setDisplay', 'setItemsPerPage'])
+      ->onlyMethods(['executeDisplay', 'setDisplay', 'setItemsPerPage'])
       ->getMock();
     $this->executable->expects($this->any())
       ->method('setDisplay')
       ->with('block_1')
-      ->will($this->returnValue(TRUE));
+      ->willReturn(TRUE);
 
     $this->blockDisplay = $this->executable->display_handler = $this->getMockBuilder('Drupal\views\Plugin\views\display\Block')
       ->disableOriginalConstructor()
-      ->setMethods(NULL)
+      ->onlyMethods([])
       ->getMock();
 
     $this->blockDisplay->view = $this->executable;
@@ -60,29 +62,37 @@ class BlockTest extends UnitTestCase {
 
   /**
    * Tests the build method with no overriding.
+   *
+   * @testWith [null]
+   *           ["none"]
+   *           [0]
+   * @todo Delete the last two cases in https://www.drupal.org/project/drupal/issues/3521221. The last one is `intval('none')`.
    */
-  public function testBuildNoOverride() {
+  public function testBuildNoOverride($items_per_page_setting): void {
     $this->executable->expects($this->never())
       ->method('setItemsPerPage');
 
     $this->blockPlugin->expects($this->once())
       ->method('getConfiguration')
-      ->will($this->returnValue(['items_per_page' => 'none']));
+      ->willReturn(['items_per_page' => $items_per_page_setting]);
 
     $this->blockDisplay->preBlockBuild($this->blockPlugin);
   }
 
   /**
    * Tests the build method with overriding items per page.
+   *
+   * @testWith [5, 5]
+   *           ["5", 5]
    */
-  public function testBuildOverride() {
+  public function testBuildOverride(mixed $input, int $expected): void {
     $this->executable->expects($this->once())
       ->method('setItemsPerPage')
-      ->with(5);
+      ->with($expected);
 
     $this->blockPlugin->expects($this->once())
       ->method('getConfiguration')
-      ->will($this->returnValue(['items_per_page' => 5]));
+      ->willReturn(['items_per_page' => $input]);
 
     $this->blockDisplay->preBlockBuild($this->blockPlugin);
   }

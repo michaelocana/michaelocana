@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Kernel;
 
 use Drupal\Core\Plugin\Context\Context;
@@ -7,12 +9,12 @@ use Drupal\Core\Plugin\Context\ContextDefinition;
 use Drupal\Core\Plugin\Context\EntityContext;
 use Drupal\Core\Plugin\Context\EntityContextDefinition;
 use Drupal\entity_test\Entity\EntityTest;
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
 use Drupal\layout_builder\Plugin\SectionStorage\DefaultsSectionStorage;
 use Drupal\layout_builder\Section;
 use Drupal\layout_builder\SectionComponent;
-use Drupal\layout_builder\SectionListInterface;
 use Drupal\layout_builder\SectionStorage\SectionStorageDefinition;
 
 /**
@@ -45,11 +47,10 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
-    entity_test_create_bundle('bundle_with_extra_fields');
-    $this->installSchema('system', ['key_value_expire']);
+    EntityTestHelper::createBundle('bundle_with_extra_fields');
     $this->installEntitySchema('entity_test');
     $this->installEntitySchema('user');
     $this->installConfig(['layout_builder_defaults_test']);
@@ -63,7 +64,7 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * Tests installing defaults via config install.
    */
-  public function testConfigInstall() {
+  public function testConfigInstall(): void {
     /** @var \Drupal\layout_builder\Entity\LayoutEntityDisplayInterface $display */
     $display = LayoutBuilderEntityViewDisplay::load('entity_test.bundle_with_extra_fields.default');
     $section = $display->getSection(0);
@@ -88,7 +89,7 @@ class DefaultsSectionStorageTest extends KernelTestBase {
    * @param array $section_data
    *   Data to store as the sections value for Layout Builder.
    */
-  public function testAccess($expected, $operation, $is_enabled, array $section_data) {
+  public function testAccess($expected, $operation, $is_enabled, array $section_data): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -110,13 +111,13 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * Provides test data for ::testAccess().
    */
-  public function providerTestAccess() {
+  public static function providerTestAccess() {
     $section_data = [
       new Section(
         'layout_onecol',
         [],
         [
-          'first-uuid' => new SectionComponent('first-uuid', 'content', ['id' => 'foo'], ['harold' => 'maude']),
+          '10000000-0000-1000-a000-000000000000' => new SectionComponent('10000000-0000-1000-a000-000000000000', 'content', ['id' => 'foo'], ['harold' => 'maude']),
         ],
         ['layout_builder_defaults_test' => ['which_party' => 'third']]
       ),
@@ -138,7 +139,7 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::getContexts
    */
-  public function testGetContexts() {
+  public function testGetContexts(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -158,7 +159,7 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::getContextsDuringPreview
    */
-  public function testGetContextsDuringPreview() {
+  public function testGetContextsDuringPreview(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -186,22 +187,9 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   }
 
   /**
-   * @covers ::setSectionList
-   *
-   * @expectedDeprecation \Drupal\layout_builder\SectionStorageInterface::setSectionList() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. This method should no longer be used. The section list should be derived from context. See https://www.drupal.org/node/3016262.
-   * @group legacy
-   */
-  public function testSetSectionList() {
-    $section_list = $this->prophesize(SectionListInterface::class);
-    $this->expectException(\Exception::class);
-    $this->expectExceptionMessage('\Drupal\layout_builder\SectionStorageInterface::setSectionList() must no longer be called. The section list should be derived from context. See https://www.drupal.org/node/3016262.');
-    $this->plugin->setSectionList($section_list->reveal());
-  }
-
-  /**
    * @covers ::getTempstoreKey
    */
-  public function testGetTempstoreKey() {
+  public function testGetTempstoreKey(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -220,7 +208,7 @@ class DefaultsSectionStorageTest extends KernelTestBase {
   /**
    * Tests loading given a display.
    */
-  public function testLoadFromDisplay() {
+  public function testLoadFromDisplay(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',

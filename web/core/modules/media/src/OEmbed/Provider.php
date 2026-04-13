@@ -43,11 +43,11 @@ class Provider {
    * @throws \Drupal\media\OEmbed\ProviderException
    */
   public function __construct($name, $url, array $endpoints) {
+    $this->name = $name;
+
     if (!UrlHelper::isValid($url, TRUE) || !UrlHelper::isExternal($url)) {
       throw new ProviderException('Provider @name does not define a valid external URL.', $this);
     }
-
-    $this->name = $name;
     $this->url = $url;
 
     try {
@@ -56,7 +56,7 @@ class Provider {
         $this->endpoints[] = new Endpoint($endpoint['url'], $this, $endpoint['schemes'], $endpoint['formats'], $endpoint['discovery']);
       }
     }
-    catch (\InvalidArgumentException $e) {
+    catch (\InvalidArgumentException) {
       // Just skip all the invalid endpoints.
       // @todo Log the exception message to help with debugging in
       // https://www.drupal.org/project/drupal/issues/2972846.

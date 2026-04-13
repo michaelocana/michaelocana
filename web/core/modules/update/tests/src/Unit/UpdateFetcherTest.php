@@ -1,12 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\update\Unit;
 
+use ColinODell\PsrTestLogger\TestLogger;
+use Drupal\Core\Site\Settings;
 use Drupal\Tests\UnitTestCase;
 use Drupal\update\UpdateFetcher;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
+use Psr\Log\LoggerInterface;
 
 /**
  * Tests update functionality unrelated to the database.
+ *
+ * @coversDefaultClass \Drupal\update\UpdateFetcher
  *
  * @group update
  */
@@ -20,12 +32,59 @@ class UpdateFetcherTest extends UnitTestCase {
   protected $updateFetcher;
 
   /**
+   * History of requests/responses.
+   *
+   * @var array
+   */
+  protected $history = [];
+
+  /**
+   * Mock HTTP client.
+   *
+   * @var \GuzzleHttp\ClientInterface
+   */
+  protected $mockHttpClient;
+
+  /**
+   * Mock config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $mockConfigFactory;
+
+  /**
+   * A test project to fetch with.
+   *
+   * @var array
+   */
+  protected $testProject;
+
+  /**
+   * The logger.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected LoggerInterface $logger;
+
+  /**
    * {@inheritdoc}
    */
-  protected function setUp() {
-    $config_factory = $this->getConfigFactoryStub(['update.settings' => ['fetch_url' => 'http://www.example.com']]);
-    $http_client_mock = $this->createMock('\GuzzleHttp\ClientInterface');
-    $this->updateFetcher = new UpdateFetcher($config_factory, $http_client_mock);
+  protected function setUp(): void {
+    parent::setUp();
+    $this->mockConfigFactory = $this->getConfigFactoryStub(['update.settings' => ['fetch_url' => 'http://www.example.com']]);
+    $this->mockHttpClient = $this->createMock('\GuzzleHttp\ClientInterface');
+    $settings = new Settings([]);
+    $this->logger = new TestLogger();
+    $this->updateFetcher = new UpdateFetcher($this->mockConfigFactory, $this->mockHttpClient, $settings, $this->logger);
+    $this->testProject = [
+      'name' => 'update_test',
+      'project_type' => '',
+      'info' => [
+        'version' => '',
+        'project status url' => 'https://www.example.com',
+      ],
+      'includes' => ['module1' => 'Module 1', 'module2' => 'Module 2'],
+    ];
   }
 
   /**
@@ -37,15 +96,16 @@ class UpdateFetcherTest extends UnitTestCase {
    * @param string $site_key
    *   A string to mimic an anonymous site key hash.
    * @param string $expected
-   *   The expected url returned from UpdateFetcher::buildFetchUrl()
+   *   The expected URL returned from UpdateFetcher::buildFetchUrl()
    *
    * @dataProvider providerTestUpdateBuildFetchUrl
    *
    * @see \Drupal\update\UpdateFetcher::buildFetchUrl()
    */
-  public function testUpdateBuildFetchUrl(array $project, $site_key, $expected) {
+  public function testUpdateBuildFetchUrl(array $project, $site_key, $expected): void {
     $url = $this->updateFetcher->buildFetchUrl($project, $site_key);
     $this->assertEquals($url, $expected);
+    $this->assertFalse($this->logger->hasErrorRecords());
   }
 
   /**
@@ -55,9 +115,9 @@ class UpdateFetcherTest extends UnitTestCase {
    *   An array of arrays, each containing:
    *   - 'project' - An array matching a project's .info file structure.
    *   - 'site_key' - An arbitrary site key.
-   *   - 'expected' - The expected url from UpdateFetcher::buildFetchUrl().
+   *   - 'expected' - The expected URL from UpdateFetcher::buildFetchUrl().
    */
-  public function providerTestUpdateBuildFetchUrl() {
+  public static function providerTestUpdateBuildFetchUrl() {
     $data = [];
 
     // First test that we didn't break the trivial case.
@@ -71,14 +131,14 @@ class UpdateFetcherTest extends UnitTestCase {
 
     $data[] = [$project, $site_key, $expected];
 
-    // For disabled projects it shouldn't add the site key either.
+    // For uninstalled projects it shouldn't add the site key either.
     $site_key = 'site_key';
     $project['project_type'] = 'disabled';
     $expected = "http://www.example.com/{$project['name']}/current";
 
     $data[] = [$project, $site_key, $expected];
 
-    // For enabled projects, test adding the site key.
+    // For installed projects, test adding the site key.
     $project['project_type'] = '';
     $expected = "http://www.example.com/{$project['name']}/current";
     $expected .= '?site_key=site_key';
@@ -95,6 +155,86 @@ class UpdateFetcherTest extends UnitTestCase {
     $data[] = [$project, $site_key, $expected];
 
     return $data;
+  }
+
+  /**
+   * Mocks the HTTP client.
+   *
+   * @param \GuzzleHttp\Psr7\Response ...$responses
+   *   Variable number of Response objects that the mocked client should return.
+   */
+  protected function mockClient(Response ...$responses): void {
+    // Create a mock and queue responses.
+    $mock_handler = new MockHandler($responses);
+    $handler_stack = HandlerStack::create($mock_handler);
+    $history = Middleware::history($this->history);
+    $handler_stack->push($history);
+    $this->mockHttpClient = new Client(['handler' => $handler_stack]);
+  }
+
+  /**
+   * @covers ::doRequest
+   * @covers ::fetchProjectData
+   */
+  public function testUpdateFetcherNoFallback(): void {
+    // First, try without the HTTP fallback setting, and HTTPS mocked to fail.
+    $settings = new Settings([]);
+    $this->mockClient(
+      new Response(500, [], 'HTTPS failed'),
+    );
+    $update_fetcher = new UpdateFetcher($this->mockConfigFactory, $this->mockHttpClient, $settings, $this->logger);
+
+    $data = $update_fetcher->fetchProjectData($this->testProject, '');
+    // There should only be one request / response pair.
+    $this->assertCount(1, $this->history);
+    $request = $this->history[0]['request'];
+    $this->assertNotEmpty($request);
+    // It should have only been an HTTPS request.
+    $this->assertEquals('https', $request->getUri()->getScheme());
+    // And it should have failed.
+    $response = $this->history[0]['response'];
+    $this->assertEquals(500, $response->getStatusCode());
+    $this->assertEmpty($data);
+
+    $this->assertTrue($this->logger->hasErrorThatPasses(function (array $record) {
+      return $record['context']['@message'] === "Server error: `GET https://www.example.com/update_test/current` resulted in a `500 Internal Server Error` response:\nHTTPS failed\n";
+    }));
+  }
+
+  /**
+   * @covers ::doRequest
+   * @covers ::fetchProjectData
+   */
+  public function testUpdateFetcherHttpFallback(): void {
+    $settings = new Settings(['update_fetch_with_http_fallback' => TRUE]);
+    $this->mockClient(
+      new Response(500, [], 'HTTPS failed'),
+      new Response(200, [], 'HTTP worked'),
+    );
+    $update_fetcher = new UpdateFetcher($this->mockConfigFactory, $this->mockHttpClient, $settings, $this->logger);
+
+    $data = $update_fetcher->fetchProjectData($this->testProject, '');
+
+    // There should be two request / response pairs.
+    $this->assertCount(2, $this->history);
+
+    // The first should have been HTTPS and should have failed.
+    $first_try = $this->history[0];
+    $this->assertNotEmpty($first_try);
+    $this->assertEquals('https', $first_try['request']->getUri()->getScheme());
+    $this->assertEquals(500, $first_try['response']->getStatusCode());
+
+    // The second should have been the HTTP fallback and should have worked.
+    $second_try = $this->history[1];
+    $this->assertNotEmpty($second_try);
+    $this->assertEquals('http', $second_try['request']->getUri()->getScheme());
+    $this->assertEquals(200, $second_try['response']->getStatusCode());
+    // Although this is a bogus mocked response, it's what fetchProjectData()
+    // should return in this case.
+    $this->assertEquals('HTTP worked', $data);
+    $this->assertTrue($this->logger->hasErrorThatPasses(function (array $record) {
+      return $record['context']['@message'] === "Server error: `GET https://www.example.com/update_test/current` resulted in a `500 Internal Server Error` response:\nHTTPS failed\n";
+    }));
   }
 
 }

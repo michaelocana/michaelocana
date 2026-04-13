@@ -2,6 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_click_sort
+label: test_click_sort
 module: views
 description: ''
 tag: ''
@@ -41,6 +42,7 @@ display:
       style:
         type: table
         options:
+          class: ''
           info:
             id:
               sortable: true
@@ -51,7 +53,7 @@ display:
             created:
               sortable: false
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   page_1:

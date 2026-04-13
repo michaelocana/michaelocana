@@ -3,7 +3,8 @@
 namespace Drupal\filter\Element;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Element\RenderElement;
+use Drupal\Core\Render\Attribute\RenderElement;
+use Drupal\Core\Render\Element\RenderElementBase;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 
@@ -21,28 +22,26 @@ use Drupal\Core\Url;
  *
  * Usage Example:
  * @code
- * $form['body'] = array(
+ * $form['body'] = [
  *   '#type' => 'text_format',
  *   '#title' => 'Body',
  *   '#format' => 'full_html',
  *   '#default_value' => '<p>The quick brown fox jumped over the lazy dog.</p>',
- * );
+ * ];
  * @endcode
  *
  * @see \Drupal\Core\Render\Element\Textarea
- *
- * @RenderElement("text_format")
  */
-class TextFormat extends RenderElement {
+#[RenderElement('text_format')]
+class TextFormat extends RenderElementBase {
 
   /**
    * {@inheritdoc}
    */
   public function getInfo() {
-    $class = get_class($this);
     return [
       '#process' => [
-        [$class, 'processFormat'],
+        [static::class, 'processFormat'],
       ],
       '#base_type' => 'textarea',
       '#theme_wrappers' => ['text_format_wrapper'],
@@ -124,6 +123,9 @@ class TextFormat extends RenderElement {
     // Setup child container for the text format widget.
     $element['format'] = [
       '#type' => 'container',
+      '#theme_wrappers' => [
+        'container__text_format_filter_wrapper',
+      ],
       '#attributes' => ['class' => ['js-filter-wrapper']],
     ];
 
@@ -162,10 +164,18 @@ class TextFormat extends RenderElement {
       }
     }
 
+    // If the value element has #states set, copy it to the format element.
+    if (isset($element['value']['#states'])) {
+      $element['format']['#states'] = $element['value']['#states'];
+    }
+
     // Prepare text format guidelines.
     $element['format']['guidelines'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['js-filter-guidelines']],
+      '#theme_wrappers' => [
+        'container__text_format_filter_guidelines',
+      ],
       '#weight' => 20,
     ];
     $options = [];
@@ -190,6 +200,9 @@ class TextFormat extends RenderElement {
 
     $element['format']['help'] = [
       '#type' => 'container',
+      '#theme_wrappers' => [
+        'container__text_format_filter_help',
+      ],
       'about' => [
         '#type' => 'link',
         '#title' => t('About text formats'),
@@ -281,6 +294,7 @@ class TextFormat extends RenderElement {
    * Wraps the config factory.
    *
    * @return \Drupal\Core\Config\ConfigFactoryInterface
+   *   The configuration factory service.
    */
   protected static function configFactory() {
     return \Drupal::configFactory();
@@ -290,6 +304,7 @@ class TextFormat extends RenderElement {
    * Wraps the element info service.
    *
    * @return \Drupal\Core\Render\ElementInfoManagerInterface
+   *   The element info service.
    */
   protected static function elementInfo() {
     return \Drupal::service('element_info');

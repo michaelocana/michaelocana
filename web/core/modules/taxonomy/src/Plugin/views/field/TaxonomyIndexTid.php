@@ -3,6 +3,7 @@
 namespace Drupal\taxonomy\Plugin\views\field;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Attribute\ViewsField;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\field\PrerenderList;
@@ -13,9 +14,8 @@ use Drupal\taxonomy\VocabularyStorageInterface;
  * Field handler to display all taxonomy terms of a node.
  *
  * @ingroup views_field_handlers
- *
- * @ViewsField("taxonomy_index_tid")
  */
+#[ViewsField("taxonomy_index_tid")]
 class TaxonomyIndexTid extends PrerenderList {
 
   /**
@@ -31,7 +31,7 @@ class TaxonomyIndexTid extends PrerenderList {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\taxonomy\VocabularyStorageInterface $vocabulary_storage
@@ -57,10 +57,10 @@ class TaxonomyIndexTid extends PrerenderList {
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
-    // @todo: Wouldn't it be possible to use $this->base_table and no if here?
+    // @todo Wouldn't it be possible to use $this->base_table and no if here?
     if ($view->storage->get('base_table') == 'node_field_revision') {
       $this->additional_fields['nid'] = ['table' => 'node_field_revision', 'field' => 'nid'];
     }
@@ -69,6 +69,9 @@ class TaxonomyIndexTid extends PrerenderList {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -118,12 +121,15 @@ class TaxonomyIndexTid extends PrerenderList {
   }
 
   /**
-   * Add this term to the query
+   * Add this term to the query.
    */
   public function query() {
     $this->addAdditionalFields();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function preRender(&$values) {
     $vocabularies = $this->vocabularyStorage->loadMultiple();
     $this->field_alias = $this->aliases['nid'];
@@ -135,11 +141,11 @@ class TaxonomyIndexTid extends PrerenderList {
     }
 
     if ($nids) {
-      $vocabs = array_filter($this->options['vids']);
+      $vids = array_filter($this->options['vids']);
       if (empty($this->options['limit'])) {
-        $vocabs = [];
+        $vids = [];
       }
-      $result = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->getNodeTerms($nids, $vocabs);
+      $result = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->getNodeTerms($nids, $vids);
 
       foreach ($result as $node_nid => $data) {
         foreach ($data as $tid => $term) {
@@ -157,20 +163,29 @@ class TaxonomyIndexTid extends PrerenderList {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function render_item($count, $item) {
     return $item['name'];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function documentSelfTokens(&$tokens) {
-    $tokens['{{ ' . $this->options['id'] . '__tid' . ' }}'] = $this->t('The taxonomy term ID for the term.');
-    $tokens['{{ ' . $this->options['id'] . '__name' . ' }}'] = $this->t('The taxonomy term name for the term.');
-    $tokens['{{ ' . $this->options['id'] . '__vocabulary_vid' . ' }}'] = $this->t('The machine name for the vocabulary the term belongs to.');
-    $tokens['{{ ' . $this->options['id'] . '__vocabulary' . ' }}'] = $this->t('The name for the vocabulary the term belongs to.');
+    $tokens['{{ ' . $this->options['id'] . '__tid }}'] = $this->t('The taxonomy term ID for the term.');
+    $tokens['{{ ' . $this->options['id'] . '__name }}'] = $this->t('The taxonomy term name for the term.');
+    $tokens['{{ ' . $this->options['id'] . '__vocabulary_vid }}'] = $this->t('The machine name for the vocabulary the term belongs to.');
+    $tokens['{{ ' . $this->options['id'] . '__vocabulary }}'] = $this->t('The name for the vocabulary the term belongs to.');
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function addSelfTokens(&$tokens, $item) {
     foreach (['tid', 'name', 'vocabulary_vid', 'vocabulary'] as $token) {
-      $tokens['{{ ' . $this->options['id'] . '__' . $token . ' }}'] = isset($item[$token]) ? $item[$token] : '';
+      $tokens['{{ ' . $this->options['id'] . '__' . $token . ' }}'] = $item[$token] ?? '';
     }
   }
 

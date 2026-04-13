@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Functional\EntityReference;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\Tests\BrowserTestBase;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 use Drupal\taxonomy\Entity\Vocabulary;
 use Drupal\node\Entity\Node;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -17,9 +19,12 @@ use Drupal\field\Entity\FieldStorageConfig;
  */
 class EntityReferenceAutoCreateTest extends BrowserTestBase {
 
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
 
-  public static $modules = ['node', 'taxonomy', 'entity_test'];
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = ['node', 'taxonomy', 'entity_test'];
 
   /**
    * {@inheritdoc}
@@ -40,7 +45,10 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
    */
   protected $referencedType;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create "referencing" and "referenced" node types.
@@ -100,17 +108,17 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that the autocomplete input element appears and the creation of a new
-   * entity.
+   * Tests the autocomplete input element and entity auto-creation.
    */
-  public function testAutoCreate() {
+  public function testAutoCreate(): void {
     $this->drupalGet('node/add/' . $this->referencingType);
-    $this->assertFieldByXPath('//input[@id="edit-test-field-0-target-id" and contains(@class, "form-autocomplete")]', NULL, 'The autocomplete input element appears.');
+    $target = $this->assertSession()->fieldExists("edit-test-field-0-target-id");
+    $this->assertTrue($target->hasClass("form-autocomplete"));
 
     $new_title = $this->randomMachineName();
 
     // Assert referenced node does not exist.
-    $base_query = \Drupal::entityQuery('node');
+    $base_query = \Drupal::entityQuery('node')->accessCheck(FALSE);
     $base_query
       ->condition('type', $this->referencedType)
       ->condition('title', $new_title);
@@ -123,7 +131,8 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
       'title[0][value]' => $this->randomMachineName(),
       'test_field[0][target_id]' => $new_title,
     ];
-    $this->drupalPostForm("node/add/$this->referencingType", $edit, 'Save');
+    $this->drupalGet("node/add/{$this->referencingType}");
+    $this->submitForm($edit, 'Save');
 
     // Assert referenced node was created.
     $query = clone $base_query;
@@ -134,28 +143,31 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
 
     // Assert the referenced node is associated with referencing node.
     $result = \Drupal::entityQuery('node')
+      ->accessCheck(FALSE)
       ->condition('type', $this->referencingType)
       ->execute();
 
     $referencing_nid = key($result);
     $referencing_node = Node::load($referencing_nid);
-    $this->assertEqual($referenced_nid, $referencing_node->test_field->target_id, 'Newly created node is referenced from the referencing node.');
+    $this->assertEquals($referenced_nid, $referencing_node->test_field->target_id, 'Newly created node is referenced from the referencing node.');
 
     // Now try to view the node and check that the referenced node is shown.
     $this->drupalGet('node/' . $referencing_node->id());
-    $this->assertText($referencing_node->label(), 'Referencing node label found.');
-    $this->assertText($referenced_node->label(), 'Referenced node label found.');
+    $this->assertSession()->pageTextContains($referencing_node->label());
+    $this->assertSession()->pageTextContains($referenced_node->label());
   }
 
   /**
+   * Tests multiple target bundles.
+   *
    * Tests if an entity reference field having multiple target bundles is
    * storing the auto-created entity in the right destination.
    */
-  public function testMultipleTargetBundles() {
+  public function testMultipleTargetBundles(): void {
     /** @var \Drupal\taxonomy\Entity\Vocabulary[] $vocabularies */
     $vocabularies = [];
     for ($i = 0; $i < 2; $i++) {
-      $vid = mb_strtolower($this->randomMachineName());
+      $vid = $this->randomMachineName();
       $vocabularies[$i] = Vocabulary::create([
         'name' => $this->randomMachineName(),
         'vid' => $vid,
@@ -166,7 +178,7 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
     // Create a taxonomy term entity reference field that saves the auto-created
     // taxonomy terms in the second vocabulary from the two that were configured
     // as targets.
-    $field_name = mb_strtolower($this->randomMachineName());
+    $field_name = $this->randomMachineName();
     $handler_settings = [
       'target_bundles' => [
         $vocabularies[0]->id() => $vocabularies[0]->id(),
@@ -176,7 +188,6 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
       'auto_create_bundle' => $vocabularies[1]->id(),
     ];
     $this->createEntityReferenceField('node', $this->referencingType, $field_name, $this->randomString(), 'taxonomy_term', 'default', $handler_settings);
-    /** @var \Drupal\Core\Entity\Display\EntityFormDisplayInterface $fd */
     \Drupal::service('entity_display.repository')
       ->getFormDisplay('node', $this->referencingType)
       ->setComponent($field_name, ['type' => 'entity_reference_autocomplete'])
@@ -188,13 +199,16 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
       'title[0][value]' => $this->randomString(),
     ];
 
-    $this->drupalPostForm('node/add/' . $this->referencingType, $edit, 'Save');
+    $this->drupalGet('node/add/' . $this->referencingType);
+    $this->submitForm($edit, 'Save');
+
+    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
     /** @var \Drupal\taxonomy\Entity\Term $term */
-    $term = taxonomy_term_load_multiple_by_name($term_name);
+    $term = $term_storage->loadByProperties(['name' => $term_name]);
     $term = reset($term);
 
     // The new term is expected to be stored in the second vocabulary.
-    $this->assertEqual($vocabularies[1]->id(), $term->bundle());
+    $this->assertEquals($vocabularies[1]->id(), $term->bundle());
 
     /** @var \Drupal\field\Entity\FieldConfig $field_config */
     $field_config = FieldConfig::loadByName('node', $this->referencingType, $field_name);
@@ -212,35 +226,38 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
       'title[0][value]' => $this->randomString(),
     ];
 
-    $this->drupalPostForm('node/add/' . $this->referencingType, $edit, 'Save');
+    $this->drupalGet('node/add/' . $this->referencingType);
+    $this->submitForm($edit, 'Save');
     /** @var \Drupal\taxonomy\Entity\Term $term */
-    $term = taxonomy_term_load_multiple_by_name($term_name);
+    $term = $term_storage->loadByProperties(['name' => $term_name]);
     $term = reset($term);
 
     // The second term is expected to be stored in the first vocabulary.
-    $this->assertEqual($vocabularies[0]->id(), $term->bundle());
+    $this->assertEquals($vocabularies[0]->id(), $term->bundle());
 
     // @todo Re-enable this test when WebTestBase::curlHeaderCallback() provides
     //   a way to catch and assert user-triggered errors.
 
     // Test the case when the field config settings are inconsistent.
+    // @code
     // unset($handler_settings['auto_create_bundle']);
     // $field_config->setSetting('handler_settings', $handler_settings);
     // $field_config->save();
     //
     // $this->drupalGet('node/add/' . $this->referencingType);
     // $error_message = sprintf(
-    //  "Create referenced entities if they don't already exist option is enabled but a specific destination bundle is not set. You should re-visit and fix the settings of the '%s' (%s) field.",
-    //  $field_config->getLabel(),
-    //  $field_config->getName()
+    //   "Create referenced entities if they don't already exist option is enabled but a specific destination bundle is not set. You should re-visit and fix the settings of the '%s' (%s) field.",
+    //   $field_config->getLabel(),
+    //   $field_config->getName()
     // );
     // $this->assertErrorLogged($error_message);
+    // @endcode
   }
 
   /**
    * Tests autocreation for an entity that has no bundles.
    */
-  public function testNoBundles() {
+  public function testNoBundles(): void {
     $account = $this->drupalCreateUser([
       'access content',
       "create $this->referencingType content",
@@ -248,7 +265,7 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
     ]);
     $this->drupalLogin($account);
 
-    $field_name = mb_strtolower($this->randomMachineName());
+    $field_name = $this->randomMachineName();
     $handler_settings = [
       'auto_create' => TRUE,
     ];
@@ -265,10 +282,12 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
       'title[0][value]' => $node_title,
     ];
 
-    $this->drupalPostForm('node/add/' . $this->referencingType, $edit, 'Save');
+    $this->drupalGet('node/add/' . $this->referencingType);
+    $this->submitForm($edit, 'Save');
 
     // Assert referenced entity was created.
     $result = \Drupal::entityQuery('entity_test_no_bundle_with_label')
+      ->accessCheck(FALSE)
       ->condition('name', $name)
       ->execute();
     $this->assertNotEmpty($result, 'Referenced entity was created.');
@@ -276,12 +295,13 @@ class EntityReferenceAutoCreateTest extends BrowserTestBase {
 
     // Assert the referenced entity is associated with referencing node.
     $result = \Drupal::entityQuery('node')
+      ->accessCheck(FALSE)
       ->condition('type', $this->referencingType)
       ->execute();
     $this->assertCount(1, $result);
     $referencing_nid = key($result);
     $referencing_node = Node::load($referencing_nid);
-    $this->assertEqual($referenced_id, $referencing_node->$field_name->target_id, 'Newly created node is referenced from the referencing entity.');
+    $this->assertEquals($referenced_id, $referencing_node->$field_name->target_id, 'Newly created node is referenced from the referencing entity.');
   }
 
 }

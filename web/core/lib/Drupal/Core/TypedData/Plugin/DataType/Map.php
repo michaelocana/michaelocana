@@ -2,8 +2,12 @@
 
 namespace Drupal\Core\TypedData\Plugin\DataType;
 
-use Drupal\Core\TypedData\TypedData;
+use Drupal\Component\Utility\FilterArray;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\ComplexDataInterface;
+use Drupal\Core\TypedData\MapDataDefinition;
+use Drupal\Core\TypedData\TypedData;
 
 /**
  * The "map" data type.
@@ -17,13 +21,12 @@ use Drupal\Core\TypedData\ComplexDataInterface;
  * it.
  *
  * @ingroup typed_data
- *
- * @DataType(
- *   id = "map",
- *   label = @Translation("Map"),
- *   definition_class = "\Drupal\Core\TypedData\MapDataDefinition"
- * )
  */
+#[DataType(
+  id: "map",
+  label: new TranslatableMarkup("Map"),
+  definition_class: MapDataDefinition::class,
+)]
 class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface {
 
   /**
@@ -70,6 +73,10 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
    *
    * @param array|null $values
    *   An array of property values.
+   * @param bool $notify
+   *   (optional) Whether to notify the parent object of the change. Defaults to
+   *   TRUE. If a property is updated from a parent object, set it to FALSE to
+   *   avoid being notified again.
    */
   public function setValue($values, $notify = TRUE) {
     if (isset($values) && !is_array($values)) {
@@ -79,7 +86,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
 
     // Update any existing property objects.
     foreach ($this->properties as $name => $property) {
-      $value = isset($values[$name]) ? $values[$name] : NULL;
+      $value = $values[$name] ?? NULL;
       $property->setValue($value, FALSE);
       // Remove the value from $this->values to ensure it does not contain any
       // value for computed properties.
@@ -100,7 +107,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
       $strings[] = $property->getString();
     }
     // Remove any empty strings resulting from empty items.
-    return implode(', ', array_filter($strings, 'mb_strlen'));
+    return implode(', ', FilterArray::removeEmptyStrings($strings));
   }
 
   /**
@@ -137,7 +144,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
    *
    * @param string $property_name
    *   The name of the property to be written.
-   * @param $value
+   * @param mixed $value
    *   The value to set.
    */
   protected function writePropertyValue($property_name, $value) {
@@ -177,7 +184,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
   /**
    * {@inheritdoc}
    */
-  public function getIterator() {
+  public function getIterator(): \ArrayIterator {
     return new \ArrayIterator($this->getProperties());
   }
 
@@ -214,6 +221,8 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
   /**
    * {@inheritdoc}
    *
+   * @param string $property_name
+   *   The name of the property.
    * @param bool $notify
    *   (optional) Whether to forward the notification to the parent. Defaults to
    *   TRUE. By passing FALSE, overrides of this method can re-use the logic

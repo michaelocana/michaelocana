@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Unit;
 
 use Drupal\Core\Entity\EntityFieldManagerInterface;
@@ -22,6 +24,7 @@ use Symfony\Component\Routing\RouteCollection;
  * @coversDefaultClass \Drupal\layout_builder\Plugin\SectionStorage\OverridesSectionStorage
  *
  * @group layout_builder
+ * @group #slow
  */
 class OverridesSectionStorageTest extends UnitTestCase {
 
@@ -56,7 +59,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeManager = $this->prophesize(EntityTypeManagerInterface::class);
@@ -73,115 +76,6 @@ class OverridesSectionStorageTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::extractIdFromRoute
-   *
-   * @dataProvider providerTestExtractIdFromRoute
-   *
-   * @expectedDeprecation \Drupal\layout_builder\SectionStorageInterface::extractIdFromRoute() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. \Drupal\layout_builder\SectionStorageInterface::deriveContextsFromRoute() should be used instead. See https://www.drupal.org/node/3016262.
-   *
-   * @group legacy
-   */
-  public function testExtractIdFromRoute($expected, $value, array $defaults) {
-    $result = $this->plugin->extractIdFromRoute($value, [], 'the_parameter_name', $defaults);
-    $this->assertSame($expected, $result);
-  }
-
-  /**
-   * Provides data for ::testExtractIdFromRoute().
-   */
-  public function providerTestExtractIdFromRoute() {
-    $data = [];
-    $data['with value, with layout'] = [
-      'my_entity_type.entity_with_layout',
-      'my_entity_type.entity_with_layout',
-      [],
-    ];
-    $data['with value, without layout'] = [
-      NULL,
-      'my_entity_type',
-      [],
-    ];
-    $data['empty value, populated defaults'] = [
-      'my_entity_type.entity_with_layout',
-      '',
-      [
-        'entity_type_id' => 'my_entity_type',
-        'my_entity_type' => 'entity_with_layout',
-      ],
-    ];
-    $data['empty value, empty defaults'] = [
-      NULL,
-      '',
-      [],
-    ];
-    return $data;
-  }
-
-  /**
-   * @covers ::getSectionListFromId
-   *
-   * @dataProvider providerTestGetSectionListFromId
-   *
-   * @expectedDeprecation \Drupal\layout_builder\SectionStorageInterface::getSectionListFromId() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. The section list should be derived from context. See https://www.drupal.org/node/3016262.
-   *
-   * @group legacy
-   */
-  public function testGetSectionListFromId($success, $expected_entity_type_id, $id) {
-    $defaults['the_parameter_name'] = $id;
-
-    if ($expected_entity_type_id) {
-      $entity_without_layout = $this->prophesize(FieldableEntityInterface::class);
-      $entity_without_layout->hasField(OverridesSectionStorage::FIELD_NAME)->willReturn(FALSE);
-      $entity_without_layout->get(OverridesSectionStorage::FIELD_NAME)->shouldNotBeCalled();
-      $this->entityRepository->getActive('my_entity_type', 'entity_without_layout')->willReturn($entity_without_layout->reveal());
-
-      $entity_with_layout = $this->prophesize(FieldableEntityInterface::class);
-      $entity_with_layout->hasField(OverridesSectionStorage::FIELD_NAME)->willReturn(TRUE);
-      $entity_with_layout->get(OverridesSectionStorage::FIELD_NAME)->willReturn('the_return_value');
-      $this->entityRepository->getActive('my_entity_type', 'entity_with_layout')->willReturn($entity_with_layout->reveal());
-
-      $entity_type = new EntityType(['id' => $expected_entity_type_id]);
-      $this->entityTypeManager->getDefinition($expected_entity_type_id)->willReturn($entity_type);
-    }
-    else {
-      $this->entityTypeManager->getStorage(Argument::any())->shouldNotBeCalled();
-      $this->entityTypeManager->getDefinition(Argument::any())->shouldNotBeCalled();
-    }
-
-    if (!$success) {
-      $this->expectException(\InvalidArgumentException::class);
-    }
-
-    $result = $this->plugin->getSectionListFromId($id);
-    if ($success) {
-      $this->assertEquals('the_return_value', $result);
-    }
-  }
-
-  /**
-   * Provides data for ::testGetSectionListFromId().
-   */
-  public function providerTestGetSectionListFromId() {
-    $data = [];
-    $data['with value, with layout'] = [
-      TRUE,
-      'my_entity_type',
-      'my_entity_type.entity_with_layout',
-    ];
-    $data['with value, without layout'] = [
-      FALSE,
-      'my_entity_type',
-      'my_entity_type.entity_without_layout',
-    ];
-    $data['empty value, empty defaults'] = [
-      FALSE,
-      NULL,
-      '',
-    ];
-    return $data;
-  }
-
-  /**
    * @covers ::extractEntityFromRoute
    *
    * @dataProvider providerTestExtractEntityFromRoute
@@ -195,7 +89,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
    * @param array $defaults
    *   The defaults to pass to ::extractEntityFromRoute().
    */
-  public function testExtractEntityFromRoute($success, $expected_entity_type_id, $value, array $defaults) {
+  public function testExtractEntityFromRoute($success, $expected_entity_type_id, $value, array $defaults): void {
     if ($expected_entity_type_id) {
       $entity_without_layout = $this->prophesize(FieldableEntityInterface::class);
       $entity_without_layout->hasField(OverridesSectionStorage::FIELD_NAME)->willReturn(FALSE);
@@ -215,7 +109,6 @@ class OverridesSectionStorageTest extends UnitTestCase {
     }
 
     $method = new \ReflectionMethod($this->plugin, 'extractEntityFromRoute');
-    $method->setAccessible(TRUE);
     $result = $method->invoke($this->plugin, $value, $defaults);
     if ($success) {
       $this->assertInstanceOf(FieldableEntityInterface::class, $result);
@@ -228,7 +121,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
   /**
    * Provides data for ::testExtractEntityFromRoute().
    */
-  public function providerTestExtractEntityFromRoute() {
+  public static function providerTestExtractEntityFromRoute() {
     // Data provider values are:
     // - whether a successful result is expected
     // - the expected entity ID
@@ -242,7 +135,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
       [],
     ];
     $data['with value, without layout'] = [
-      FALSE,
+      TRUE,
       'my_entity_type',
       'my_entity_type.entity_without_layout',
       [],
@@ -271,7 +164,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
    * @covers ::getEntityTypes
    * @covers \Drupal\layout_builder\Routing\LayoutBuilderRoutesTrait::buildLayoutRoutes
    */
-  public function testBuildRoutes() {
+  public function testBuildRoutes(): void {
     $entity_types = [];
 
     $not_fieldable = $this->prophesize(EntityTypeInterface::class);
@@ -380,6 +273,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'from_canonical' => ['type' => 'entity:from_canonical'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.from_canonical.discard_changes' => new Route(
@@ -400,6 +294,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'from_canonical' => ['type' => 'entity:from_canonical'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.from_canonical.revert' => new Route(
@@ -420,6 +315,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'from_canonical' => ['type' => 'entity:from_canonical'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_string_id.view' => new Route(
@@ -440,6 +336,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_string_id' => ['type' => 'entity:with_string_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_string_id.discard_changes' => new Route(
@@ -459,6 +356,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_string_id' => ['type' => 'entity:with_string_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_string_id.revert' => new Route(
@@ -478,6 +376,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_string_id' => ['type' => 'entity:with_string_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_integer_id.view' => new Route(
@@ -499,6 +398,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_integer_id' => ['type' => 'entity:with_integer_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_integer_id.discard_changes' => new Route(
@@ -519,6 +419,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_integer_id' => ['type' => 'entity:with_integer_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
       'layout_builder.overrides.with_integer_id.revert' => new Route(
@@ -539,6 +440,7 @@ class OverridesSectionStorageTest extends UnitTestCase {
             'with_integer_id' => ['type' => 'entity:with_integer_id'],
           ],
           '_layout_builder' => TRUE,
+          '_admin_route' => FALSE,
         ]
       ),
     ];

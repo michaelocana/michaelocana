@@ -2,46 +2,60 @@
 
 namespace Drupal\file\Entity;
 
+use Drupal\Core\Entity\Attribute\ContentEntityType;
+use Drupal\Core\Entity\ContentEntityDeleteForm;
+use Drupal\Core\Entity\EntityListBuilder;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\File\Exception\FileException;
+use Drupal\file\FileAccessControlHandler;
 use Drupal\file\FileInterface;
+use Drupal\file\FileStorage;
+use Drupal\file\FileStorageSchema;
+use Drupal\file\FileViewsData;
 use Drupal\user\EntityOwnerTrait;
 
 /**
  * Defines the file entity class.
  *
  * @ingroup file
- *
- * @ContentEntityType(
- *   id = "file",
- *   label = @Translation("File"),
- *   label_collection = @Translation("Files"),
- *   label_singular = @Translation("file"),
- *   label_plural = @Translation("files"),
- *   label_count = @PluralTranslation(
- *     singular = "@count file",
- *     plural = "@count files",
- *   ),
- *   handlers = {
- *     "storage" = "Drupal\file\FileStorage",
- *     "storage_schema" = "Drupal\file\FileStorageSchema",
- *     "access" = "Drupal\file\FileAccessControlHandler",
- *     "views_data" = "Drupal\file\FileViewsData",
- *   },
- *   base_table = "file_managed",
- *   entity_keys = {
- *     "id" = "fid",
- *     "label" = "filename",
- *     "langcode" = "langcode",
- *     "uuid" = "uuid",
- *     "owner" = "uid",
- *   }
- * )
  */
+#[ContentEntityType(
+  id: 'file',
+  label: new TranslatableMarkup('File'),
+  label_collection: new TranslatableMarkup('Files'),
+  label_singular: new TranslatableMarkup('file'),
+  label_plural: new TranslatableMarkup('files'),
+  entity_keys: [
+    'id' => 'fid',
+    'label' => 'filename',
+    'langcode' => 'langcode',
+    'uuid' => 'uuid',
+    'owner' => 'uid',
+  ],
+  handlers: [
+    'storage' => FileStorage::class,
+    'storage_schema' => FileStorageSchema::class,
+    'access' => FileAccessControlHandler::class,
+    'views_data' => FileViewsData::class,
+    'list_builder' => EntityListBuilder::class,
+    'form' => ['delete' => ContentEntityDeleteForm::class],
+    'route_provider' => ['html' => FileRouteProvider::class],
+  ],
+  links: [
+    'delete-form' => '/file/{file}/delete',
+  ],
+  base_table: 'file_managed',
+  label_count: [
+    'singular' => '@count file',
+    'plural' => '@count files',
+  ],
+)]
 class File extends ContentEntityBase implements FileInterface {
 
   use EntityChangedTrait;
@@ -79,21 +93,9 @@ class File extends ContentEntityBase implements FileInterface {
    * {@inheritdoc}
    */
   public function createFileUrl($relative = TRUE) {
-    $url = file_create_url($this->getFileUri());
-    if ($relative && $url) {
-      $url = file_url_transform_relative($url);
-    }
-    return $url;
-  }
-
-  /**
-   * {@inheritdoc}
-   *
-   * @see file_url_transform_relative()
-   */
-  public function url($rel = 'canonical', $options = []) {
-    @trigger_error('File entities returning the URL to the physical file in File::url() is deprecated, use $file->createFileUrl() instead. See https://www.drupal.org/node/3019830', E_USER_DEPRECATED);
-    return $this->createFileUrl(FALSE);
+    /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+    $file_url_generator = \Drupal::service('file_url_generator');
+    return $relative ? $file_url_generator->generateString($this->getFileUri()) : $file_url_generator->generateAbsoluteString($this->getFileUri());
   }
 
   /**
@@ -114,7 +116,8 @@ class File extends ContentEntityBase implements FileInterface {
    * {@inheritdoc}
    */
   public function getSize() {
-    return $this->get('filesize')->value;
+    $filesize = $this->get('filesize')->value;
+    return isset($filesize) ? (int) $filesize : NULL;
   }
 
   /**
@@ -128,14 +131,15 @@ class File extends ContentEntityBase implements FileInterface {
    * {@inheritdoc}
    */
   public function getCreatedTime() {
-    return $this->get('created')->value;
+    $created = $this->get('created')->value;
+    return isset($created) ? (int) $created : NULL;
   }
 
   /**
    * {@inheritdoc}
    */
   public function isPermanent() {
-    return $this->get('status')->value == FILE_STATUS_PERMANENT;
+    return $this->get('status')->value == static::STATUS_PERMANENT;
   }
 
   /**
@@ -149,7 +153,7 @@ class File extends ContentEntityBase implements FileInterface {
    * {@inheritdoc}
    */
   public function setPermanent() {
-    $this->get('status')->value = FILE_STATUS_PERMANENT;
+    $this->get('status')->value = static::STATUS_PERMANENT;
   }
 
   /**
@@ -170,7 +174,7 @@ class File extends ContentEntityBase implements FileInterface {
 
     // Automatically detect filemime if not set.
     if (!isset($values['filemime']) && isset($values['uri'])) {
-      $values['filemime'] = \Drupal::service('file.mime_type.guesser')->guess($values['uri']);
+      $values['filemime'] = \Drupal::service('file.mime_type.guesser')->guessMimeType($values['uri']);
     }
   }
 
@@ -210,7 +214,7 @@ class File extends ContentEntityBase implements FileInterface {
       try {
         \Drupal::service('file_system')->delete($entity->getFileUri());
       }
-      catch (FileException $e) {
+      catch (FileException) {
         // Ignore and continue.
       }
     }
@@ -278,6 +282,33 @@ class File extends ContentEntityBase implements FileInterface {
    */
   public static function getDefaultEntityOwner() {
     return NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function invalidateTagsOnSave($update) {
+    $tags = $this->getListCacheTagsToInvalidate();
+    // Always invalidate the 404 or 403 response cache because while files do
+    // not have a canonical URL as such, they may be served via routes such as
+    // private files.
+    // Creating or updating an entity may change a cached 403 or 404 response.
+    $tags = Cache::mergeTags($tags, ['4xx-response']);
+    if ($update) {
+      $tags = Cache::mergeTags($tags, $this->getCacheTagsToInvalidate());
+    }
+    Cache::invalidateTags($tags);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDownloadHeaders(): array {
+    return [
+      'Content-Type' => $this->getMimeType(),
+      'Content-Length' => $this->getSize(),
+      'Cache-Control' => 'private',
+    ];
   }
 
 }

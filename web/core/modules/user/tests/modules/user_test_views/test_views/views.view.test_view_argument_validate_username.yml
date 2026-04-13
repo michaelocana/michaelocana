@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_view_argument_validate_username
-label: ''
+label: test_view_argument_validate_username
 module: views
 description: ''
 tag: ''
@@ -34,6 +34,6 @@ display:
       row:
         type: fields
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

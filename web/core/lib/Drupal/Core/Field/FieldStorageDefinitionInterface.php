@@ -56,7 +56,7 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    *
    * Each field type defines the settings that are meaningful for that type.
    * For example, a text field can define a 'max_length' setting, and an image
-   * field can define a 'alt_field_required' setting.
+   * field can define an 'alt_field_required' setting.
    *
    * The method always returns an array of all available settings for this field
    * type, possibly with the default values merged in if values have not been
@@ -74,7 +74,7 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    *   The setting name.
    *
    * @return mixed
-   *   The setting value.
+   *   The setting value or NULL if the setting name doesn't exist.
    */
   public function getSetting($setting_name);
 
@@ -107,20 +107,6 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    *   TRUE if the field is revisionable.
    */
   public function isRevisionable();
-
-  /**
-   * Determines whether the field is queryable via QueryInterface.
-   *
-   * @return bool
-   *   TRUE if the field is queryable.
-   *
-   * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Field\FieldStorageDefinitionInterface::hasCustomStorage()
-   *   instead.
-   *
-   * @see https://www.drupal.org/node/2856563
-   */
-  public function isQueryable();
 
   /**
    * Returns the human-readable label for the field.
@@ -214,8 +200,8 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    * Returns the name of the main property, if any.
    *
    * Some field items consist mainly of one main property, e.g. the value of a
-   * text field or the @code target_id @endcode of an entity reference. If the
-   * field item has no main property, the method returns NULL.
+   * text field or the "target_id" of an entity reference. If the field item has
+   * no main property, the method returns NULL.
    *
    * @return string|null
    *   The name of the value property, or NULL if there is none.
@@ -340,6 +326,7 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    * Returns a unique identifier for the field storage.
    *
    * @return string
+   *   A unique identifier for the field storage.
    */
   public function getUniqueStorageIdentifier();
 

@@ -1,16 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Functional\Rest;
 
-use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
+use Drupal\Tests\rest\Functional\EntityResource\ConfigEntityResourceTestBase;
 use Drupal\user\Entity\Role;
 
-abstract class RoleResourceTestBase extends EntityResourceTestBase {
+/**
+ * Resource test base for the UserRole entity.
+ */
+abstract class RoleResourceTestBase extends ConfigEntityResourceTestBase {
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user'];
+  protected static $modules = ['user'];
 
   /**
    * {@inheritdoc}
@@ -35,7 +40,7 @@ abstract class RoleResourceTestBase extends EntityResourceTestBase {
   protected function createEntity() {
     $role = Role::create([
       'id' => 'llama',
-      'name' => $this->randomString(),
+      'label' => 'Llama',
     ]);
     $role->save();
 
@@ -53,8 +58,8 @@ abstract class RoleResourceTestBase extends EntityResourceTestBase {
       'status' => TRUE,
       'dependencies' => [],
       'id' => 'llama',
-      'label' => NULL,
-      'is_admin' => NULL,
+      'label' => 'Llama',
+      'is_admin' => FALSE,
       'permissions' => [],
     ];
   }
@@ -64,6 +69,7 @@ abstract class RoleResourceTestBase extends EntityResourceTestBase {
    */
   protected function getNormalizedPostEntity() {
     // @todo Update in https://www.drupal.org/node/2300677.
+    return [];
   }
 
 }

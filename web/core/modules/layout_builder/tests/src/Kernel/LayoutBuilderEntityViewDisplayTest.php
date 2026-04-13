@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Kernel;
 
 use Drupal\Core\Config\Schema\SchemaIncompleteException;
-use Drupal\entity_test\Entity\EntityTest;
 use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
 
 /**
@@ -11,12 +12,12 @@ use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
  *
  * @group layout_builder
  */
-class LayoutBuilderEntityViewDisplayTest extends SectionStorageTestBase {
+class LayoutBuilderEntityViewDisplayTest extends SectionListTestBase {
 
   /**
    * {@inheritdoc}
    */
-  protected function getSectionStorage(array $section_data) {
+  protected function getSectionList(array $section_data) {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -36,35 +37,18 @@ class LayoutBuilderEntityViewDisplayTest extends SectionStorageTestBase {
   /**
    * Tests that configuration schema enforces valid values.
    */
-  public function testInvalidConfiguration() {
+  public function testInvalidConfiguration(): void {
     $this->expectException(SchemaIncompleteException::class);
-    $this->sectionStorage->getSection(0)->getComponent('first-uuid')->setConfiguration(['id' => 'foo', 'bar' => 'baz']);
-    $this->sectionStorage->save();
-  }
-
-  /**
-   * @covers ::getRuntimeSections
-   * @group legacy
-   * @expectedDeprecation \Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay::getRuntimeSections() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. \Drupal\layout_builder\SectionStorage\SectionStorageManagerInterface::findByContext() should be used instead. See https://www.drupal.org/node/3022574.
-   */
-  public function testGetRuntimeSections() {
-    $this->container->get('current_user')->setAccount($this->createUser());
-
-    $entity = EntityTest::create();
-    $entity->save();
-
-    $reflection = new \ReflectionMethod($this->sectionStorage, 'getRuntimeSections');
-    $reflection->setAccessible(TRUE);
-
-    $result = $reflection->invoke($this->sectionStorage, $entity);
-
-    $this->assertEquals($this->sectionStorage->getSections(), $result);
+    $this->sectionList->getSection(0)
+      ->getComponent('10000000-0000-1000-a000-000000000000')
+      ->setConfiguration(['id' => 'foo', 'bar' => 'baz']);
+    $this->sectionList->save();
   }
 
   /**
    * @dataProvider providerTestIsLayoutBuilderEnabled
    */
-  public function testIsLayoutBuilderEnabled($expected, $view_mode, $enabled) {
+  public function testIsLayoutBuilderEnabled($expected, $view_mode, $enabled): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -83,7 +67,7 @@ class LayoutBuilderEntityViewDisplayTest extends SectionStorageTestBase {
   /**
    * Provides test data for ::testIsLayoutBuilderEnabled().
    */
-  public function providerTestIsLayoutBuilderEnabled() {
+  public static function providerTestIsLayoutBuilderEnabled() {
     $data = [];
     $data['default enabled'] = [TRUE, 'default', TRUE];
     $data['default disabled'] = [FALSE, 'default', FALSE];
@@ -95,19 +79,20 @@ class LayoutBuilderEntityViewDisplayTest extends SectionStorageTestBase {
   }
 
   /**
-   * Tests that setting overridable enables Layout Builder only when set to TRUE.
+   * Tests that setting overridable enables Layout Builder only when TRUE.
    */
-  public function testSetOverridable() {
+  public function testSetOverridable(): void {
     // Disable Layout Builder.
-    $this->sectionStorage->disableLayoutBuilder();
+    $this->sectionList->disableLayoutBuilder();
 
     // Set Overridable to TRUE and ensure Layout Builder is enabled.
-    $this->sectionStorage->setOverridable();
-    $this->assertEquals($this->sectionStorage->isLayoutBuilderEnabled(), TRUE);
+    $this->sectionList->setOverridable();
+    $this->assertTrue($this->sectionList->isLayoutBuilderEnabled());
 
-    // Ensure Layout Builder is still enabled after setting Overridable to FALSE.
-    $this->sectionStorage->setOverridable(FALSE);
-    $this->assertEquals($this->sectionStorage->isLayoutBuilderEnabled(), TRUE);
+    // Ensure Layout Builder is still enabled after setting Overridable to
+    // FALSE.
+    $this->sectionList->setOverridable(FALSE);
+    $this->assertTrue($this->sectionList->isLayoutBuilderEnabled());
   }
 
 }

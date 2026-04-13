@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\jsonapi\Kernel\Controller;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\jsonapi\CacheableResourceResponse;
 use Drupal\jsonapi\ResourceType\ResourceType;
 use Drupal\jsonapi\JsonApiResource\Data;
 use Drupal\jsonapi\JsonApiResource\JsonApiDocumentTopLevel;
@@ -12,7 +15,7 @@ use Drupal\Tests\jsonapi\Kernel\JsonapiKernelTestBase;
 use Drupal\user\Entity\Role;
 use Drupal\user\Entity\User;
 use Drupal\user\RoleInterface;
-use Symfony\Component\HttpFoundation\ParameterBag;
+use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -38,7 +41,7 @@ class EntityResourceTest extends JsonapiKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'field',
     'jsonapi',
@@ -76,6 +79,13 @@ class EntityResourceTest extends JsonapiKernelTestBase {
   protected $node3;
 
   /**
+   * A node with related nodes.
+   *
+   * @var \Drupal\node\Entity\Node
+   */
+  protected Node $node4;
+
+  /**
    * A fake request.
    *
    * @var \Symfony\Component\HttpFoundation\Request
@@ -92,20 +102,21 @@ class EntityResourceTest extends JsonapiKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     // Add the entity schemas.
     $this->installEntitySchema('node');
     $this->installEntitySchema('user');
     // Add the additional table schemas.
-    $this->installSchema('system', ['sequences']);
     $this->installSchema('node', ['node_access']);
     $this->installSchema('user', ['users_data']);
     NodeType::create([
       'type' => 'lorem',
+      'name' => 'Lorem',
     ])->save();
     $type = NodeType::create([
       'type' => 'article',
+      'name' => 'Article',
     ]);
     $type->save();
     $this->user = User::create([
@@ -164,6 +175,7 @@ class EntityResourceTest extends JsonapiKernelTestBase {
           'access user profiles',
           'access content',
         ],
+        'label' => $role_id,
       ])->save();
     }, [RoleInterface::ANONYMOUS_ID, 'test_role_one', 'test_role_two']);
 
@@ -183,9 +195,9 @@ class EntityResourceTest extends JsonapiKernelTestBase {
   /**
    * @covers ::getCollection
    */
-  public function testGetPagedCollection() {
+  public function testGetPagedCollection(): void {
     $request = Request::create('/jsonapi/node/article');
-    $request->query = new ParameterBag([
+    $request->query = new InputBag([
       'sort' => 'nid',
       'page' => [
         'offset' => 1,
@@ -200,26 +212,28 @@ class EntityResourceTest extends JsonapiKernelTestBase {
     $response = $entity_resource->getCollection($resource_type, $request);
 
     // Assertions.
+    $this->assertInstanceOf(CacheableResourceResponse::class, $response);
     $this->assertInstanceOf(JsonApiDocumentTopLevel::class, $response->getResponseData());
     $this->assertInstanceOf(Data::class, $response->getResponseData()->getData());
     $data = $response->getResponseData()->getData();
     $this->assertCount(1, $data);
     $this->assertEquals($this->node2->uuid(), $data->toArray()[0]->getId());
-    $this->assertEquals(['node:2', 'node_list'], $response->getCacheableMetadata()->getCacheTags());
+    $this->assertEqualsCanonicalizing(['node:2', 'node_list'], $response->getCacheableMetadata()->getCacheTags());
   }
 
   /**
    * @covers ::getCollection
    */
-  public function testGetEmptyCollection() {
+  public function testGetEmptyCollection(): void {
     $request = Request::create('/jsonapi/node/article');
-    $request->query = new ParameterBag(['filter' => ['id' => 'invalid']]);
+    $request->query = new InputBag(['filter' => ['id' => 'invalid']]);
 
     // Get the response.
     $resource_type = new ResourceType('node', 'article', NULL);
     $response = $this->entityResource->getCollection($resource_type, $request);
 
     // Assertions.
+    $this->assertInstanceOf(CacheableResourceResponse::class, $response);
     $this->assertInstanceOf(JsonApiDocumentTopLevel::class, $response->getResponseData());
     $this->assertInstanceOf(Data::class, $response->getResponseData()->getData());
     $this->assertEquals(0, $response->getResponseData()->getData()->count());

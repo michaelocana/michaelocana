@@ -2,6 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_field_config_translation_filter
+label: test_field_config_translation_filter
 module: views
 description: ''
 tag: ''
@@ -78,7 +79,7 @@ display:
       row:
         type: fields
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   embed_1:

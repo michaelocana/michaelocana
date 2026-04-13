@@ -1,11 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Plugin;
 
 use Drupal\Core\Plugin\Context\ContextHandler;
 use Drupal\Core\Plugin\Context\EntityContext;
 use Drupal\Core\Plugin\Context\EntityContextDefinition;
-use Drupal\Core\Plugin\ContextAwarePluginBase;
+use Drupal\Core\Plugin\ContextAwarePluginInterface;
+use Drupal\Core\Plugin\ContextAwarePluginTrait;
+use Drupal\Core\Plugin\PluginBase;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\KernelTests\KernelTestBase;
 
@@ -27,7 +31,7 @@ class ContextHandlerTest extends KernelTestBase {
   /**
    * @covers ::applyContextMapping
    */
-  public function testApplyContextMapping() {
+  public function testApplyContextMapping(): void {
     $entity = EntityTest::create([]);
     $context_definition = EntityContextDefinition::fromEntity($entity);
     $context = EntityContext::fromEntity($entity);
@@ -45,7 +49,7 @@ class ContextHandlerTest extends KernelTestBase {
   /**
    * @covers ::applyContextMapping
    */
-  public function testApplyContextMappingAlreadyApplied() {
+  public function testApplyContextMappingAlreadyApplied(): void {
     $entity = EntityTest::create([]);
     $context_definition = EntityContextDefinition::fromEntity($entity);
     $context = EntityContext::fromEntity($entity);
@@ -66,6 +70,8 @@ class ContextHandlerTest extends KernelTestBase {
 /**
  * Provides a test implementation of a context-aware plugin.
  */
-class TestContextAwarePlugin extends ContextAwarePluginBase {
+class TestContextAwarePlugin extends PluginBase implements ContextAwarePluginInterface {
+
+  use ContextAwarePluginTrait;
 
 }

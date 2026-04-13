@@ -5,6 +5,7 @@ namespace Drupal\Core\StreamWrapper;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\DrupalKernel;
 use Drupal\Core\Site\Settings;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -14,6 +15,8 @@ use Symfony\Component\HttpFoundation\Request;
  * interface.
  */
 class PublicStream extends LocalStream {
+
+  use StringTranslationTrait;
 
   /**
    * {@inheritdoc}
@@ -26,14 +29,14 @@ class PublicStream extends LocalStream {
    * {@inheritdoc}
    */
   public function getName() {
-    return t('Public files');
+    return $this->t('Public files');
   }
 
   /**
    * {@inheritdoc}
    */
   public function getDescription() {
-    return t('Public local files served by the webserver.');
+    return $this->t('Public local files served by the webserver.');
   }
 
   /**
@@ -86,7 +89,7 @@ class PublicStream extends LocalStream {
    *
    * The site path is injectable from the site.path service:
    * @code
-   * $base_path = PublicStream::basePath(\Drupal::service('site.path'));
+   * $base_path = PublicStream::basePath(\Drupal::getContainer()->getParameter('site.path'));
    * @endcode
    *
    * @param string $site_path
@@ -104,7 +107,7 @@ class PublicStream extends LocalStream {
       // Find the site path. Kernel service is not always available at this
       // point, but is preferred, when available.
       if (\Drupal::hasService('kernel')) {
-        $site_path = \Drupal::service('site.path');
+        $site_path = \Drupal::getContainer()->getParameter('site.path');
       }
       else {
         // If there is no kernel available yet, we call the static
@@ -113,6 +116,30 @@ class PublicStream extends LocalStream {
       }
     }
     return Settings::get('file_public_path', $site_path . '/files');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getLocalPath($uri = NULL) {
+    $path = parent::getLocalPath($uri);
+    if (!$path || str_starts_with($path, 'vfs://')) {
+      return $path;
+    }
+
+    if (Settings::get('sa_core_2022_012_override') === TRUE) {
+      return $path;
+    }
+
+    $private_path = Settings::get('file_private_path');
+    if ($private_path) {
+      $private_path = realpath($private_path);
+      if ($private_path && str_starts_with($path, $private_path)) {
+        return FALSE;
+      }
+    }
+
+    return $path;
   }
 
 }

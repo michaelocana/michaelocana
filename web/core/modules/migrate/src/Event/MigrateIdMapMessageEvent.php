@@ -3,10 +3,10 @@
 namespace Drupal\migrate\Event;
 
 use Drupal\migrate\Plugin\MigrationInterface;
-use Symfony\Component\EventDispatcher\Event;
+use Drupal\Component\EventDispatcher\Event;
 
 /**
- * Wraps an idmap message event for event listeners.
+ * Wraps an ID map message event for event listeners.
  */
 class MigrateIdMapMessageEvent extends Event {
 
@@ -46,7 +46,7 @@ class MigrateIdMapMessageEvent extends Event {
    * @param array $source_id_values
    *   Values represent the source ID.
    * @param string $message
-   *   The message
+   *   The message.
    * @param int $level
    *   Severity level (one of the MigrationInterface::MESSAGE_* constants).
    */
@@ -88,8 +88,11 @@ class MigrateIdMapMessageEvent extends Event {
   }
 
   /**
-   * Gets the severity level of the message (one of the
-   * MigrationInterface::MESSAGE_* constants).
+   * Gets the severity level of the message.
+   *
+   * Message levels are declared in MigrationInterface and start with MESSAGE_.
+   *
+   * @see \Drupal\migrate\Plugin\MigrationInterface
    *
    * @return int
    *   The message level.

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Kernel;
 
 use Drupal\entity_test\Entity\EntityTestMulRevPub;
@@ -18,7 +20,7 @@ class ContentModerationSyncingTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'user',
     'workflows',
     'content_moderation',
@@ -28,7 +30,7 @@ class ContentModerationSyncingTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('workflow');
     $this->installEntitySchema('content_moderation_state');
@@ -40,9 +42,9 @@ class ContentModerationSyncingTest extends KernelTestBase {
   }
 
   /**
-   * Test no new revision is forced during a sync.
+   * Tests no new revision is forced during a sync.
    */
-  public function testNoRevisionForcedDuringSync() {
+  public function testNoRevisionForcedDuringSync(): void {
     $entity = EntityTestMulRevPub::create([
       'moderation_state' => 'draft',
       'name' => 'foo',
@@ -58,9 +60,9 @@ class ContentModerationSyncingTest extends KernelTestBase {
   }
 
   /**
-   * Test changing the moderation state during a sync.
+   * Tests changing the moderation state during a sync.
    */
-  public function testSingleRevisionStateChangedDuringSync() {
+  public function testSingleRevisionStateChangedDuringSync(): void {
     $entity = EntityTestMulRevPub::create([
       'moderation_state' => 'published',
       'name' => 'foo',
@@ -84,9 +86,9 @@ class ContentModerationSyncingTest extends KernelTestBase {
   }
 
   /**
-   * Test state changes with multiple revisions during a sync.
+   * Tests state changes with multiple revisions during a sync.
    */
-  public function testMultipleRevisionStateChangedDuringSync() {
+  public function testMultipleRevisionStateChangedDuringSync(): void {
     $entity = EntityTestMulRevPub::create([
       'moderation_state' => 'published',
       'name' => 'foo',
@@ -112,9 +114,10 @@ class ContentModerationSyncingTest extends KernelTestBase {
   }
 
   /**
-   * Test modifying a previous revision during a sync.
+   * Tests modifying a previous revision during a sync.
    */
-  public function testUpdatingPreviousRevisionDuringSync() {
+  public function testUpdatingPreviousRevisionDuringSync(): void {
+    /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
     $storage = $this->container->get('entity_type.manager')->getStorage('entity_test_mulrevpub');
 
     $entity = EntityTestMulRevPub::create([
@@ -139,9 +142,10 @@ class ContentModerationSyncingTest extends KernelTestBase {
   }
 
   /**
-   * Test a moderation state changed on a previous revision during a sync.
+   * Tests a moderation state changed on a previous revision during a sync.
    */
-  public function testStateChangedPreviousRevisionDuringSync() {
+  public function testStateChangedPreviousRevisionDuringSync(): void {
+    /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
     $storage = $this->container->get('entity_type.manager')->getStorage('entity_test_mulrevpub');
 
     $entity = EntityTestMulRevPub::create([
@@ -187,11 +191,13 @@ class ContentModerationSyncingTest extends KernelTestBase {
    * @return array
    *   An array of revision names.
    */
-  protected function getAllRevisionNames(EntityTestMulRevPub $entity) {
+  protected function getAllRevisionNames(EntityTestMulRevPub $entity): array {
+    /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
     $storage = $this->container->get('entity_type.manager')->getStorage('entity_test_mulrevpub');
     return array_map(function ($revision_id) use ($storage) {
       return $storage->loadRevision($revision_id)->name->value;
     }, array_keys($storage->getQuery()
+      ->accessCheck(FALSE)
       ->allRevisions()
       ->condition('id', $entity->id())
       ->sort('revision_id', 'ASC')

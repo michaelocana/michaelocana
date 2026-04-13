@@ -26,11 +26,6 @@ class EntityAccessDeniedHttpExceptionNormalizer extends HttpExceptionNormalizer 
   /**
    * {@inheritdoc}
    */
-  protected $supportedInterfaceOrClass = EntityAccessDeniedHttpException::class;
-
-  /**
-   * {@inheritdoc}
-   */
   protected function buildErrorObjects(HttpException $exception) {
     $errors = parent::buildErrorObjects($exception);
 
@@ -40,14 +35,13 @@ class EntityAccessDeniedHttpExceptionNormalizer extends HttpExceptionNormalizer 
       $entity = $error['entity'];
       $pointer = $error['pointer'];
       $reason = $error['reason'];
-      $relationship_field = isset($error['relationship_field'])
-        ? $error['relationship_field']
-        : NULL;
+      $relationship_field = $error['relationship_field']
+        ?? NULL;
 
       if (isset($entity)) {
         $entity_type_id = $entity->getEntityTypeId();
         $bundle = $entity->bundle();
-        /* @var \Drupal\jsonapi\ResourceType\ResourceType $resource_type */
+        /** @var \Drupal\jsonapi\ResourceType\ResourceType $resource_type */
         $resource_type = \Drupal::service('jsonapi.resource_type.repository')->get($entity_type_id, $bundle);
         $resource_type_name = $resource_type->getTypeName();
         $route_name = !is_null($relationship_field)
@@ -64,6 +58,15 @@ class EntityAccessDeniedHttpExceptionNormalizer extends HttpExceptionNormalizer 
     }
 
     return $errors;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [
+      EntityAccessDeniedHttpException::class => TRUE,
+    ];
   }
 
 }

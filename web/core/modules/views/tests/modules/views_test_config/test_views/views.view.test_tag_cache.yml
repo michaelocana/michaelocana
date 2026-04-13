@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_tag_cache
-label: ''
+label: test_tag_cache
 module: views
 description: ''
 tag: ''
@@ -107,6 +107,6 @@ display:
       row:
         type: fields
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

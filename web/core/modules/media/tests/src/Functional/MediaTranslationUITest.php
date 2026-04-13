@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\Functional;
 
 use Drupal\Tests\content_translation\Functional\ContentTranslationUITestBase;
@@ -17,10 +19,10 @@ class MediaTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
-   * {inheritdoc}
+   * {@inheritdoc}
    */
   protected $defaultCacheContexts = [
     'languages:language_interface',
@@ -33,9 +35,9 @@ class MediaTranslationUITest extends ContentTranslationUITestBase {
   ];
 
   /**
-   * {inheritdoc}
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'content_translation',
     'media',
@@ -45,16 +47,17 @@ class MediaTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     $this->entityTypeId = 'media';
     $this->bundle = 'test';
     parent::setUp();
+    $this->doSetup();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setupBundle() {
+  public function setupBundle(): void {
     $this->createMediaType('test', [
       'id' => $this->bundle,
       'queue_thumbnail_downloads' => FALSE,
@@ -64,7 +67,7 @@ class MediaTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getTranslatorPermissions() {
+  protected function getTranslatorPermissions(): array {
     return array_merge(parent::getTranslatorPermissions(), [
       'administer media',
       'edit any test media',
@@ -74,14 +77,14 @@ class MediaTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getEditorPermissions() {
+  protected function getEditorPermissions(): array {
     return ['administer media', 'create test media'];
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getAdministratorPermissions() {
+  protected function getAdministratorPermissions(): array {
     return array_merge(parent::getAdministratorPermissions(), [
       'access administration pages',
       'administer media types',

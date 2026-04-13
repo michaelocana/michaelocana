@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_filter_date_between
-label: ''
+label: test_filter_date_between
 module: views
 description: ''
 tag: ''
@@ -46,6 +46,6 @@ display:
       row:
         type: fields
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

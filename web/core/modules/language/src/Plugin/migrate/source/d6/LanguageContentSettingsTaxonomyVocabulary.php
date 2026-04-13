@@ -5,8 +5,15 @@ namespace Drupal\language\Plugin\migrate\source\d6;
 use Drupal\migrate\Row;
 use Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase;
 
+// cspell:ignore localizable
+
 /**
  * Drupal 6 i18n vocabularies source from database.
+ *
+ * For available configuration keys, refer to the parent classes.
+ *
+ * @see \Drupal\migrate\Plugin\migrate\source\SqlBase
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBas
  *
  * @MigrateSource(
  *   id = "d6_language_content_settings_taxonomy_vocabulary",

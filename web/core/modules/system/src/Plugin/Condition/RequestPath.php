@@ -2,24 +2,24 @@
 
 namespace Drupal\system\Plugin\Condition;
 
+use Drupal\Core\Condition\Attribute\Condition;
 use Drupal\Core\Condition\ConditionPluginBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Path\AliasManagerInterface as CoreAliasManagerInterface;
 use Drupal\Core\Path\CurrentPathStack;
 use Drupal\Core\Path\PathMatcherInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\path_alias\AliasManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Provides a 'Request Path' condition.
- *
- * @Condition(
- *   id = "request_path",
- *   label = @Translation("Request Path"),
- * )
  */
+#[Condition(
+  id: "request_path",
+  label: new TranslatableMarkup("Request Path"),
+)]
 class RequestPath extends ConditionPluginBase implements ContainerFactoryPluginInterface {
 
   /**
@@ -64,18 +64,12 @@ class RequestPath extends ConditionPluginBase implements ContainerFactoryPluginI
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param array $plugin_definition
    *   The plugin implementation definition.
    */
-  public function __construct($alias_manager, PathMatcherInterface $path_matcher, RequestStack $request_stack, CurrentPathStack $current_path, array $configuration, $plugin_id, array $plugin_definition) {
+  public function __construct(AliasManagerInterface $alias_manager, PathMatcherInterface $path_matcher, RequestStack $request_stack, CurrentPathStack $current_path, array $configuration, $plugin_id, array $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-
-    if (!$alias_manager instanceof AliasManagerInterface) {
-      @trigger_error('Calling \\' . __METHOD__ . ' with \\' . CoreAliasManagerInterface::class . ' instead of \\' . AliasManagerInterface::class . ' is deprecated in drupal:8.8.0. The new service will be required in drupal:9.0.0. See https://www.drupal.org/node/3092086', E_USER_DEPRECATED);
-      $alias_manager = \Drupal::service('path_alias.manager');
-    }
-
     $this->aliasManager = $alias_manager;
     $this->pathMatcher = $path_matcher;
     $this->requestStack = $request_stack;
@@ -122,6 +116,19 @@ class RequestPath extends ConditionPluginBase implements ContainerFactoryPluginI
   /**
    * {@inheritdoc}
    */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $paths = array_map('trim', explode("\n", $form_state->getValue('pages')));
+    foreach ($paths as $path) {
+      if (empty($path) || $path === '<front>' || str_starts_with($path, '/')) {
+        continue;
+      }
+      $form_state->setErrorByName('pages', $this->t("The path %path requires a leading forward slash when used with the Pages setting.", ['%path' => $path]));
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configuration['pages'] = $form_state->getValue('pages');
     parent::submitConfigurationForm($form, $form_state);
@@ -131,6 +138,9 @@ class RequestPath extends ConditionPluginBase implements ContainerFactoryPluginI
    * {@inheritdoc}
    */
   public function summary() {
+    if (empty($this->configuration['pages'])) {
+      return $this->t('No page is specified');
+    }
     $pages = array_map('trim', explode("\n", $this->configuration['pages']));
     $pages = implode(', ', $pages);
     if (!empty($this->configuration['negate'])) {

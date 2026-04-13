@@ -1,12 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
+use Drupal\Core\Entity\Query\QueryException;
 use Drupal\entity_test\Entity\EntityTest;
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\taxonomy\Entity\Vocabulary;
 use Drupal\taxonomy\Entity\Term;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 
 /**
  * Tests the Entity Query relationship API.
@@ -15,14 +19,12 @@ use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
  */
 class EntityQueryRelationshipTest extends EntityKernelTestBase {
 
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['taxonomy'];
+  protected static $modules = ['taxonomy'];
 
   /**
    * Term entities.
@@ -39,7 +41,7 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
   public $accounts;
 
   /**
-   * entity_test entities.
+   * The entity_test entities.
    *
    * @var array
    */
@@ -59,7 +61,10 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
    */
   protected $queryResults;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installEntitySchema('taxonomy_term');
@@ -67,20 +72,21 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
     // We want an entity reference field. It needs a vocabulary, terms, a field
     // storage and a field. First, create the vocabulary.
     $vocabulary = Vocabulary::create([
-      'vid' => mb_strtolower($this->randomMachineName()),
+      'vid' => $this->randomMachineName(),
+      'name' => 'Tags',
     ]);
     $vocabulary->save();
 
     // Second, create the field.
-    entity_test_create_bundle('test_bundle');
-    $this->fieldName = strtolower($this->randomMachineName());
+    EntityTestHelper::createBundle('test_bundle');
+    $this->fieldName = $this->randomMachineName();
     $handler_settings = [
       'target_bundles' => [
         $vocabulary->id() => $vocabulary->id(),
-       ],
+      ],
       'auto_create' => TRUE,
     ];
-    $this->createEntityReferenceField('entity_test', 'test_bundle', $this->fieldName, NULL, 'taxonomy_term', 'default', $handler_settings);
+    $this->createEntityReferenceField('entity_test', 'test_bundle', $this->fieldName, '', 'taxonomy_term', 'default', $handler_settings);
 
     // Create two terms and also two accounts.
     for ($i = 0; $i <= 1; $i++) {
@@ -109,83 +115,97 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
   /**
    * Tests querying.
    */
-  public function testQuery() {
+  public function testQuery(): void {
     $storage = $this->container->get('entity_type.manager')->getStorage('entity_test');
     // This returns the 0th entity as that's the only one pointing to the 0th
     // account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("user_id.entity.name", $this->accounts[0]->getAccountName())
       ->execute();
     $this->assertResults([0]);
     // This returns the 1st and 2nd entity as those point to the 1st account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("user_id.entity.name", $this->accounts[0]->getAccountName(), '<>')
       ->execute();
     $this->assertResults([1, 2]);
     // This returns all three entities because all of them point to an
     // account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->exists("user_id.entity.name")
       ->execute();
     $this->assertResults([0, 1, 2]);
     // This returns no entities because all of them point to an account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->notExists("user_id.entity.name")
       ->execute();
     $this->assertCount(0, $this->queryResults);
     // This returns the 0th entity as that's only one pointing to the 0th
     // term (test without specifying the field column).
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.entity.name", $this->terms[0]->name->value)
       ->execute();
     $this->assertResults([0]);
     // This returns the 0th entity as that's only one pointing to the 0th
     // term (test with specifying the column name).
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.target_id.entity.name", $this->terms[0]->name->value)
       ->execute();
     $this->assertResults([0]);
     // This returns the 1st and 2nd entity as those point to the 1st term.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.entity.name", $this->terms[0]->name->value, '<>')
       ->execute();
     $this->assertResults([1, 2]);
     // This returns the 0th entity as that's only one pointing to the 0th
     // account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("user_id.entity:user.name", $this->accounts[0]->getAccountName())
       ->execute();
     $this->assertResults([0]);
     // This returns the 1st and 2nd entity as those point to the 1st account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("user_id.entity:user.name", $this->accounts[0]->getAccountName(), '<>')
       ->execute();
     $this->assertResults([1, 2]);
     // This returns all three entities because all of them point to an
     // account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->exists("user_id.entity:user.name")
       ->execute();
     $this->assertResults([0, 1, 2]);
     // This returns no entities because all of them point to an account.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->notExists("user_id.entity:user.name")
       ->execute();
     $this->assertCount(0, $this->queryResults);
     // This returns the 0th entity as that's only one pointing to the 0th
     // term (test without specifying the field column).
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.entity:taxonomy_term.name", $this->terms[0]->name->value)
       ->execute();
     $this->assertResults([0]);
     // This returns the 0th entity as that's only one pointing to the 0th
     // term (test with specifying the column name).
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.target_id.entity:taxonomy_term.name", $this->terms[0]->name->value)
       ->execute();
     $this->assertResults([0]);
     // This returns the 1st and 2nd entity as those point to the 1st term.
     $this->queryResults = $storage->getQuery()
+      ->accessCheck(FALSE)
       ->condition("$this->fieldName.entity:taxonomy_term.name", $this->terms[0]->name->value, '<>')
       ->execute();
     $this->assertResults([1, 2]);
@@ -194,14 +214,44 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
   /**
    * Tests the invalid specifier in the query relationship.
    */
-  public function testInvalidSpecifier() {
+  public function testInvalidSpecifier(): void {
     $this->expectException(PluginNotFoundException::class);
     $this->container
       ->get('entity_type.manager')
       ->getStorage('taxonomy_term')
       ->getQuery()
+      ->accessCheck(FALSE)
       ->condition('langcode.language.foo', 'bar')
       ->execute();
+  }
+
+  /**
+   * Tests a non-existent field name in a complex query relationship.
+   *
+   * @dataProvider providerTestInvalidFieldName
+   */
+  public function testInvalidFieldName(string $field_name): void {
+    $this->expectException(QueryException::class);
+    $this->expectExceptionMessage("'non_existent_field_name' not found");
+
+    // Check that non-existent field names in a complex relationship query
+    // throws a meaningful exception.
+    $this->container->get('entity_type.manager')
+      ->getStorage('entity_test')
+      ->getQuery()
+      ->accessCheck()
+      ->condition($field_name, $this->randomString(), '=')
+      ->execute();
+  }
+
+  /**
+   * Data provider for testInvalidFieldName().
+   */
+  public static function providerTestInvalidFieldName(): array {
+    return [
+      ['non_existent_field_name.entity:user.name.value'],
+      ['user_id.entity:user.non_existent_field_name.value'],
+    ];
   }
 
   /**
@@ -209,12 +259,15 @@ class EntityQueryRelationshipTest extends EntityKernelTestBase {
    *
    * @param array $expected
    *   A list of indexes in the $this->entities array.
+   *
+   * @internal
    */
-  protected function assertResults($expected) {
-    $this->assertEqual(count($this->queryResults), count($expected));
+  protected function assertResults(array $expected): void {
+    $expected_count = count($expected);
+    $this->assertCount($expected_count, $this->queryResults);
     foreach ($expected as $key) {
       $id = $this->entities[$key]->id();
-      $this->assertEqual($this->queryResults[$id], $id);
+      $this->assertEquals($id, $this->queryResults[$id]);
     }
   }
 

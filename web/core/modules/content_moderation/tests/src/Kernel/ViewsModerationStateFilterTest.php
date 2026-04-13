@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Kernel;
 
 use Drupal\entity_test\Entity\EntityTestNoBundle;
@@ -27,7 +29,7 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_moderation_test_views',
     'node',
     'content_moderation',
@@ -41,7 +43,7 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp(FALSE);
 
     $this->installEntitySchema('user');
@@ -53,16 +55,19 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
 
     $node_type = NodeType::create([
       'type' => 'example',
+      'name' => 'Example',
     ]);
     $node_type->save();
 
     $node_type = NodeType::create([
       'type' => 'another_example',
+      'name' => 'Another Example',
     ]);
     $node_type->save();
 
     $node_type = NodeType::create([
       'type' => 'example_non_moderated',
+      'name' => 'Non-Moderated Example',
     ]);
     $node_type->save();
 
@@ -80,7 +85,7 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
   /**
    * Tests the content moderation state filter.
    */
-  public function testStateFilterViewsRelationship() {
+  public function testStateFilterViewsRelationship(): void {
     $workflow = Workflow::load('editorial');
     $workflow->getTypePlugin()->addEntityTypeAndBundle('node', 'example');
     $workflow->getTypePlugin()->addState('translated_draft', 'Bar');
@@ -173,9 +178,9 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
   }
 
   /**
-   * Test the moderation filter with a non-translatable entity type.
+   * Tests the moderation filter with a non-translatable entity type.
    */
-  public function testNonTranslatableEntityType() {
+  public function testNonTranslatableEntityType(): void {
     $workflow = Workflow::load('editorial');
     $workflow->getTypePlugin()->addEntityTypeAndBundle('entity_test_no_bundle', 'entity_test_no_bundle');
     $workflow->save();
@@ -196,7 +201,7 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
   /**
    * Tests the moderation state filter on an entity added via a relationship.
    */
-  public function testModerationStateFilterOnJoinedEntity() {
+  public function testModerationStateFilterOnJoinedEntity(): void {
     $workflow = Workflow::load('editorial');
     $workflow->getTypePlugin()->addEntityTypeAndBundle('node', 'example');
     $workflow->save();
@@ -237,12 +242,40 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
     ]);
     $view->execute();
     $this->assertIdenticalResultset($view, [], ['name' => 'name']);
+
+    // Revision Data Table Relationship: Filtering by the published state will
+    // filter out the sample content.
+    $view = Views::getView('test_content_moderation_filter_via_revision_relationship');
+    $view->setExposedInput([
+      'moderation_state' => 'editorial-published',
+    ]);
+    $view->execute();
+    $this->assertIdenticalResultset($view, [
+      [
+        'name' => 'Test user',
+        'title' => 'Test node',
+        'moderation_state' => 'published',
+      ],
+    ], [
+      'name' => 'name',
+      'title' => 'title',
+      'moderation_state' => 'moderation_state',
+    ]);
+
+    // Revision Data Table Relationship: Filtering by the draft state will
+    // filter out the sample content.
+    $view = Views::getView('test_content_moderation_filter_via_revision_relationship');
+    $view->setExposedInput([
+      'moderation_state' => 'editorial-draft',
+    ]);
+    $view->execute();
+    $this->assertIdenticalResultset($view, [], ['name' => 'name']);
   }
 
   /**
    * Tests the list of states in the filter plugin.
    */
-  public function testStateFilterStatesList() {
+  public function testStateFilterStatesList(): void {
     // By default a view of nodes will not have states to filter.
     $workflow = Workflow::load('editorial');
     $workflow->getTypePlugin()->removeEntityTypeAndBundle('node', 'example');
@@ -263,7 +296,11 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
 
     // Adding a workflow which is not content moderation will not add any
     // additional states to the views filter.
-    $workflow = Workflow::create(['id' => 'test', 'type' => 'workflow_type_complex_test']);
+    $workflow = Workflow::create([
+      'id' => 'test',
+      'label' => 'Test',
+      'type' => 'workflow_type_complex_test',
+    ]);
     $workflow->getTypePlugin()->addState('draft', 'Draft');
     $workflow->save();
     $this->assertPluginStates([
@@ -276,7 +313,11 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
 
     // Adding a new content moderation workflow will add additional states to
     // filter.
-    $workflow = Workflow::create(['id' => 'moderation_test', 'type' => 'content_moderation', 'label' => 'Moderation test']);
+    $workflow = Workflow::create([
+      'id' => 'moderation_test',
+      'type' => 'content_moderation',
+      'label' => 'Moderation test',
+    ]);
     $workflow->getTypePlugin()->addState('foo', 'Foo State');
     $workflow->getTypePlugin()->addEntityTypeAndBundle('node', 'example');
     $workflow->save();
@@ -321,8 +362,10 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
    *
    * @param string[] $states
    *   The states which should appear in the filter.
+   *
+   * @internal
    */
-  protected function assertPluginStates($states) {
+  protected function assertPluginStates(array $states): void {
     $plugin = Views::pluginManager('filter')->createInstance('moderation_state_filter', []);
     $view = Views::getView('test_content_moderation_state_filter_base_table');
     $plugin->init($view, $view->getDisplay());
@@ -338,8 +381,10 @@ class ViewsModerationStateFilterTest extends ViewsKernelTestBase {
    *   An array of filters to apply to the view.
    * @param string $view_id
    *   The view to execute for the results.
+   *
+   * @internal
    */
-  protected function assertNodesWithFilters(array $nodes, array $filters, $view_id = 'test_content_moderation_state_filter_base_table') {
+  protected function assertNodesWithFilters(array $nodes, array $filters, string $view_id = 'test_content_moderation_state_filter_base_table'): void {
     $view = Views::getView($view_id);
     $view->setExposedInput($filters);
     $view->execute();

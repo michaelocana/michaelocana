@@ -2,53 +2,66 @@
 
 namespace Drupal\field\Entity;
 
+use Drupal\Core\Entity\Attribute\ConfigEntityType;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Entity\FieldableEntityStorageInterface;
+use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Field\FieldException;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\OptionsProviderInterface;
+use Drupal\field\FieldStorageConfigAccessControlHandler;
 use Drupal\field\FieldStorageConfigInterface;
+use Drupal\field\FieldStorageConfigStorage;
 
 /**
  * Defines the Field storage configuration entity.
- *
- * @ConfigEntityType(
- *   id = "field_storage_config",
- *   label = @Translation("Field storage"),
- *   label_collection = @Translation("Field storages"),
- *   label_singular = @Translation("field storage"),
- *   label_plural = @Translation("field storages"),
- *   label_count = @PluralTranslation(
- *     singular = "@count field storage",
- *     plural = "@count field storages",
- *   ),
- *   handlers = {
- *     "access" = "Drupal\field\FieldStorageConfigAccessControlHandler",
- *     "storage" = "Drupal\field\FieldStorageConfigStorage"
- *   },
- *   config_prefix = "storage",
- *   entity_keys = {
- *     "id" = "id",
- *     "label" = "id"
- *   },
- *   config_export = {
- *     "id",
- *     "field_name",
- *     "entity_type",
- *     "type",
- *     "settings",
- *     "module",
- *     "locked",
- *     "cardinality",
- *     "translatable",
- *     "indexes",
- *     "persist_with_no_fields",
- *     "custom_storage",
- *   }
- * )
  */
+#[ConfigEntityType(
+  id: 'field_storage_config',
+  label: new TranslatableMarkup('Field storage'),
+  label_collection: new TranslatableMarkup('Field storages'),
+  label_singular: new TranslatableMarkup('field storage'),
+  label_plural: new TranslatableMarkup('field storages'),
+  config_prefix: 'storage',
+  entity_keys: [
+    'id' => 'id',
+    'label' => 'id',
+  ],
+  handlers: [
+    'access' => FieldStorageConfigAccessControlHandler::class,
+    'storage' => FieldStorageConfigStorage::class,
+  ],
+  label_count: [
+    'singular' => '@count field storage',
+    'plural' => '@count field storages',
+  ],
+  constraints: [
+    'ImmutableProperties' => [
+      'id',
+      'entity_type',
+      'field_name',
+      'type',
+    ],
+  ],
+  config_export: [
+    'id',
+    'field_name',
+    'entity_type',
+    'type',
+    'settings',
+    'module',
+    'locked',
+    'cardinality',
+    'translatable',
+    'indexes',
+    'persist_with_no_fields',
+    'custom_storage',
+  ],
+)]
 class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigInterface {
 
   /**
@@ -156,9 +169,9 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
    * are no remaining fields using them. If multiple modules provide bundles
    * which need to use the same field storage then setting this to TRUE will
    * preserve the field storage regardless of what happens to the bundles. The
-   * classic use case for this is node body field storage since Book, Forum, the
-   * Standard profile and bundle (node type) creation through the UI all use
-   * same field storage.
+   * classic use case for this is node body field storage, since the Standard
+   * profile and bundle (node type) creation through the UI both use same field
+   * storage.
    *
    * @var bool
    */
@@ -245,6 +258,9 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
    *     a 'field_name' property can be accepted in place of 'id'.
    *   - entity_type: required.
    *   - type: required.
+   * @param string $entity_type
+   *   (optional) The entity type on which the field should be created.
+   *   Defaults to "field_storage_config".
    */
   public function __construct(array $values, $entity_type = 'field_storage_config') {
     // Check required properties.
@@ -272,7 +288,29 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
   }
 
   /**
-   * Overrides \Drupal\Core\Entity\Entity::preSave().
+   * {@inheritdoc}
+   */
+  public function postCreate(EntityStorageInterface $storage) {
+    parent::postCreate($storage);
+
+    // Check that the field type is known.
+    $field_type = \Drupal::service('plugin.manager.field.field_type')->getDefinition($this->type, FALSE);
+    if (!$field_type) {
+      throw new FieldException("Attempt to create a field storage of unknown type {$this->type}.");
+    }
+    $this->module = $field_type['provider'];
+
+    // Make sure all expected runtime settings are present.
+    $default_settings = \Drupal::service('plugin.manager.field.field_type')
+      ->getDefaultStorageSettings($this->getType());
+
+    // Filter out any unknown (unsupported) settings.
+    $supported_settings = array_intersect_key($this->getSettings(), $default_settings);
+    $this->set('settings', $supported_settings + $default_settings);
+  }
+
+  /**
+   * Overrides \Drupal\Core\Entity\EntityBase::preSave().
    *
    * @throws \Drupal\Core\Field\FieldException
    *   If the field definition is invalid.
@@ -311,7 +349,6 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
    */
   protected function preSaveNew(EntityStorageInterface $storage) {
     $entity_field_manager = \Drupal::service('entity_field.manager');
-    $field_type_manager = \Drupal::service('plugin.manager.field.field_type');
 
     // Assign the ID.
     $this->id = $this->id();
@@ -328,13 +365,6 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
     if (in_array($this->getName(), $disallowed_field_names)) {
       throw new FieldException("Attempt to create field storage {$this->getName()} which is reserved by entity type {$this->getTargetEntityTypeId()}.");
     }
-
-    // Check that the field type is known.
-    $field_type = $field_type_manager->getDefinition($this->getType(), FALSE);
-    if (!$field_type) {
-      throw new FieldException("Attempt to create a field storage of unknown type {$this->getType()}.");
-    }
-    $this->module = $field_type['provider'];
 
     // Notify the field storage definition listener.
     \Drupal::service('field_storage_definition.listener')->onFieldStorageDefinitionCreate($this);
@@ -368,21 +398,21 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
     $module_handler = \Drupal::moduleHandler();
 
     // Some updates are always disallowed.
-    if ($this->getType() != $this->original->getType()) {
-      throw new FieldException(sprintf('Cannot change the field type for an existing field storage. The field storage %s has the type %s.', $this->id(), $this->original->getType()));
+    if ($this->getType() != $this->getOriginal()->getType()) {
+      throw new FieldException(sprintf('Cannot change the field type for an existing field storage. The field storage %s has the type %s.', $this->id(), $this->getOriginal()->getType()));
     }
-    if ($this->getTargetEntityTypeId() != $this->original->getTargetEntityTypeId()) {
-      throw new FieldException(sprintf('Cannot change the entity type for an existing field storage. The field storage %s has the type %s.', $this->id(), $this->original->getTargetEntityTypeId()));
+    if ($this->getTargetEntityTypeId() != $this->getOriginal()->getTargetEntityTypeId()) {
+      throw new FieldException(sprintf('Cannot change the entity type for an existing field storage. The field storage %s has the type %s.', $this->id(), $this->getOriginal()->getTargetEntityTypeId()));
     }
 
     // See if any module forbids the update by throwing an exception. This
     // invokes hook_field_storage_config_update_forbid().
-    $module_handler->invokeAll('field_storage_config_update_forbid', [$this, $this->original]);
+    $module_handler->invokeAll('field_storage_config_update_forbid', [$this, $this->getOriginal()]);
 
-    // Notify the entity manager. A listener can reject the definition
-    // update as invalid by raising an exception, which stops execution before
-    // the definition is written to config.
-    \Drupal::service('field_storage_definition.listener')->onFieldStorageDefinitionUpdate($this, $this->original);
+    // Notify the field storage definition listener. A listener can reject the
+    // definition update as invalid by raising an exception, which stops
+    // execution before the definition is written to config.
+    \Drupal::service('field_storage_definition.listener')->onFieldStorageDefinitionUpdate($this, $this->getOriginal());
   }
 
   /**
@@ -632,11 +662,11 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
     /** @var \Drupal\Core\Field\FieldTypePluginManager $field_type_manager */
     $field_type_manager = \Drupal::service('plugin.manager.field.field_type');
     $definition = $field_type_manager->getDefinition($this->getType());
-    $enforced_cardinality = isset($definition['cardinality']) ? $definition['cardinality'] : NULL;
+    $enforced_cardinality = isset($definition['cardinality']) ? (int) $definition['cardinality'] : NULL;
 
     // Enforced cardinality is a positive integer or -1.
     if ($enforced_cardinality !== NULL && $enforced_cardinality < 1 && $enforced_cardinality !== FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED) {
-      throw new FieldException("Invalid enforced cardinality '$enforced_cardinality'. Allowed values: a positive integer or -1.");
+      throw new FieldException("Invalid enforced cardinality '{$definition['cardinality']}'. Allowed values: a positive integer or -1.");
     }
 
     return $enforced_cardinality ?: $this->cardinality;
@@ -658,11 +688,23 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
     // runtime item object, so that it can be used as the options provider
     // without modifying the entity being worked on.
     if (is_subclass_of($this->getFieldItemClass(), OptionsProviderInterface::class)) {
-      $items = $entity->get($this->getName());
+      try {
+        $items = $entity->get($this->getName());
+      }
+      catch (\InvalidArgumentException) {
+        // When a field doesn't exist, create a new field item list using a
+        // temporary base field definition. This step is necessary since there
+        // may not be a field configuration for the storage when creating a new
+        // field.
+        // @todo Simplify in https://www.drupal.org/project/drupal/issues/3347291.
+        $field_storage = BaseFieldDefinition::createFromFieldStorageDefinition($this);
+        $entity_adapter = EntityAdapter::createFromEntity($entity);
+        $items = \Drupal::typedDataManager()->create($field_storage, name: $field_storage->getName(), parent: $entity_adapter);
+      }
       return \Drupal::service('plugin.manager.field.field_type')->createFieldItem($items, 0);
     }
-    // @todo: Allow setting custom options provider, see
-    // https://www.drupal.org/node/2002138.
+    // @todo Allow setting custom options provider.
+    //   https://www.drupal.org/node/2002138.
   }
 
   /**
@@ -696,20 +738,13 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function isQueryable() {
-    return TRUE;
-  }
-
-  /**
    * Determines whether a field has any data.
    *
    * @return bool
    *   TRUE if the field has data for any entity; FALSE otherwise.
    */
   public function hasData() {
-    return \Drupal::entityTypeManager()->getStorage($this->entity_type)->countFieldData($this, TRUE);
+    return !$this->isNew() && \Drupal::entityTypeManager()->getStorage($this->entity_type)->countFieldData($this, TRUE);
   }
 
   /**
@@ -717,9 +752,10 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
    *
    * Using the Serialize interface and serialize() / unserialize() methods
    * breaks entity forms in PHP 5.4.
+   *
    * @todo Investigate in https://www.drupal.org/node/1977206.
    */
-  public function __sleep() {
+  public function __sleep(): array {
     // Only serialize necessary properties, excluding those that can be
     // recalculated.
     $properties = get_object_vars($this);
@@ -803,7 +839,7 @@ class FieldStorageConfig extends ConfigEntityBase implements FieldStorageConfigI
    * @param string $field_name
    *   Name of the field.
    *
-   * @return static
+   * @return \Drupal\field\FieldStorageConfigInterface|null
    *   The field config entity if one exists for the provided field name,
    *   otherwise NULL.
    */

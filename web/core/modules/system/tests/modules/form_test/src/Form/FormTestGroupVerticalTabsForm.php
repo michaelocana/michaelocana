@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -44,7 +46,20 @@ class FormTestGroupVerticalTabsForm extends FormBase {
       '#type' => 'textfield',
       '#title' => 'Second nested element in details element',
     ];
+    $form['submit'] = [
+      '#type' => 'submit',
+      '#value' => 'Save',
+    ];
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    if ($form_state->getValue('element_2') === 'bad') {
+      $form_state->setErrorByName('element_2', $this->t('there was an error'));
+    }
   }
 
   /**

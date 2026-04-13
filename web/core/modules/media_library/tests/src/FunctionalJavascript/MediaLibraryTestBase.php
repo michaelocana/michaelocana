@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media_library\FunctionalJavascript;
 
+use Behat\Mink\Element\NodeElement;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
+use Drupal\hold_test\HoldTestHelper;
 use Drupal\media\Entity\Media;
 
 /**
@@ -13,12 +17,12 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected static $modules = ['media_library_test'];
+  protected static $modules = ['media_library_test', 'hold_test'];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * Create media items.
@@ -152,7 +156,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * @todo replace with whatever gets added in
    *   https://www.drupal.org/node/3061852
    */
-  protected function assertElementExistsAfterWait($selector, $locator, $timeout = 10000) {
+  protected function assertElementExistsAfterWait($selector, $locator, $timeout = 10000): NodeElement {
     $element = $this->assertSession()->waitForElement($selector, $locator, $timeout);
     $this->assertNotEmpty($element);
     return $element;
@@ -164,7 +168,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * @return \Behat\Mink\Element\NodeElement
    *   The menu of available media types.
    */
-  protected function getTypesMenu() {
+  protected function getTypesMenu(): NodeElement {
     return $this->assertSession()
       ->elementExists('css', '.js-media-library-menu');
   }
@@ -273,7 +277,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * @return \Behat\Mink\Element\NodeElement
    *   The NodeElement found via $after_open_selector.
    */
-  protected function openMediaLibraryForField($field_name, $after_open_selector = '.js-media-library-menu') {
+  protected function openMediaLibraryForField($field_name, $after_open_selector = '.js-media-library-menu'): NodeElement {
     $this->assertElementExistsAfterWait('css', "#$field_name-media-library-wrapper.js-media-library-widget")
       ->pressButton('Add media');
     $this->waitForText('Add or select media');
@@ -300,7 +304,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * @return \Behat\Mink\Element\NodeElement
    *   The "additional selected media" area.
    */
-  protected function getSelectionArea($open = TRUE) {
+  protected function getSelectionArea($open = TRUE): NodeElement {
     $summary = $this->assertElementExistsAfterWait('css', 'summary:contains("Additional selected media")');
     if ($open) {
       $summary->click();
@@ -333,7 +337,6 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
     $assert_session->elementNotExists('css', '[data-drupal-selector$="preview"]', $fields);
     $assert_session->buttonNotExists('Remove', $fields);
     $assert_session->elementNotExists('css', '[data-drupal-selector$="filename"]', $fields);
-    $assert_session->elementNotExists('css', '.file-size', $fields);
   }
 
   /**
@@ -342,7 +345,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
   protected function assertNoMediaAdded() {
     // Assert the focus is shifted to the first tabbable element of the add
     // form, which should be the source field.
-    $this->assertJsCondition('jQuery("#media-library-add-form-wrapper :tabbable").is(":focus")');
+    $this->assertJsCondition('jQuery(tabbable.tabbable(document.getElementById("media-library-add-form-wrapper"))[0]).is(":focus")');
 
     $this->assertSession()
       ->elementNotExists('css', '[data-drupal-selector="edit-media-0-fields"]');
@@ -355,17 +358,21 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * @param string $expected_announcement
    *   (optional) The expected screen reader announcement once the modal is
    *   closed.
+   * @param bool $should_close
+   *   (optional) TRUE if we expect the modal to be successfully closed.
    *
    * @todo Consider requiring screen reader assertion every time "Insert
    *   selected" is pressed in
    *   https://www.drupal.org/project/drupal/issues/3087227.
    */
-  protected function pressInsertSelected($expected_announcement = NULL) {
+  protected function pressInsertSelected($expected_announcement = NULL, bool $should_close = TRUE) {
     $this->assertSession()
       ->elementExists('css', '.ui-dialog-buttonpane')
       ->pressButton('Insert selected');
-    $this->waitForNoText('Add or select media');
 
+    if ($should_close) {
+      $this->waitForNoText('Add or select media');
+    }
     if ($expected_announcement) {
       $this->waitForText($expected_announcement);
     }
@@ -402,13 +409,25 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
   }
 
   /**
+   * De-selects an item in the media library modal.
+   *
+   * @param int $index
+   *   The zero-based index of the item to unselect.
+   */
+  protected function deselectMediaItem(int $index): void {
+    $checkboxes = $this->getCheckboxes();
+    $this->assertGreaterThan($index, count($checkboxes));
+    $checkboxes[$index]->uncheck();
+  }
+
+  /**
    * Switches to the grid display of the widget view.
    */
   protected function switchToMediaLibraryGrid() {
     $this->getSession()->getPage()->clickLink('Grid');
     // Assert the display change is correctly announced for screen readers.
-    $this->waitForText('Loading grid view.');
-    $this->waitForText('Changed to grid view.');
+    $this->assertAnnounceContains('Loading grid view.');
+    $this->assertAnnounceContains('Changed to grid view.');
     $this->assertMediaLibraryGrid();
   }
 
@@ -416,10 +435,12 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * Switches to the table display of the widget view.
    */
   protected function switchToMediaLibraryTable() {
+    HoldTestHelper::responseHold(TRUE);
     $this->getSession()->getPage()->clickLink('Table');
     // Assert the display change is correctly announced for screen readers.
-    $this->waitForText('Loading table view.');
-    $this->waitForText('Changed to table view.');
+    $this->assertAnnounceContains('Loading table view.');
+    HoldTestHelper::responseHold(FALSE);
+    $this->assertAnnounceContains('Changed to table view.');
     $this->assertMediaLibraryTable();
   }
 
@@ -427,6 +448,7 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
    * Asserts that the grid display of the widget view is visible.
    */
   protected function assertMediaLibraryGrid() {
+    $this->assertSession()->assertWaitOnAjaxRequest();
     $this->assertSession()
       ->elementExists('css', '.js-media-library-view[data-view-display-id="widget"]');
   }
@@ -453,6 +475,19 @@ abstract class MediaLibraryTestBase extends WebDriverTestBase {
     $this->assertSame('polite', $selected_count->getAttribute('aria-live'));
     $this->assertSame('true', $selected_count->getAttribute('aria-atomic'));
     $this->assertSame($text, $selected_count->getText());
+  }
+
+  /**
+   * Checks for inclusion of text in #drupal-live-announce.
+   *
+   * @param string $expected_message
+   *   The text expected to be present in #drupal-live-announce.
+   *
+   * @internal
+   */
+  protected function assertAnnounceContains(string $expected_message): void {
+    $assert_session = $this->assertSession();
+    $this->assertNotEmpty($assert_session->waitForElement('css', "#drupal-live-announce:contains('$expected_message')"));
   }
 
 }

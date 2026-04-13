@@ -3,18 +3,20 @@
 namespace Drupal\comment\Plugin\views\argument;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\Query\Condition;
+use Drupal\views\Attribute\ViewsArgument;
 use Drupal\views\Plugin\views\argument\ArgumentPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Argument handler to accept a user id to check for nodes that
- * user posted or commented on.
+ * The views user ID argument handler.
+ *
+ * Accepts a user ID to check for nodes that the user posted or commented on.
  *
  * @ingroup views_argument_handlers
- *
- * @ViewsArgument("argument_comment_user_uid")
- */
+  */
+#[ViewsArgument(
+  id: 'argument_comment_user_uid',
+)]
 class UserUid extends ArgumentPluginBase {
 
   /**
@@ -30,7 +32,7 @@ class UserUid extends ArgumentPluginBase {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Database\Connection $database
@@ -49,12 +51,15 @@ class UserUid extends ArgumentPluginBase {
     return new static($configuration, $plugin_id, $plugin_definition, $container->get('database'));
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function title() {
     if (!$this->argument) {
       $title = \Drupal::config('user.settings')->get('anonymous');
     }
     else {
-      $title = $this->database->query('SELECT name FROM {users_field_data} WHERE uid = :uid AND default_langcode = 1', [':uid' => $this->argument])->fetchField();
+      $title = $this->database->query('SELECT [name] FROM {users_field_data} WHERE [uid] = :uid AND [default_langcode] = 1', [':uid' => $this->argument])->fetchField();
     }
     if (empty($title)) {
       return $this->t('No user');
@@ -63,6 +68,9 @@ class UserUid extends ArgumentPluginBase {
     return $title;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defaultActions($which = NULL) {
     // Disallow summary views on this argument.
     if (!$which) {
@@ -77,6 +85,9 @@ class UserUid extends ArgumentPluginBase {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function query($group_by = FALSE) {
     $this->ensureMyTable();
 
@@ -88,10 +99,10 @@ class UserUid extends ArgumentPluginBase {
 
       $entity_id = $this->definition['entity_id'];
       $entity_type = $this->definition['entity_type'];
-      $subselect->where("c.entity_id = $this->tableAlias.$entity_id");
+      $subselect->where("[c].[entity_id] = [$this->tableAlias].[$entity_id]");
       $subselect->condition('c.entity_type', $entity_type);
 
-      $condition = (new Condition('OR'))
+      $condition = ($this->view->query->getConnection()->condition('OR'))
         ->condition("$this->tableAlias.uid", $this->argument, '=')
         ->exists($subselect);
 

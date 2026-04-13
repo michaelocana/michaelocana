@@ -8,7 +8,7 @@
 /**
  * Implements hook_schema().
  */
-function user_schema() {
+function user_schema(): array {
   $schema['users_data'] = [
     'description' => 'Stores module data as key/value pairs per user.',
     'fields' => [
@@ -68,7 +68,7 @@ function user_schema() {
 /**
  * Implements hook_install().
  */
-function user_install() {
+function user_install(): void {
   $storage = \Drupal::entityTypeManager()->getStorage('user');
   // Insert a row for the anonymous user.
   $storage
@@ -92,14 +92,8 @@ function user_install() {
 }
 
 /**
- * Fix invalid token in the status_blocked email body.
+ * Implements hook_update_last_removed().
  */
-function user_update_8100() {
-  $config_factory = \Drupal::configFactory();
-  $config = $config_factory->getEditable('user.mail');
-  $mail = $config->get('status_blocked');
-  if (strpos($mail['body'], '[site:account-name]') !== FALSE) {
-    $mail['body'] = str_replace('[site:account-name]', '[site:name]', $mail['body']);
-    $config->set('status_blocked', $mail)->save(TRUE);
-  }
+function user_update_last_removed(): int {
+  return 10000;
 }

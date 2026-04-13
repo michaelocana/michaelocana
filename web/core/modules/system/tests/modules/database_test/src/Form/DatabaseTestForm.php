@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\database_test\Form;
 
 use Drupal\Core\Database\Database;
+use Drupal\Core\Database\Query\PagerSelectExtender;
+use Drupal\Core\Database\Query\TableSortExtender;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\user\Entity\User;
@@ -26,8 +30,8 @@ class DatabaseTestForm extends FormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
     $header = [
-      'username' => ['data' => t('Username'), 'field' => 'u.name'],
-      'status' => ['data' => t('Status'), 'field' => 'u.status'],
+      'username' => ['data' => $this->t('Username'), 'field' => 'u.name'],
+      'status' => ['data' => $this->t('Status'), 'field' => 'u.status'],
     ];
 
     $query = Database::getConnection()->select('users_field_data', 'u');
@@ -35,11 +39,11 @@ class DatabaseTestForm extends FormBase {
     $query->condition('u.default_langcode', 1);
 
     $count_query = clone $query;
-    $count_query->addExpression('COUNT(u.uid)');
+    $count_query->addExpression('COUNT([u].[uid])');
 
     $query = $query
-      ->extend('Drupal\Core\Database\Query\PagerSelectExtender')
-      ->extend('Drupal\Core\Database\Query\TableSortExtender');
+      ->extend(PagerSelectExtender::class)
+      ->extend(TableSortExtender::class);
     $query
       ->fields('u', ['uid'])
       ->limit(50)
@@ -55,7 +59,7 @@ class DatabaseTestForm extends FormBase {
       $options[$account->id()] = [
         'title' => ['data' => ['#title' => $account->getAccountName()]],
         'username' => $account->getAccountName(),
-        'status' => $account->isActive() ? t('active') : t('blocked'),
+        'status' => $account->isActive() ? $this->t('active') : $this->t('blocked'),
       ];
     }
 
@@ -63,7 +67,7 @@ class DatabaseTestForm extends FormBase {
       '#type' => 'tableselect',
       '#header' => $header,
       '#options' => $options,
-      '#empty' => t('No people available.'),
+      '#empty' => $this->t('No people available.'),
     ];
 
     return $form;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalJavascriptTests\Theme;
 
 use Drupal\Tests\block\FunctionalJavascript\BlockFilterTest;
@@ -14,7 +16,7 @@ use Drupal\Tests\block\FunctionalJavascript\BlockFilterTest;
 class ClaroBlockFilterTest extends BlockFilterTest {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * Install the shortcut module so that claro.settings has its schema checked.
    * There's currently no way for Claro to provide a default and have valid
@@ -22,12 +24,12 @@ class ClaroBlockFilterTest extends BlockFilterTest {
    *
    * @var string[]
    */
-  public static $modules = ['shortcut'];
+  protected static $modules = ['shortcut'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->container->get('theme_installer')->install(['claro']);
     $this->config('system.theme')->set('default', 'claro')->save();

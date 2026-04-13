@@ -37,10 +37,10 @@ class SelectProfileForm extends FormBase {
     $profiles = [];
     $names = [];
     foreach ($install_state['profiles'] as $profile) {
-      /** @var $profile \Drupal\Core\Extension\Extension */
+      /** @var \Drupal\Core\Extension\Extension $profile */
       $details = install_profile_info($profile->getName());
-      // Don't show hidden profiles. This is used by to hide the testing profile,
-      // which only exists to speed up test runs.
+      // Don't show hidden profiles. This is used by to hide the testing
+      // profile, which only exists to speed up test runs.
       if ($details['hidden'] === TRUE && !drupal_valid_test_ua()) {
         continue;
       }
@@ -48,7 +48,7 @@ class SelectProfileForm extends FormBase {
 
       // Determine the name of the profile; default to file name if defined name
       // is unspecified.
-      $name = isset($details['name']) ? $details['name'] : $profile->getName();
+      $name = $details['name'] ?? $profile->getName();
       $names[$profile->getName()] = $name;
     }
 
@@ -57,9 +57,9 @@ class SelectProfileForm extends FormBase {
     natcasesort($names);
     if (isset($names['minimal'])) {
       // If the expert ("Minimal") core profile is present, put it in front of
-      // any non-core profiles rather than including it with them alphabetically,
-      // since the other profiles might be intended to group together in a
-      // particular way.
+      // any non-core profiles rather than including it with them
+      // alphabetically, since the other profiles might be intended to group
+      // together in a particular way.
       $names = ['minimal' => $names['minimal']] + $names;
     }
     if (isset($names['standard'])) {
@@ -80,12 +80,8 @@ class SelectProfileForm extends FormBase {
       '#default_value' => 'standard',
     ];
     foreach (array_keys($names) as $profile_name) {
+      // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
       $form['profile'][$profile_name]['#description'] = isset($profiles[$profile_name]['description']) ? $this->t($profiles[$profile_name]['description']) : '';
-      // @todo Remove hardcoding of 'demo_umami' profile for a generic warning
-      // system in https://www.drupal.org/project/drupal/issues/2822414.
-      if ($profile_name === 'demo_umami') {
-        $this->addUmamiWarning($form);
-      }
     }
 
     $config_sync_directory = Settings::get('config_sync_directory');
@@ -93,13 +89,29 @@ class SelectProfileForm extends FormBase {
       $sync = new FileStorage($config_sync_directory);
       $extensions = $sync->read('core.extension');
       $site = $sync->read('system.site');
-      if (isset($site['name']) && isset($extensions['profile']) && in_array($extensions['profile'], array_keys($names), TRUE)) {
-        // Ensure the profile can be installed from configuration. Install
-        // profile's which implement hook_INSTALL() are not supported.
-        // @todo https://www.drupal.org/project/drupal/issues/2982052 Remove
-        //   this restriction.
-        module_load_install($extensions['profile']);
-        if (!function_exists($extensions['profile'] . '_install')) {
+      if (isset($site['name'])) {
+        $install_from_config = FALSE;
+        if (isset($extensions['profile']) && array_key_exists($extensions['profile'], $names)) {
+          // Ensure the profile can be installed from configuration. Install
+          // profile's which implement hook_INSTALL() are not supported.
+          // @todo https://www.drupal.org/project/drupal/issues/2982052 Remove
+          //   this restriction.
+          $root = \Drupal::root();
+          include_once $root . '/core/includes/install.inc';
+          $file = $root . '/' . $install_state['profiles'][$extensions['profile']]->getPath() . "/{$extensions['profile']}.install";
+          if (is_file($file)) {
+            require_once $file;
+          }
+          if (!function_exists($extensions['profile'] . '_install')) {
+            $install_from_config = TRUE;
+          }
+        }
+        elseif (empty($extensions['profile'])) {
+          // Allow sites without a profile to be installed.
+          $install_from_config = TRUE;
+        }
+
+        if ($install_from_config) {
           $form['profile']['#options'][static::CONFIG_INSTALL_PROFILE_KEY] = $this->t('Use existing configuration');
           $form['profile'][static::CONFIG_INSTALL_PROFILE_KEY]['#description'] = [
             'description' => [
@@ -139,34 +151,10 @@ class SelectProfileForm extends FormBase {
     $profile = $form_state->getValue('profile');
     if ($profile === static::CONFIG_INSTALL_PROFILE_KEY) {
       $sync = new FileStorage(Settings::get('config_sync_directory'));
-      $profile = $sync->read('core.extension')['profile'];
+      $profile = $sync->read('core.extension')['profile'] ?? FALSE;
       $install_state['parameters']['existing_config'] = TRUE;
     }
     $install_state['parameters']['profile'] = $profile;
-  }
-
-  /**
-   * Show profile warning if 'demo_umami' profile is selected.
-   */
-  protected function addUmamiWarning(array &$form) {
-    // Warning to show when this profile is selected.
-    $description = $form['profile']['demo_umami']['#description'];
-    // Re-defines radio #description to show warning when selected.
-    $form['profile']['demo_umami']['#description'] = [
-      'warning' => [
-        '#type' => 'item',
-        '#markup' => $this->t('This profile is intended for demonstration purposes only.'),
-        '#wrapper_attributes' => [
-          'class' => ['messages', 'messages--warning'],
-        ],
-        '#states' => [
-          'visible' => [
-            ':input[name="profile"]' => ['value' => 'demo_umami'],
-          ],
-        ],
-      ],
-      'description' => ['#markup' => $description],
-    ];
   }
 
 }

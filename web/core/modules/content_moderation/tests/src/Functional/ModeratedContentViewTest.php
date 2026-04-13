@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Functional;
 
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -26,7 +28,7 @@ class ModeratedContentViewTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_moderation',
     'node',
     'views',
@@ -42,7 +44,7 @@ class ModeratedContentViewTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page'])->save();
@@ -65,8 +67,8 @@ class ModeratedContentViewTest extends BrowserTestBase {
   /**
    * Tests the moderated content page.
    */
-  public function testModeratedContentPage() {
-    $assert_sesison = $this->assertSession();
+  public function testModeratedContentPage(): void {
+    $assert_session = $this->assertSession();
     $this->drupalLogin($this->adminUser);
 
     // Use an explicit changed time to ensure the expected order in the content
@@ -103,15 +105,15 @@ class ModeratedContentViewTest extends BrowserTestBase {
 
     // Verify view, edit, and delete links for any content.
     $this->drupalGet('admin/content/moderated');
-    $assert_sesison->statusCodeEquals(200);
+    $assert_session->statusCodeEquals(200);
 
     // Check that nodes with pending revisions appear in the view.
     $node_type_labels = $this->xpath('//td[contains(@class, "views-field-type")]');
     $delta = 0;
     foreach ($nodes as $node) {
-      $assert_sesison->linkByHrefExists('node/' . $node->id());
-      $assert_sesison->linkByHrefExists('node/' . $node->id() . '/edit');
-      $assert_sesison->linkByHrefExists('node/' . $node->id() . '/delete');
+      $assert_session->linkByHrefExists('node/' . $node->id());
+      $assert_session->linkByHrefExists('node/' . $node->id() . '/edit');
+      $assert_session->linkByHrefExists('node/' . $node->id() . '/delete');
       // Verify that we can see the content type label.
       $this->assertEquals($node->type->entity->label(), trim($node_type_labels[$delta]->getText()));
       $delta++;
@@ -120,36 +122,36 @@ class ModeratedContentViewTest extends BrowserTestBase {
     // Check that nodes that are not moderated or do not have a pending revision
     // do not appear in the view.
     foreach ($excluded_nodes as $node) {
-      $assert_sesison->linkByHrefNotExists('node/' . $node->id());
+      $assert_session->linkByHrefNotExists('node/' . $node->id());
     }
 
     // Check that the latest revision is displayed.
-    $assert_sesison->pageTextContains('first article - draft');
-    $assert_sesison->pageTextNotContains('first article - published');
+    $assert_session->pageTextContains('first article - draft');
+    $assert_session->pageTextNotContains('first article - published');
 
     // Verify filtering by moderation state.
     $this->drupalGet('admin/content/moderated', ['query' => ['moderation_state' => 'editorial-draft']]);
 
-    $assert_sesison->linkByHrefExists('node/' . $nodes['published_then_draft_article']->id() . '/edit');
-    $assert_sesison->linkByHrefExists('node/' . $nodes['draft_article']->id() . '/edit');
-    $assert_sesison->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
-    $assert_sesison->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
-    $assert_sesison->linkByHrefNotExists('node/' . $nodes['published_then_archived_article']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['published_then_draft_article']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['draft_article']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
+    $assert_session->linkByHrefNotExists('node/' . $nodes['published_then_archived_article']->id() . '/edit');
 
     // Verify filtering by moderation state and content type.
     $this->drupalGet('admin/content/moderated', ['query' => ['moderation_state' => 'editorial-draft', 'type' => 'page']]);
 
-    $assert_sesison->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
-    $assert_sesison->linkByHrefExists('node/' . $nodes['draft_page_2']->id() . '/edit');
-    $assert_sesison->linkByHrefNotExists('node/' . $nodes['published_then_draft_article']->id() . '/edit');
-    $assert_sesison->linkByHrefNotExists('node/' . $nodes['published_then_archived_article']->id() . '/edit');
-    $assert_sesison->linkByHrefNotExists('node/' . $nodes['draft_article']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['draft_page_1']->id() . '/edit');
+    $assert_session->linkByHrefExists('node/' . $nodes['draft_page_2']->id() . '/edit');
+    $assert_session->linkByHrefNotExists('node/' . $nodes['published_then_draft_article']->id() . '/edit');
+    $assert_session->linkByHrefNotExists('node/' . $nodes['published_then_archived_article']->id() . '/edit');
+    $assert_session->linkByHrefNotExists('node/' . $nodes['draft_article']->id() . '/edit');
   }
 
   /**
-   * Test the moderated content page with multilingual content.
+   * Tests the moderated content page with multilingual content.
    */
-  public function testModeratedContentPageMultilingual() {
+  public function testModeratedContentPageMultilingual(): void {
     ConfigurableLanguage::createFromLangcode('fr')->save();
 
     $node = $this->drupalCreateNode([

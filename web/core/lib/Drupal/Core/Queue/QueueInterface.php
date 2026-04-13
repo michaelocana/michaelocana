@@ -15,10 +15,10 @@ interface QueueInterface {
   /**
    * Adds a queue item and store it directly to the queue.
    *
-   * @param $data
+   * @param mixed $data
    *   Arbitrary data to be associated with the new task in the queue.
    *
-   * @return
+   * @return false|int|string
    *   A unique ID if the item was successfully created and was (best effort)
    *   added to the queue, otherwise FALSE. We don't guarantee the item was
    *   committed to disk etc, but as far as we know, the item is now in the
@@ -45,7 +45,7 @@ interface QueueInterface {
   /**
    * Claims an item in the queue for processing.
    *
-   * @param $lease_time
+   * @param int $lease_time
    *   How long the processing is expected to take in seconds, defaults to an
    *   hour. After this lease expires, the item will be reset and another
    *   consumer can claim the item. For idempotent tasks (which can be run
@@ -55,14 +55,14 @@ interface QueueInterface {
    *   more rare for a given task to run multiple times in cases of failure,
    *   at the cost of higher latency.
    *
-   * @return
+   * @return bool|object
    *   On success we return an item object. If the queue is unable to claim an
    *   item it returns false. This implies a best effort to retrieve an item
    *   and either the queue is empty or there is some other non-recoverable
    *   problem.
    *
    *   If returned, the object will have at least the following properties:
-   *   - data: the same as what what passed into createItem().
+   *   - data: the same as what passed into createItem().
    *   - item_id: the unique ID returned from createItem().
    *   - created: timestamp when the item was put into the queue.
    */
@@ -71,7 +71,7 @@ interface QueueInterface {
   /**
    * Deletes a finished item from the queue.
    *
-   * @param $item
+   * @param bool|object $item
    *   The item returned by \Drupal\Core\Queue\QueueInterface::claimItem().
    */
   public function deleteItem($item);
@@ -81,7 +81,7 @@ interface QueueInterface {
    *
    * Another worker can come in and process it before the timeout expires.
    *
-   * @param $item
+   * @param bool|object $item
    *   The item returned by \Drupal\Core\Queue\QueueInterface::claimItem().
    *
    * @return bool

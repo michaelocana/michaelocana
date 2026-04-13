@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\config\Functional;
 
 use Drupal\Core\Config\Schema\SchemaIncompleteException;
 use Drupal\Tests\BrowserTestBase;
 
 /**
- * Tests the functionality of ConfigSchemaChecker in WebTestBase tests.
+ * Tests the functionality of ConfigSchemaChecker in BrowserTestBase tests.
  *
  * @group config
  */
@@ -15,7 +17,7 @@ class SchemaConfigListenerWebTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['config_test'];
+  protected static $modules = ['config_test'];
 
   /**
    * {@inheritdoc}
@@ -25,7 +27,7 @@ class SchemaConfigListenerWebTest extends BrowserTestBase {
   /**
    * Tests \Drupal\Core\Config\Development\ConfigSchemaChecker.
    */
-  public function testConfigSchemaChecker() {
+  public function testConfigSchemaChecker(): void {
     $this->drupalLogin($this->drupalCreateUser(['administer site configuration']));
 
     // Test a non-existing schema.
@@ -55,12 +57,12 @@ class SchemaConfigListenerWebTest extends BrowserTestBase {
       $this->fail('Expected SchemaIncompleteException thrown');
     }
     catch (SchemaIncompleteException $e) {
-      $this->assertEquals('Schema errors for config_test.types with the following errors: config_test.types:array variable type is integer but applied schema class is Drupal\Core\Config\Schema\Sequence, config_test.types:foo missing schema', $e->getMessage());
+      $this->assertEquals("Schema errors for config_test.types with the following errors: config_test.types:array variable type is integer but applied schema class is Drupal\Core\Config\Schema\Sequence, config_test.types:foo missing schema, 0 [foo] &#039;foo&#039; is not a supported key.", $e->getMessage());
     }
 
     // Test that the config event listener is working in the child site.
     $this->drupalGet('config_test/schema_listener');
-    $this->assertText('No schema for config_schema_test.schemaless');
+    $this->assertSession()->pageTextContains('No schema for config_schema_test.schemaless');
   }
 
 }

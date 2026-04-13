@@ -13,10 +13,9 @@ class BootstrapConfigStorageFactory {
   /**
    * Returns a configuration storage implementation.
    *
-   * @param $class_loader
+   * @param \Composer\Autoload\ClassLoader $class_loader
    *   The class loader. Normally Composer's ClassLoader, as included by the
-   *   front controller, but may also be decorated; e.g.,
-   *   \Symfony\Component\ClassLoader\ApcClassLoader.
+   *   front controller, but may also be decorated.
    *
    * @return \Drupal\Core\Config\StorageInterface
    *   A configuration storage implementation.
@@ -35,26 +34,10 @@ class BootstrapConfigStorageFactory {
    * Returns a Database configuration storage implementation.
    *
    * @return \Drupal\Core\Config\DatabaseStorage
+   *   The database storage object.
    */
   public static function getDatabaseStorage() {
     return new DatabaseStorage(Database::getConnection(), 'config');
-  }
-
-  /**
-   * Returns a File-based configuration storage implementation.
-   *
-   * If there is no active configuration directory calling this method will
-   * result in an error.
-   *
-   * @return \Drupal\Core\Config\FileStorage
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Drupal core
-   * no longer creates an active directory.
-   *
-   * @throws \Exception
-   */
-  public static function getFileStorage() {
-    return new FileStorage(config_get_config_directory(CONFIG_ACTIVE_DIRECTORY));
   }
 
 }

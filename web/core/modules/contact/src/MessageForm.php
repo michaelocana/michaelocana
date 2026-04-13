@@ -72,7 +72,7 @@ class MessageForm extends ContentEntityForm {
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
    */
-  public function __construct(EntityRepositoryInterface $entity_repository, FloodInterface $flood, LanguageManagerInterface $language_manager, MailHandlerInterface $mail_handler, DateFormatterInterface $date_formatter, EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL, TimeInterface $time = NULL) {
+  public function __construct(EntityRepositoryInterface $entity_repository, FloodInterface $flood, LanguageManagerInterface $language_manager, MailHandlerInterface $mail_handler, DateFormatterInterface $date_formatter, ?EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL, ?TimeInterface $time = NULL) {
     parent::__construct($entity_repository, $entity_type_bundle_info, $time);
     $this->flood = $flood;
     $this->languageManager = $language_manager;
@@ -101,7 +101,7 @@ class MessageForm extends ContentEntityForm {
   public function form(array $form, FormStateInterface $form_state) {
     $user = $this->currentUser();
     $message = $this->entity;
-    $form = parent::form($form, $form_state, $message);
+    $form = parent::form($form, $form_state);
     $form['#attributes']['class'][] = 'contact-form';
 
     if (!empty($message->preview)) {
@@ -123,13 +123,9 @@ class MessageForm extends ContentEntityForm {
       '#title' => $this->t('Your email address'),
       '#required' => TRUE,
     ];
-    if ($user->isAnonymous()) {
-      $form['#attached']['library'][] = 'core/drupal.form';
-      $form['#attributes']['data-user-info-from-browser'] = TRUE;
-    }
     // Do not allow authenticated users to alter the name or email values to
     // prevent the impersonation of other users.
-    else {
+    if ($user->isAuthenticated()) {
       $form['name']['#type'] = 'item';
       $form['name']['#value'] = $user->getDisplayName();
       $form['name']['#required'] = FALSE;
@@ -174,6 +170,7 @@ class MessageForm extends ContentEntityForm {
       '#type' => 'submit',
       '#value' => $this->t('Preview'),
       '#submit' => ['::submitForm', '::preview'],
+      '#access' => !empty($form_state->getStorage()['form_display']->getComponent('preview')),
     ];
     return $elements;
   }

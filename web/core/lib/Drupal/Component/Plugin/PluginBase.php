@@ -13,7 +13,7 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
   const DERIVATIVE_SEPARATOR = ':';
 
   /**
-   * The plugin_id.
+   * The plugin ID.
    *
    * @var string
    */
@@ -22,7 +22,7 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
   /**
    * The plugin implementation definition.
    *
-   * @var array
+   * @var \Drupal\Component\Plugin\Definition\PluginDefinitionInterface|array
    */
   protected $pluginDefinition;
 
@@ -46,7 +46,7 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    */
@@ -54,10 +54,6 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
     $this->configuration = $configuration;
     $this->pluginId = $plugin_id;
     $this->pluginDefinition = $plugin_definition;
-
-    if ($this instanceof ConfigurablePluginInterface && !$this instanceof ConfigurableInterface) {
-      @trigger_error('Drupal\Component\Plugin\ConfigurablePluginInterface is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. You should implement ConfigurableInterface and/or DependentPluginInterface directly as needed. If you implement ConfigurableInterface you may choose to implement ConfigurablePluginInterface in Drupal 8 as well for maximum compatibility, however this must be removed prior to Drupal 9. See https://www.drupal.org/node/2946161', E_USER_DEPRECATED);
-    }
   }
 
   /**
@@ -73,7 +69,7 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
   public function getBaseId() {
     $plugin_id = $this->getPluginId();
     if (strpos($plugin_id, static::DERIVATIVE_SEPARATOR)) {
-      list($plugin_id) = explode(static::DERIVATIVE_SEPARATOR, $plugin_id, 2);
+      [$plugin_id] = explode(static::DERIVATIVE_SEPARATOR, $plugin_id, 2);
     }
     return $plugin_id;
   }
@@ -85,7 +81,7 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
     $plugin_id = $this->getPluginId();
     $derivative_id = NULL;
     if (strpos($plugin_id, static::DERIVATIVE_SEPARATOR)) {
-      list(, $derivative_id) = explode(static::DERIVATIVE_SEPARATOR, $plugin_id, 2);
+      [, $derivative_id] = explode(static::DERIVATIVE_SEPARATOR, $plugin_id, 2);
     }
     return $derivative_id;
   }
@@ -102,9 +98,16 @@ abstract class PluginBase implements PluginInspectionInterface, DerivativeInspec
    *
    * @return bool
    *   A boolean indicating whether the plugin is configurable.
+   *
+   * @deprecated in drupal:11.1.0 and is removed from drupal:12.0.0. Use
+   * instanceof to check if the plugin implements
+   * \Drupal\Component\Plugin\ConfigurableInterface instead.
+   *
+   * @see https://www.drupal.org/node/3198285
    */
   public function isConfigurable() {
-    return $this instanceof ConfigurableInterface || $this instanceof ConfigurablePluginInterface;
+    @trigger_error(__CLASS__ . "::" . __FUNCTION__ . " is deprecated in drupal:11.1.0 and is removed from drupal:12.0.0. Use instanceof to check if the plugin implements \Drupal\Component\Plugin\ConfigurableInterface instead. See https://www.drupal.org/node/3198285", E_USER_DEPRECATED);
+    return $this instanceof ConfigurableInterface;
   }
 
 }

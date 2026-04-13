@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\Kernel\Plugin\migrate\source\d7;
 
 use Drupal\Tests\migrate\Kernel\MigrateSqlSourceTestBase;
+
+// cspell:ignore objectid objectindex plid textgroup
 
 /**
  * Tests i18n block source plugin.
@@ -16,12 +20,12 @@ class BlockTranslationTest extends MigrateSqlSourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['block', 'migrate_drupal'];
+  protected static $modules = ['block', 'migrate_drupal'];
 
   /**
    * {@inheritdoc}
    */
-  public function providerSource() {
+  public static function providerSource() {
 
     // The source data.
     $tests[0]['source_data']['block'] = [

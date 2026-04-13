@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -28,7 +30,10 @@ class SearchPreprocessLangcodeTest extends BrowserTestBase {
    */
   protected $node;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
@@ -45,7 +50,7 @@ class SearchPreprocessLangcodeTest extends BrowserTestBase {
   /**
    * Tests that hook_search_preprocess() returns the correct langcode.
    */
-  public function testPreprocessLangcode() {
+  public function testPreprocessLangcode(): void {
     // Create a node.
     $this->node = $this->drupalCreateNode(['body' => [[]], 'langcode' => 'en']);
 
@@ -56,16 +61,17 @@ class SearchPreprocessLangcodeTest extends BrowserTestBase {
     // function. If you search for text that is in the node, preprocess is
     // not invoked on the node during the search excerpt generation.
     $edit = ['or' => 'Additional text'];
-    $this->drupalPostForm('search/node', $edit, 'edit-submit--2');
+    $this->drupalGet('search/node');
+    $this->submitForm($edit, 'edit-submit--2');
 
     // Checks if the langcode message has been set by hook_search_preprocess().
-    $this->assertText('Langcode Preprocess Test: en');
+    $this->assertSession()->pageTextContains('Langcode Preprocess Test: en');
   }
 
   /**
    * Tests stemming for hook_search_preprocess().
    */
-  public function testPreprocessStemming() {
+  public function testPreprocessStemming(): void {
     // Create a node.
     $this->node = $this->drupalCreateNode([
       'title' => 'we are testing',
@@ -78,19 +84,21 @@ class SearchPreprocessLangcodeTest extends BrowserTestBase {
 
     // Search for the title of the node with a POST query.
     $edit = ['or' => 'testing'];
-    $this->drupalPostForm('search/node', $edit, 'edit-submit--2');
+    $this->drupalGet('search/node');
+    $this->submitForm($edit, 'edit-submit--2');
 
     // Check if the node has been found.
-    $this->assertText('Search results');
-    $this->assertText('we are testing');
+    $this->assertSession()->pageTextContains('Search results');
+    $this->assertSession()->pageTextContains('we are testing');
 
     // Search for the same node using a different query.
     $edit = ['or' => 'test'];
-    $this->drupalPostForm('search/node', $edit, 'edit-submit--2');
+    $this->drupalGet('search/node');
+    $this->submitForm($edit, 'edit-submit--2');
 
     // Check if the node has been found.
-    $this->assertText('Search results');
-    $this->assertText('we are testing');
+    $this->assertSession()->pageTextContains('Search results');
+    $this->assertSession()->pageTextContains('we are testing');
   }
 
 }

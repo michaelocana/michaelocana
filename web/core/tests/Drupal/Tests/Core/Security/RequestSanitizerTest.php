@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Security;
 
 use Drupal\Core\Security\RequestSanitizer;
@@ -26,10 +28,18 @@ class RequestSanitizerTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->errors = [];
     set_error_handler([$this, "errorHandler"]);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function tearDown(): void {
+    restore_error_handler();
+    parent::tearDown();
   }
 
   /**
@@ -45,12 +55,12 @@ class RequestSanitizerTest extends UnitTestCase {
    * @param array|null $expected_errors
    *   An array of expected errors. If set to NULL then error logging is
    *   disabled.
-   * @param array $whitelist
-   *   An array of keys to whitelist and not sanitize.
+   * @param array $allow_list
+   *   An array of keys to allow and not sanitize.
    *
    * @dataProvider providerTestRequestSanitization
    */
-  public function testRequestSanitization(Request $request, array $expected = [], array $expected_errors = NULL, array $whitelist = []) {
+  public function testRequestSanitization(Request $request, array $expected = [], ?array $expected_errors = NULL, array $allow_list = []): void {
     // Set up globals.
     $_GET = $request->query->all();
     $_POST = $request->request->all();
@@ -59,7 +69,7 @@ class RequestSanitizerTest extends UnitTestCase {
     $request->server->set('QUERY_STRING', http_build_query($request->query->all()));
     $_SERVER['QUERY_STRING'] = $request->server->get('QUERY_STRING');
 
-    $request = RequestSanitizer::sanitize($request, $whitelist, is_null($expected_errors) ? FALSE : TRUE);
+    $request = RequestSanitizer::sanitize($request, $allow_list, is_null($expected_errors) ? FALSE : TRUE);
 
     // Normalize the expected data.
     $expected += ['cookies' => [], 'query' => [], 'request' => []];
@@ -96,8 +106,9 @@ class RequestSanitizerTest extends UnitTestCase {
    * Data provider for testRequestSanitization.
    *
    * @return array
+   *   An array of test data for testRequestSanitization.
    */
-  public function providerTestRequestSanitization() {
+  public static function providerTestRequestSanitization() {
     $tests = [];
 
     $request = new Request(['q' => 'index.php']);
@@ -149,10 +160,10 @@ class RequestSanitizerTest extends UnitTestCase {
     $tests['recursive sanitization log'] = [$request, ['query' => ['q' => 'index.php', 'foo' => []]], ['Potentially unsafe keys removed from query string parameters (GET): #bar']];
 
     $request = new Request(['q' => 'index.php', 'foo' => ['#bar' => 'foo']]);
-    $tests['recursive no sanitization whitelist'] = [$request, ['query' => ['q' => 'index.php', 'foo' => ['#bar' => 'foo']]], [], ['#bar']];
+    $tests['recursive no sanitization allowed list'] = [$request, ['query' => ['q' => 'index.php', 'foo' => ['#bar' => 'foo']]], [], ['#bar']];
 
     $request = new Request([], ['#field' => 'value']);
-    $tests['no sanitization POST whitelist'] = [$request, ['request' => ['#field' => 'value']], [], ['#field']];
+    $tests['no sanitization POST allowed list'] = [$request, ['request' => ['#field' => 'value']], [], ['#field']];
 
     $request = new Request(['q' => 'index.php', 'foo' => ['#bar' => 'foo', '#foo' => 'bar']]);
     $tests['recursive multiple sanitization log'] = [$request, ['query' => ['q' => 'index.php', 'foo' => []]], ['Potentially unsafe keys removed from query string parameters (GET): #bar, #foo']];
@@ -183,7 +194,7 @@ class RequestSanitizerTest extends UnitTestCase {
     $tests['destination removal subkey'] = [$request];
 
     $request = new Request(['destination' => 'whatever?q[%23test]=value']);
-    $tests['destination whitelist'] = [$request, ['query' => ['destination' => 'whatever?q[%23test]=value']], [], ['#test']];
+    $tests['destination allowed list'] = [$request, ['query' => ['destination' => 'whatever?q[%23test]=value']], [], ['#test']];
 
     $request = new Request(['destination' => "whatever?\x00bar=base&%23test=value"]);
     $tests['destination removal zero byte'] = [$request];
@@ -205,7 +216,7 @@ class RequestSanitizerTest extends UnitTestCase {
    *
    * @dataProvider providerTestAcceptableDestinations
    */
-  public function testAcceptableDestinationGet($destination) {
+  public function testAcceptableDestinationGet($destination): void {
     // Set up a GET request.
     $request = $this->createRequestForTesting(['destination' => $destination]);
 
@@ -227,7 +238,7 @@ class RequestSanitizerTest extends UnitTestCase {
    *
    * @dataProvider providerTestSanitizedDestinations
    */
-  public function testSanitizedDestinationGet($destination) {
+  public function testSanitizedDestinationGet($destination): void {
     // Set up a GET request.
     $request = $this->createRequestForTesting(['destination' => $destination]);
 
@@ -249,7 +260,7 @@ class RequestSanitizerTest extends UnitTestCase {
    *
    * @dataProvider providerTestAcceptableDestinations
    */
-  public function testAcceptableDestinationPost($destination) {
+  public function testAcceptableDestinationPost($destination): void {
     // Set up a POST request.
     $request = $this->createRequestForTesting([], ['destination' => $destination]);
 
@@ -271,7 +282,7 @@ class RequestSanitizerTest extends UnitTestCase {
    *
    * @dataProvider providerTestSanitizedDestinations
    */
-  public function testSanitizedDestinationPost($destination) {
+  public function testSanitizedDestinationPost($destination): void {
     // Set up a POST request.
     $request = $this->createRequestForTesting([], ['destination' => $destination]);
 
@@ -312,7 +323,7 @@ class RequestSanitizerTest extends UnitTestCase {
   /**
    * Data provider for testing acceptable destinations.
    */
-  public function providerTestAcceptableDestinations() {
+  public static function providerTestAcceptableDestinations() {
     $data = [];
     // Standard internal example node path is present in the 'destination'
     // parameter.
@@ -321,7 +332,7 @@ class RequestSanitizerTest extends UnitTestCase {
     $data[] = ['/example.com'];
     // Internal URL using a colon is allowed.
     $data[] = ['example:test'];
-    // Javascript URL is allowed because it is treated as an internal URL.
+    // JavaScript URL is allowed because it is treated as an internal URL.
     $data[] = ['javascript:alert(0)'];
     return $data;
   }
@@ -329,7 +340,7 @@ class RequestSanitizerTest extends UnitTestCase {
   /**
    * Data provider for testing sanitized destinations.
    */
-  public function providerTestSanitizedDestinations() {
+  public static function providerTestSanitizedDestinations() {
     $data = [];
     // External URL without scheme is not allowed.
     $data[] = ['//example.com/test'];
@@ -346,7 +357,7 @@ class RequestSanitizerTest extends UnitTestCase {
    * @param string $errstr
    *   The error message.
    */
-  public function errorHandler($errno, $errstr) {
+  public function errorHandler($errno, $errstr): void {
     $this->errors[] = compact('errno', 'errstr');
   }
 
@@ -357,8 +368,10 @@ class RequestSanitizerTest extends UnitTestCase {
    *   The error message.
    * @param int $errno
    *   The severity level of the error.
+   *
+   * @internal
    */
-  protected function assertError($errstr, $errno) {
+  protected function assertError(string $errstr, int $errno): void {
     foreach ($this->errors as $error) {
       if ($error['errstr'] === $errstr && $error['errno'] === $errno) {
         return;

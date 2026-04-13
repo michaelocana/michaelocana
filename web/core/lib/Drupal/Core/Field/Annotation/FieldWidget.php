@@ -31,18 +31,18 @@ class FieldWidget extends Plugin {
   /**
    * The human-readable name of the widget type.
    *
-   * @ingroup plugin_translatable
-   *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $label;
 
   /**
    * A short description of the widget type.
    *
-   * @ingroup plugin_translatable
-   *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $description;
 
@@ -70,10 +70,14 @@ class FieldWidget extends Plugin {
   public $multiple_values = FALSE;
 
   /**
-   * An integer to determine the weight of this widget relative to other widgets
-   * in the Field UI when selecting a widget for a given field.
+   * An integer to determine weight of this widget relative to other widgets.
    *
-   * @var int optional
+   * Other widgets are in the Field UI when selecting a widget for a given
+   * field.
+   *
+   * This property is optional and it does not need to be declared.
+   *
+   * @var int
    */
   public $weight = NULL;
 

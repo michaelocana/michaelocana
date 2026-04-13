@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\config_transformer_test;
 
 use Drupal\Core\Config\ConfigEvents;
@@ -7,6 +9,8 @@ use Drupal\Core\Config\StorageInterface;
 use Drupal\Core\Config\StorageTransformEvent;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
+// cspell:ignore arrr
 
 /**
  * Class EventSubscriber.
@@ -105,7 +109,7 @@ class EventSubscriber implements EventSubscriberInterface {
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     $events[ConfigEvents::STORAGE_TRANSFORM_IMPORT][] = ['onImportTransform'];
     $events[ConfigEvents::STORAGE_TRANSFORM_EXPORT][] = ['onExportTransform'];
     return $events;

@@ -5,7 +5,6 @@ namespace Drupal\views;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 
@@ -60,13 +59,6 @@ class ViewsData {
   protected $fullyLoaded = FALSE;
 
   /**
-   * Whether or not to skip data caching and rebuild data each time.
-   *
-   * @var bool
-   */
-  protected $skipCache = FALSE;
-
-  /**
    * The current language code.
    *
    * @var string
@@ -92,26 +84,20 @@ class ViewsData {
    *
    * @param \Drupal\Core\Cache\CacheBackendInterface $cache_backend
    *   The cache backend to use.
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $config
-   *   The configuration factory object to use.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler class to use for invoking hooks.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    */
-  public function __construct(CacheBackendInterface $cache_backend, ConfigFactoryInterface $config, ModuleHandlerInterface $module_handler, LanguageManagerInterface $language_manager) {
+  public function __construct(CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler, LanguageManagerInterface $language_manager) {
     $this->cacheBackend = $cache_backend;
     $this->moduleHandler = $module_handler;
     $this->languageManager = $language_manager;
-
     $this->langcode = $this->languageManager->getCurrentLanguage()->getId();
-    $this->skipCache = $config->get('views.settings')->get('skip_cache');
   }
 
   /**
    * Gets all table data.
-   *
-   * @see https://www.drupal.org/node/2723553
    *
    * @return array
    *   An array of table data.
@@ -129,23 +115,17 @@ class ViewsData {
   }
 
   /**
-   * Gets data for a particular table, or all tables.
+   * Gets data for a particular table.
    *
-   * @param string|null $key
-   *   The key of the cache entry to retrieve. Defaults to NULL, this will
-   *   return all table data. NULL $key deprecated in Drupal 8.2.x and will be
-   *   removed in 9.0.0. Use getAll() instead.
-   *
-   * @see https://www.drupal.org/node/2723553
-   * @see https://www.drupal.org/node/3090442
+   * @param string $key
+   *   The key of the cache entry to retrieve.
    *
    * @return array
    *   An array of table data.
    */
-  public function get($key = NULL) {
+  public function get($key) {
     if (!$key) {
-      @trigger_error('Calling get() without the $key argument is deprecated in drupal:8.2.0 and is required in drupal:9.0.0. See https://www.drupal.org/node/3090442', E_USER_DEPRECATED);
-      return $this->getAll();
+      throw new \InvalidArgumentException('A valid cache entry key is required. Use getAll() to get all table data.');
     }
     if (!isset($this->storage[$key])) {
       // Prepare a cache ID for get and set.
@@ -188,14 +168,9 @@ class ViewsData {
    *   The cache ID to return.
    *
    * @return mixed
-   *   The cached data, if any. This will immediately return FALSE if the
-   *   $skipCache property is TRUE.
+   *   The cached data.
    */
   protected function cacheGet($cid) {
-    if ($this->skipCache) {
-      return FALSE;
-    }
-
     return $this->cacheBackend->get($this->prepareCid($cid));
   }
 
@@ -239,10 +214,9 @@ class ViewsData {
       return $data->data;
     }
     else {
-      $modules = $this->moduleHandler->getImplementations('views_data');
       $data = [];
-      foreach ($modules as $module) {
-        $views_data = $this->moduleHandler->invoke($module, 'views_data');
+      $this->moduleHandler->invokeAllWith('views_data', function (callable $hook, string $module) use (&$data) {
+        $views_data = $hook();
         // Set the provider key for each base table.
         foreach ($views_data as &$table) {
           if (isset($table['table']) && !isset($table['table']['provider'])) {
@@ -250,7 +224,7 @@ class ViewsData {
           }
         }
         $data = NestedArray::mergeDeep($data, $views_data);
-      }
+      });
       $this->moduleHandler->alter('views_data', $data);
 
       $this->processEntityTypes($data);
@@ -312,12 +286,9 @@ class ViewsData {
     // Sorts by the 'weight' and then by 'title' element.
     uasort($tables, function ($a, $b) {
       if ($a['weight'] != $b['weight']) {
-        return $a['weight'] < $b['weight'] ? -1 : 1;
+        return $a['weight'] <=> $b['weight'];
       }
-      if ($a['title'] != $b['title']) {
-        return $a['title'] < $b['title'] ? -1 : 1;
-      }
-      return 0;
+      return $a['title'] <=> $b['title'];
     });
 
     return $tables;

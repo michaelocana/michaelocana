@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\media_test_oembed;
 
 use Drupal\media\OEmbed\Provider;
@@ -12,13 +14,6 @@ use Drupal\media\OEmbed\ProviderRepository as BaseProviderRepository;
  * provider data from state before calling the parent methods.
  */
 class ProviderRepository extends BaseProviderRepository {
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function cacheGet($cid) {
-    return FALSE;
-  }
 
   /**
    * {@inheritdoc}

@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\Entity\Node;
+use Drupal\views\Attribute\ViewsField;
 use Drupal\views\Plugin\views\field\NumericField;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ResultRow;
@@ -18,9 +19,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Field handler to display the number of new comments.
  *
  * @ingroup views_field_handlers
- *
- * @ViewsField("node_new_comments")
  */
+#[ViewsField("node_new_comments")]
 class NodeNewComments extends NumericField {
 
   /**
@@ -57,7 +57,7 @@ class NodeNewComments extends NumericField {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Database\Connection $database
@@ -67,17 +67,9 @@ class NodeNewComments extends NumericField {
    * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager
    *   The entity field manager service.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, Connection $database, EntityTypeManagerInterface $entity_type_manager = NULL, EntityFieldManagerInterface $entity_field_manager = NULL) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, Connection $database, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->database = $database;
-    if (!$entity_type_manager) {
-      @trigger_error("Not passing the entity type manager to the NodeNewComments constructor is deprecated in drupal:8.8.0 and will be required in drupal:9.0.0. @see https://www.drupal.org/node/3047897", E_USER_DEPRECATED);
-      $entity_type_manager = \Drupal::entityTypeManager();
-    }
-    if (!$entity_field_manager) {
-      @trigger_error("Not passing the entity type manager to the NodeNewComments constructor is deprecated in drupal:8.8.0 and will be required in drupal:9.0.0. @see https://www.drupal.org/node/3047897", E_USER_DEPRECATED);
-      $entity_field_manager = \Drupal::service('entity_field.manager');
-    }
     $this->entityTypeManager = $entity_type_manager;
     $this->entityFieldManager = $entity_field_manager;
   }
@@ -99,7 +91,7 @@ class NodeNewComments extends NumericField {
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
     $this->additional_fields['entity_id'] = 'nid';
@@ -163,15 +155,15 @@ class NodeNewComments extends NumericField {
     }
 
     if ($nids) {
-      $result = $this->database->query("SELECT n.nid, COUNT(c.cid) AS num_comments FROM {node} n INNER JOIN {comment_field_data} c ON n.nid = c.entity_id AND c.entity_type = 'node' AND c.default_langcode = 1
-        LEFT JOIN {history} h ON h.nid = n.nid AND h.uid = :h_uid WHERE n.nid IN ( :nids[] )
-        AND c.changed > GREATEST(COALESCE(h.timestamp, :timestamp1), :timestamp2) AND c.status = :status GROUP BY n.nid", [
-        ':status' => CommentInterface::PUBLISHED,
-        ':h_uid' => $user->id(),
-        ':nids[]' => $nids,
-        ':timestamp1' => HISTORY_READ_LIMIT,
-        ':timestamp2' => HISTORY_READ_LIMIT,
-      ]);
+      $result = $this->database->query("SELECT [n].[nid], COUNT([c].[cid]) AS [num_comments] FROM {node} [n] INNER JOIN {comment_field_data} [c] ON [n].[nid] = [c].[entity_id] AND [c].[entity_type] = 'node' AND [c].[default_langcode] = 1
+        LEFT JOIN {history} [h] ON [h].[nid] = [n].[nid] AND [h].[uid] = :h_uid WHERE [n].[nid] IN ( :nids[] )
+        AND [c].[changed] > GREATEST(COALESCE([h].[timestamp], :timestamp1), :timestamp2) AND [c].[status] = :status GROUP BY [n].[nid]", [
+          ':status' => CommentInterface::PUBLISHED,
+          ':h_uid' => $user->id(),
+          ':nids[]' => $nids,
+          ':timestamp1' => HISTORY_READ_LIMIT,
+          ':timestamp2' => HISTORY_READ_LIMIT,
+        ]);
       foreach ($result as $node) {
         foreach ($ids[$node->nid] as $id) {
           $values[$id]->{$this->field_alias} = $node->num_comments;

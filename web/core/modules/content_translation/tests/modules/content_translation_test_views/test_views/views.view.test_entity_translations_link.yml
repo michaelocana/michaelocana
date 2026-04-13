@@ -15,7 +15,7 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: null
     display_options:
       access:
@@ -37,6 +37,7 @@ display:
       style:
         type: table
         options:
+          class: ''
           columns:
             name: name
             translation_link: translation_link

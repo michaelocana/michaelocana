@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\datetime_range\Functional\EntityResource\EntityTest;
 
 use Drupal\Core\Url;
@@ -37,7 +39,7 @@ class EntityTestDateRangeTest extends EntityTestResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['datetime_range', 'entity_test'];
+  protected static $modules = ['datetime_range', 'entity_test'];
 
   /**
    * {@inheritdoc}
@@ -47,7 +49,7 @@ class EntityTestDateRangeTest extends EntityTestResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Add datetime_range field.
@@ -118,7 +120,7 @@ class EntityTestDateRangeTest extends EntityTestResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function assertNormalizationEdgeCases($method, Url $url, array $request_options) {
+  protected function assertNormalizationEdgeCases($method, Url $url, array $request_options): void {
     parent::assertNormalizationEdgeCases($method, $url, $request_options);
 
     if ($this->entity->getEntityType()->hasKey('bundle')) {
@@ -159,7 +161,7 @@ class EntityTestDateRangeTest extends EntityTestResourceTestBase {
 
       $request_options[RequestOptions::BODY] = $this->serializer->encode($normalization, static::$format);
       $response = $this->request($method, $url, $request_options);
-      $message = "The specified date \"$value\" is not in an accepted format: \"Y-m-d\\TH:i:sP\" (RFC 3339), \"Y-m-d\\TH:i:sO\" (ISO 8601), \"Y-m-d\\TH:i:s\" (backward compatibility — deprecated).";
+      $message = "The specified date \"$value\" is not in an accepted format: \"Y-m-d\\TH:i:sP\" (RFC 3339), \"Y-m-d\\TH:i:sO\" (ISO 8601).";
       $this->assertResourceErrorResponse(422, $message, $response);
 
       // @todo Expand in https://www.drupal.org/project/drupal/issues/2847041.

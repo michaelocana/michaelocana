@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -43,7 +45,7 @@ class CacheableMetadataCalculationTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installConfig(['views']);
@@ -67,7 +69,7 @@ class CacheableMetadataCalculationTest extends KernelTestBase {
    *
    * @see \Drupal\views\Entity\View::addCacheMetadata()
    */
-  public function testCacheableMetadataCalculation() {
+  public function testCacheableMetadataCalculation(): void {
     // Enabling a module that contains a view should not cause the cacheability
     // metadata to be recalculated.
     $this->enableModules([self::TEST_MODULE]);
@@ -95,8 +97,10 @@ class CacheableMetadataCalculationTest extends KernelTestBase {
    * @param bool $expected_result
    *   TRUE if it is expected that the cacheability metadata has been
    *   calculated. FALSE otherwise.
+   *
+   * @internal
    */
-  protected function assertCacheableMetadataHasBeenCalculated($expected_result) {
+  protected function assertCacheableMetadataHasBeenCalculated(bool $expected_result): void {
     $this->state->resetCache();
     $this->assertEquals($expected_result, $this->state->get('views_test_cacheable_metadata_has_been_accessed'));
   }
@@ -104,7 +108,7 @@ class CacheableMetadataCalculationTest extends KernelTestBase {
   /**
    * Resets the state so we are ready for a new test.
    */
-  protected function resetState() {
+  protected function resetState(): void {
     $this->state->set('views_test_cacheable_metadata_has_been_accessed', FALSE);
   }
 

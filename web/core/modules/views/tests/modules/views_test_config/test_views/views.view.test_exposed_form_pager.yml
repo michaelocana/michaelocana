@@ -2,11 +2,11 @@ langcode: en
 status: true
 dependencies:
   config:
-  - core.entity_view_mode.node.teaser
+    - core.entity_view_mode.node.teaser
   module:
-  - node
+    - node
 id: test_exposed_form_pager
-label: ''
+label: test_exposed_form_pager
 module: views
 description: ''
 tag: ''
@@ -47,8 +47,6 @@ display:
             multiple: true
             remember_roles:
               authenticated: authenticated
-              anonymous: '0'
-              administrator: '0'
             reduce: false
           is_grouped: false
           group_info:
@@ -92,8 +90,6 @@ display:
             multiple: false
             remember_roles:
               authenticated: authenticated
-              anonymous: '0'
-              administrator: '0'
             placeholder: ''
             min_placeholder: ''
             max_placeholder: ''
@@ -143,16 +139,16 @@ display:
         type: 'entity:node'
       display_extenders: {  }
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
     cache_metadata:
       max-age: -1
       contexts:
-      - 'languages:language_interface'
-      - url
-      - url.query_args
-      - 'user.node_grants:view'
+        - 'languages:language_interface'
+        - url
+        - url.query_args
+        - 'user.node_grants:view'
       tags: {  }
   page_1:
     display_options:
@@ -165,8 +161,8 @@ display:
     cache_metadata:
       max-age: -1
       contexts:
-      - 'languages:language_interface'
-      - url
-      - url.query_args
-      - 'user.node_grants:view'
+        - 'languages:language_interface'
+        - url
+        - url.query_args
+        - 'user.node_grants:view'
       tags: {  }

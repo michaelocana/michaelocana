@@ -1,10 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Entity\Sql;
 
 use Drupal\Core\Entity\Sql\DefaultTableMapping;
 use Drupal\Core\Entity\Sql\SqlContentEntityStorageException;
-use Drupal\Core\Entity\Sql\TemporaryTableMapping;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -23,7 +24,7 @@ class DefaultTableMappingTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityType = $this->createMock('\Drupal\Core\Entity\ContentEntityTypeInterface');
@@ -38,7 +39,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @covers ::getTableNames
    */
-  public function testGetTableNames() {
+  public function testGetTableNames(): void {
     // The storage definitions are only used in getColumnNames() so we do not
     // need to provide any here.
     $table_mapping = new TestDefaultTableMapping($this->entityType, []);
@@ -69,7 +70,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    * @covers ::getExtraColumns
    * @covers ::setExtraColumns
    */
-  public function testGetAllColumns() {
+  public function testGetAllColumns(): void {
     // Set up single-column and multi-column definitions.
     $definitions['id'] = $this->setUpDefinition('id', ['value']);
     $definitions['name'] = $this->setUpDefinition('name', ['value']);
@@ -175,7 +176,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    * @covers ::getFieldNames
    * @covers ::setFieldNames
    */
-  public function testGetFieldNames() {
+  public function testGetFieldNames(): void {
     // The storage definitions are only used in getColumnNames() so we do not
     // need to provide any here.
     $table_mapping = new TestDefaultTableMapping($this->entityType, []);
@@ -205,7 +206,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    * @covers ::__construct
    * @covers ::getColumnNames
    */
-  public function testGetColumnNames() {
+  public function testGetColumnNames(): void {
     $definitions['test'] = $this->setUpDefinition('test', []);
     $table_mapping = new TestDefaultTableMapping($this->entityType, $definitions);
     $expected = [];
@@ -237,7 +238,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    * @covers ::getExtraColumns
    * @covers ::setExtraColumns
    */
-  public function testGetExtraColumns() {
+  public function testGetExtraColumns(): void {
     // The storage definitions are only used in getColumnNames() so we do not
     // need to provide any here.
     $table_mapping = new TestDefaultTableMapping($this->entityType, []);
@@ -278,7 +279,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @dataProvider providerTestGetFieldColumnName
    */
-  public function testGetFieldColumnName($base_field, $columns, $column, $expected) {
+  public function testGetFieldColumnName($base_field, $columns, $column, $expected): void {
     $definitions['test'] = $this->setUpDefinition('test', $columns, $base_field);
     $table_mapping = new TestDefaultTableMapping($this->entityType, $definitions);
     $result = $table_mapping->getFieldColumnName($definitions['test'], $column);
@@ -300,7 +301,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @dataProvider providerTestGetFieldColumnName
    */
-  public function testGetFieldColumnNameInvalid($base_field, $columns, $column) {
+  public function testGetFieldColumnNameInvalid($base_field, $columns, $column): void {
     $definitions['test'] = $this->setUpDefinition('test', $columns, $base_field);
 
     // Mark field storage definition as custom storage.
@@ -318,11 +319,11 @@ class DefaultTableMappingTest extends UnitTestCase {
    * Provides test data for testGetFieldColumnName().
    *
    * @return array[]
-   *   An nested array where each inner array has the following values: test
+   *   A nested array where each inner array has the following values: test
    *   field name, base field status, list of field columns, name of the column
    *   to be retrieved, expected result, whether an exception is expected.
    */
-  public function providerTestGetFieldColumnName() {
+  public static function providerTestGetFieldColumnName() {
     $data = [];
     // Base field with single column.
     $data[] = [TRUE, ['foo'], 'foo', 'test'];
@@ -354,7 +355,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @dataProvider providerTestGetFieldTableName
    */
-  public function testGetFieldTableName($table_names, $expected) {
+  public function testGetFieldTableName($table_names, $expected): void {
     $field_name = 'test';
     $columns = ['test'];
 
@@ -363,21 +364,24 @@ class DefaultTableMappingTest extends UnitTestCase {
       ->expects($this->any())
       ->method('getColumns')
       ->willReturn($columns);
+    $definition->expects($this->any())
+      ->method('getTargetEntityTypeId')
+      ->willReturn('entity_test');
 
     $this->entityType
       ->expects($this->any())
       ->method('getBaseTable')
-      ->willReturn(isset($table_names['base']) ? $table_names['base'] : 'entity_test');
+      ->willReturn($table_names['base'] ?? 'entity_test');
 
     $this->entityType
       ->expects($this->any())
       ->method('getDataTable')
-      ->willReturn(isset($table_names['data']) ? $table_names['data'] : FALSE);
+      ->willReturn($table_names['data'] ?? FALSE);
 
     $this->entityType
       ->expects($this->any())
       ->method('getRevisionTable')
-      ->willReturn(isset($table_names['revision']) ? $table_names['revision'] : FALSE);
+      ->willReturn($table_names['revision'] ?? FALSE);
 
     $this->entityType
       ->expects($this->any())
@@ -412,7 +416,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *   A nested array where each inner array has the following values: a list of
    *   table names and the expected table name.
    */
-  public function providerTestGetFieldTableName() {
+  public static function providerTestGetFieldTableName() {
     $data = [];
 
     $data[] = [['data' => 'data_table', 'base' => 'base_table', 'revision' => 'revision_table'], 'data_table'];
@@ -440,7 +444,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @covers ::getFieldTableName
    */
-  public function testGetFieldTableNameInvalid() {
+  public function testGetFieldTableNameInvalid(): void {
     $table_mapping = new TestDefaultTableMapping($this->entityType, []);
     $this->expectException(SqlContentEntityStorageException::class);
     $this->expectExceptionMessage("Table information not available for the 'invalid_field_name' field.");
@@ -453,17 +457,17 @@ class DefaultTableMappingTest extends UnitTestCase {
    *
    * @dataProvider providerTestGetDedicatedTableName
    */
-  public function testGetDedicatedTableName($info, $expected_data_table, $expected_revision_table) {
+  public function testGetDedicatedTableName($info, $expected_data_table, $expected_revision_table): void {
     $entity_type_id = $info['entity_type_id'];
     $field_name = $info['field_name'];
 
     $definition = $this->setUpDefinition($field_name, []);
     $definition->expects($this->any())
       ->method('getTargetEntityTypeId')
-      ->will($this->returnValue($entity_type_id));
+      ->willReturn($entity_type_id);
     $definition->expects($this->any())
       ->method('getUniqueStorageIdentifier')
-      ->will($this->returnValue($entity_type_id . '-' . $field_name));
+      ->willReturn($entity_type_id . '-' . $field_name);
 
     $this->entityType
       ->expects($this->any())
@@ -492,7 +496,7 @@ class DefaultTableMappingTest extends UnitTestCase {
    *   consisting of the entity type ID, field name and a table prefix, followed
    *   by the expected data table name and the revision table name.
    */
-  public function providerTestGetDedicatedTableName() {
+  public static function providerTestGetDedicatedTableName() {
     $data = [];
 
     $data['short entity type; short field name; no prefix'] = [
@@ -515,21 +519,21 @@ class DefaultTableMappingTest extends UnitTestCase {
     ];
     $data['long entity type; short field name; no prefix'] = [
       [
-        'entity_type_id' => 'long_entity_type_abcdefghijklmnopqrstuvwxyz',
+        'entity_type_id' => 'long_entity_type_all_forty_three_characters',
         'field_name' => 'short_field_name',
         'prefix' => '',
       ],
-      'long_entity_type_abcdefghijklmno__a526e4e042',
-      'long_entity_type_abcdefghijklmno_r__a526e4e042',
+      'long_entity_type_all_forty_three__d52fc85045',
+      'long_entity_type_all_forty_three_r__d52fc85045',
     ];
     $data['long entity type; long field name; no prefix'] = [
       [
-        'entity_type_id' => 'long_entity_type_abcdefghijklmnopqrstuvwxyz',
-        'field_name' => 'long_field_name_abcdefghijklmnopqrstuvwxyz',
+        'entity_type_id' => 'long_entity_type_all_forty_three_characters',
+        'field_name' => 'long_field_name_using_forty_two_characters',
         'prefix' => '',
       ],
-      'long_entity_type_abcdefghijklmno__7705d52d75',
-      'long_entity_type_abcdefghijklmno_r__7705d52d75',
+      'long_entity_type_all_forty_three__7f5744e4fd',
+      'long_entity_type_all_forty_three_r__7f5744e4fd',
     ];
 
     $data['short entity type; short field name; with prefix'] = [
@@ -573,25 +577,18 @@ class DefaultTableMappingTest extends UnitTestCase {
   }
 
   /**
-   * @coversDefaultClass \Drupal\Core\Entity\Sql\TemporaryTableMapping
-   *
-   * @expectedDeprecation Drupal\Core\Entity\Sql\TemporaryTableMapping is deprecated in Drupal 8.7.x and will be removed before Drupal 9.0.0. Use the default table mapping with a prefix instead.
-   * @group legacy
-   */
-  public function testTemporaryTableMapping() {
-    $table_mapping = new TemporaryTableMapping($this->entityType, [], '');
-    $this->assertInstanceOf(DefaultTableMapping::class, $table_mapping);
-  }
-
-  /**
    * Sets up a field storage definition for the test.
    *
    * @param string $name
    *   The field name.
    * @param array $column_names
    *   An array of column names for the storage definition.
+   * @param bool $base_field
+   *   Flag indicating whether the field should be treated as a base or bundle
+   *   field.
    *
    * @return \Drupal\Core\Field\FieldStorageDefinitionInterface|\PHPUnit\Framework\MockObject\MockObject
+   *   A mock field storage definition with configured field properties.
    */
   protected function setUpDefinition($name, array $column_names, $base_field = TRUE) {
     $definition = $this->createMock('Drupal\Tests\Core\Field\TestBaseFieldDefinitionInterface');
@@ -600,10 +597,10 @@ class DefaultTableMappingTest extends UnitTestCase {
       ->willReturn($base_field);
     $definition->expects($this->any())
       ->method('getName')
-      ->will($this->returnValue($name));
+      ->willReturn($name);
     $definition->expects($this->any())
       ->method('getColumns')
-      ->will($this->returnValue(array_fill_keys($column_names, [])));
+      ->willReturn(array_fill_keys($column_names, []));
     return $definition;
   }
 

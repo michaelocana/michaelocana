@@ -2,73 +2,13 @@
 
 /**
  * @file
- * Administrative screens and processing functions of the Update Manager module.
- *
- * This allows site administrators with the 'administer software updates'
- * permission to either upgrade existing projects, or download and install new
- * ones, so long as the killswitch setting ('allow_authorize_operations') is
- * not FALSE.
- *
- * To install new code, the administrator is prompted for either the URL of an
- * archive file, or to directly upload the archive file. The archive is loaded
- * into a temporary location, extracted, and verified. If everything is
- * successful, the user is redirected to authorize.php to type in file transfer
- * credentials and authorize the installation to proceed with elevated
- * privileges, such that the extracted files can be copied out of the temporary
- * location and into the live web root.
- *
- * Updating existing code is a more elaborate process. The first step is a
- * selection form where the user is presented with a table of installed projects
- * that are missing newer releases. The user selects which projects they wish to
- * update, and presses the "Download updates" button to continue. This sets up a
- * batch to fetch all the selected releases, and redirects to
- * admin/update/download to display the batch progress bar as it runs. Each
- * batch operation is responsible for downloading a single file, extracting the
- * archive, and verifying the contents. If there are any errors, the user is
- * redirected back to the first page with the error messages. If all downloads
- * were extracted and verified, the user is instead redirected to
- * admin/update/ready, a landing page which reminds them to backup their
- * database and asks if they want to put the site offline during the update.
- * Once the user presses the "Install updates" button, they are redirected to
- * authorize.php to supply their web root file access credentials. The
- * authorized operation (which lives in update.authorize.inc) sets up a batch to
- * copy each extracted update from the temporary location into the live web
- * root.
  */
 
-use Drupal\Core\Url;
 use Drupal\Core\File\Exception\FileException;
-use Drupal\Core\File\FileSystemInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-
-/**
- * Batch callback: Performs actions when the download batch is completed.
- *
- * @param $success
- *   TRUE if the batch operation was successful, FALSE if there were errors.
- * @param $results
- *   An associative array of results from the batch operation.
- */
-function update_manager_download_batch_finished($success, $results) {
-  if (!empty($results['errors'])) {
-    $item_list = [
-      '#theme' => 'item_list',
-      '#title' => t('Downloading updates failed:'),
-      '#items' => $results['errors'],
-    ];
-    \Drupal::messenger()->addError(\Drupal::service('renderer')->render($item_list));
-  }
-  elseif ($success) {
-    \Drupal::messenger()->addStatus(t('Updates downloaded successfully.'));
-    \Drupal::request()->getSession()->set('update_manager_update_projects', $results['projects']);
-    return new RedirectResponse(Url::fromRoute('update.confirmation_page', [], ['absolute' => TRUE])->toString());
-  }
-  else {
-    // Ideally we're catching all Exceptions, so they should never see this,
-    // but just in case, we have to tell them something.
-    \Drupal::messenger()->addError(t('Fatal error trying to download.'));
-  }
-}
+use Drupal\Core\File\Exception\InvalidStreamWrapperException;
+use Drupal\Core\File\FileExists;
+use Drupal\Core\Hook\Attribute\ProceduralHookScanStop;
+use Psr\Http\Client\ClientExceptionInterface;
 
 /**
  * Checks for file transfer backends and prepares a form fragment about them.
@@ -79,12 +19,15 @@ function update_manager_download_batch_finished($success, $results) {
  *   The update manager operation we're in the middle of. Can be either 'update'
  *   or 'install'. Use to provide operation-specific interface text.
  *
- * @return
+ * @return bool
  *   TRUE if the update manager should continue to the next step in the
  *   workflow, or FALSE if we've hit a fatal configuration and must halt the
  *   workflow.
  */
+#[ProceduralHookScanStop]
 function _update_manager_check_backends(&$form, $operation) {
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
   // If file transfers will be performed locally, we do not need to display any
   // warnings or notices to the user and should automatically continue the
   // workflow, since we won't be using a FileTransfer backend that requires
@@ -102,10 +45,10 @@ function _update_manager_check_backends(&$form, $operation) {
   $available_backends = drupal_get_filetransfer_info();
   if (empty($available_backends)) {
     if ($operation == 'update') {
-      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as documented in <a href=":doc_url">Extending Drupal 8</a>.', [':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview']);
+      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as documented in <a href=":doc_url">Extending Drupal</a>.', [':doc_url' => 'https://www.drupal.org/docs/extending-drupal/overview']);
     }
     else {
-      $form['available_backends']['#markup'] = t('Your server does not support installing modules and themes from this interface. Instead, install modules and themes by uploading them directly to the server, as documented in <a href=":doc_url">Extending Drupal 8</a>.', [':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview']);
+      $form['available_backends']['#markup'] = t('Your server does not support adding modules and themes from this interface. Instead, add modules and themes by uploading them directly to the server, as documented in <a href=":doc_url">Extending Drupal</a>.', [':doc_url' => 'https://www.drupal.org/docs/extending-drupal/overview']);
     }
     return FALSE;
   }
@@ -117,21 +60,21 @@ function _update_manager_check_backends(&$form, $operation) {
   if ($operation == 'update') {
     $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
-      'Updating modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal 8</a> for other update methods.',
-      'Updating modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal 8</a> for other update methods.',
+      'Updating modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal</a> for other update methods.',
+      'Updating modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal</a> for other update methods.',
       [
         '@backends' => implode(', ', $backend_names),
-        ':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview',
+        ':doc_url' => 'https://www.drupal.org/docs/extending-drupal/overview',
       ]);
   }
   else {
     $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
-      'Installing modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal 8</a> for other installation methods.',
-      'Installing modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal 8</a> for other installation methods.',
+      'Adding modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal</a> for other methods.',
+      'Adding modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal</a> for other methods.',
       [
         '@backends' => implode(', ', $backend_names),
-        ':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview',
+        ':doc_url' => 'https://www.drupal.org/docs/extending-drupal/overview',
       ]);
   }
   return TRUE;
@@ -151,6 +94,8 @@ function _update_manager_check_backends(&$form, $operation) {
  * @throws Exception
  */
 function update_manager_archive_extract($file, $directory) {
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
   /** @var \Drupal\Core\Archiver\ArchiverInterface $archiver */
   $archiver = \Drupal::service('plugin.manager.archiver')->getInstance([
     'filepath' => $file,
@@ -174,7 +119,7 @@ function update_manager_archive_extract($file, $directory) {
     try {
       \Drupal::service('file_system')->deleteRecursive($extract_location);
     }
-    catch (FileException $e) {
+    catch (FileException) {
       // Ignore failed deletes.
     }
   }
@@ -191,7 +136,7 @@ function update_manager_archive_extract($file, $directory) {
  * @param string $project
  *   The short name of the project to download.
  * @param string $archive_file
- *   The filename of the unextracted archive.
+ *   The filename of the un-extracted archive.
  * @param string $directory
  *   The directory that the archive was extracted into.
  *
@@ -200,7 +145,9 @@ function update_manager_archive_extract($file, $directory) {
  *   are no errors, it will be an empty array.
  */
 function update_manager_archive_verify($project, $archive_file, $directory) {
-  return \Drupal::moduleHandler()->invokeAll('verify_update_archive', [$project, $archive_file, $directory]);
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
+  return \Drupal::moduleHandler()->invokeAllDeprecated('There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', 'verify_update_archive', [$project, $archive_file, $directory]);
 }
 
 /**
@@ -208,13 +155,15 @@ function update_manager_archive_verify($project, $archive_file, $directory) {
  *
  * Returns the local path if the file has already been downloaded.
  *
- * @param $url
+ * @param string $url
  *   The URL of the file on the server.
  *
- * @return string
- *   Path to local file.
+ * @return string|false
+ *   Path to local file, or FALSE if it could not be retrieved.
  */
 function update_manager_file_get($url) {
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
   $parsed_url = parse_url($url);
   $remote_schemes = ['http', 'https', 'ftp', 'ftps', 'smb', 'nfs'];
   if (!isset($parsed_url['scheme']) || !in_array($parsed_url['scheme'], $remote_schemes)) {
@@ -223,11 +172,23 @@ function update_manager_file_get($url) {
   }
 
   // Check the cache and download the file if needed.
+  // @phpstan-ignore function.deprecated
   $cache_directory = _update_manager_cache_directory();
   $local = $cache_directory . '/' . \Drupal::service('file_system')->basename($parsed_url['path']);
 
+  // @phpstan-ignore function.deprecated
   if (!file_exists($local) || update_delete_file_if_stale($local)) {
-    return system_retrieve_file($url, $local, FALSE, FileSystemInterface::EXISTS_REPLACE);
+    try {
+      $data = (string) \Drupal::httpClient()->get($url)->getBody();
+      return \Drupal::service('file_system')->saveData($data, $local, FileExists::Replace);
+    }
+    catch (ClientExceptionInterface $exception) {
+      \Drupal::messenger()->addError(t('Failed to fetch file due to error "%error"', ['%error' => $exception->getMessage()]));
+    }
+    catch (FileException | InvalidStreamWrapperException $e) {
+      \Drupal::messenger()->addError(t('Failed to save file due to error "%error"', ['%error' => $e->getMessage()]));
+    }
+    return FALSE;
   }
   else {
     return $local;
@@ -252,7 +213,9 @@ function update_manager_file_get($url) {
  *
  * @see update_manager_download_page()
  */
-function update_manager_batch_project_get($project, $url, &$context) {
+function update_manager_batch_project_get($project, $url, &$context): void {
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
   // This is here to show the user that we are in the process of downloading.
   if (!isset($context['sandbox']['started'])) {
     $context['sandbox']['started'] = TRUE;
@@ -268,6 +231,7 @@ function update_manager_batch_project_get($project, $url, &$context) {
   }
 
   // Extract it.
+  // @phpstan-ignore function.deprecated
   $extract_directory = _update_manager_extract_directory();
   try {
     update_manager_archive_extract($local_cache, $extract_directory);
@@ -307,18 +271,20 @@ function update_manager_batch_project_get($project, $url, &$context) {
  * it. However, it is supported here because it is a common configuration on
  * shared hosting, and there is nothing Drupal can do to prevent it.
  *
- * @return
+ * @return bool
  *   TRUE if local file transfers are allowed on this server, or FALSE if not.
  *
  * @see install_check_requirements()
  */
 function update_manager_local_transfers_allowed() {
+  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
   $file_system = \Drupal::service('file_system');
   // Compare the owner of a webserver-created temporary file to the owner of
   // the configuration directory to determine if local transfers will be
   // allowed.
   $temporary_file = \Drupal::service('file_system')->tempnam('temporary://', 'update_');
-  $site_path = \Drupal::service('site.path');
+  $site_path = \Drupal::getContainer()->getParameter('site.path');
   $local_transfers_allowed = fileowner($temporary_file) === fileowner($site_path);
 
   // Clean up. If this fails, we can ignore it (since this is just a temporary

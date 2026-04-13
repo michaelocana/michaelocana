@@ -11,7 +11,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Component\Utility\ArgumentsResolverInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
+use Drupal\Core\Routing\RouteObjectInterface;
 
 /**
  * Attaches access check services to routes and runs them on request.
@@ -55,7 +55,7 @@ class AccessManager implements AccessManagerInterface {
   protected $checkProvider;
 
   /**
-   * Constructs a AccessManager instance.
+   * Constructs an AccessManager instance.
    *
    * @param \Drupal\Core\Routing\RouteProviderInterface $route_provider
    *   The route provider.
@@ -66,6 +66,7 @@ class AccessManager implements AccessManagerInterface {
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current user.
    * @param CheckProviderInterface $check_provider
+   *   The check access provider.
    */
   public function __construct(RouteProviderInterface $route_provider, ParamConverterManagerInterface $paramconverter_manager, AccessArgumentsResolverFactoryInterface $arguments_resolver_factory, AccountInterface $current_user, CheckProviderInterface $check_provider) {
     $this->routeProvider = $route_provider;
@@ -78,7 +79,7 @@ class AccessManager implements AccessManagerInterface {
   /**
    * {@inheritdoc}
    */
-  public function checkNamedRoute($route_name, array $parameters = [], AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function checkNamedRoute($route_name, array $parameters = [], ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     try {
       $route = $this->routeProvider->getRouteByName($route_name);
 
@@ -91,12 +92,12 @@ class AccessManager implements AccessManagerInterface {
       $route_match = new RouteMatch($route_name, $route, $upcasted_parameters, $parameters);
       return $this->check($route_match, $account, NULL, $return_as_object);
     }
-    catch (RouteNotFoundException $e) {
+    catch (RouteNotFoundException) {
       // Cacheable until extensions change.
       $result = AccessResult::forbidden()->addCacheTags(['config:core.extension']);
       return $return_as_object ? $result : $result->isAllowed();
     }
-    catch (ParamNotConvertedException $e) {
+    catch (ParamNotConvertedException) {
       // Uncacheable because conversion of the parameter may not have been
       // possible due to dynamic circumstances.
       $result = AccessResult::forbidden()->setCacheMaxAge(0);
@@ -107,7 +108,7 @@ class AccessManager implements AccessManagerInterface {
   /**
    * {@inheritdoc}
    */
-  public function checkRequest(Request $request, AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function checkRequest(Request $request, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $route_match = RouteMatch::createFromRequest($request);
     return $this->check($route_match, $account, $request, $return_as_object);
   }
@@ -115,7 +116,7 @@ class AccessManager implements AccessManagerInterface {
   /**
    * {@inheritdoc}
    */
-  public function check(RouteMatchInterface $route_match, AccountInterface $account = NULL, Request $request = NULL, $return_as_object = FALSE) {
+  public function check(RouteMatchInterface $route_match, ?AccountInterface $account = NULL, ?Request $request = NULL, $return_as_object = FALSE) {
     if (!isset($account)) {
       $account = $this->currentUser;
     }

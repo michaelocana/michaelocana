@@ -2,17 +2,18 @@
 
 namespace Drupal\field\Plugin\migrate\process\d6;
 
+use Drupal\Component\Utility\FilterArray;
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
 
+// cspell:ignore userreference
+
 /**
  * Get the field settings.
- *
- * @MigrateProcessPlugin(
- *   id = "field_settings"
- * )
  */
+#[MigrateProcess('field_settings')]
 class FieldSettings extends ProcessPluginBase {
 
   /**
@@ -26,7 +27,7 @@ class FieldSettings extends ProcessPluginBase {
     if (count($value) == 2) {
       $value[] = NULL;
     }
-    list($field_type, $global_settings, $original_field_type) = $value;
+    [$field_type, $global_settings, $original_field_type] = $value;
     return $this->getSettings($field_type, $global_settings, $original_field_type);
   }
 
@@ -44,20 +45,20 @@ class FieldSettings extends ProcessPluginBase {
    *   A valid array of settings.
    */
   public function getSettings($field_type, $global_settings, $original_field_type = NULL) {
-    $max_length = isset($global_settings['max_length']) ? $global_settings['max_length'] : '';
+    $max_length = $global_settings['max_length'] ?? '';
     $max_length = empty($max_length) ? 255 : $max_length;
     $allowed_values = [];
     if (isset($global_settings['allowed_values'])) {
       $list = explode("\n", $global_settings['allowed_values']);
       $list = array_map('trim', $list);
-      $list = array_filter($list, 'strlen');
+      $list = FilterArray::removeEmptyStrings($list);
       switch ($field_type) {
         case 'list_string':
         case 'list_integer':
         case 'list_float':
           foreach ($list as $value) {
             $value = explode("|", $value);
-            $allowed_values[$value[0]] = isset($value[1]) ? $value[1] : $value[0];
+            $allowed_values[$value[0]] = $value[1] ?? $value[0];
           }
           break;
 
@@ -89,7 +90,7 @@ class FieldSettings extends ProcessPluginBase {
       return ['target_type' => 'user'];
     }
     else {
-      return isset($settings[$field_type]) ? $settings[$field_type] : [];
+      return $settings[$field_type] ?? [];
     }
   }
 

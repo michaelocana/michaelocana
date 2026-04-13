@@ -5,6 +5,12 @@ core.entity_view_display.*.*.*.third_party.entity_test:
     foo:
       type: string
       label: 'Label for foo'
+    noun:
+      type: string
+      label: 'A noun'
+    verb:
+      type: string
+      label: 'A verb'
 
 field.storage_settings.shape:
   type: mapping
@@ -27,3 +33,7 @@ entity_test.entity_test_bundle.*:
     description:
       type: text
       label: 'Description'
+
+entity_test.entity_test_mul_bundle.*:
+  type: entity_test.entity_test_bundle.*
+  label: 'Entity test mul bundle'

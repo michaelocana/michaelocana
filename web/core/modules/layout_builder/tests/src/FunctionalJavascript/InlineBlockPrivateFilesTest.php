@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\FunctionalJavascript;
 
 use Drupal\file\Entity\File;
 use Drupal\file\FileInterface;
+use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
 use Drupal\node\Entity\Node;
 use Drupal\node\Entity\NodeType;
 use Drupal\Tests\file\Functional\FileFieldCreationTrait;
@@ -22,14 +25,14 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'file',
   ];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'starterkit_theme';
 
   /**
    * The file system service.
@@ -41,7 +44,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Update the test node type to not create new revisions by default. This
@@ -58,25 +61,14 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
   }
 
   /**
-   * Test access to private files added via inline blocks in the layout builder.
+   * Tests access to private files added to inline blocks in the layout builder.
    */
-  public function testPrivateFiles() {
+  public function testPrivateFiles(): void {
     $assert_session = $this->assertSession();
-    $this->drupalLogin($this->drupalCreateUser([
-      'access contextual links',
-      'configure any layout',
-      'administer node display',
-      'administer node fields',
-      'create and edit custom blocks',
-    ]));
-
-    // Enable layout builder and overrides.
-    $this->drupalPostForm(
-      static::FIELD_UI_PREFIX . '/display/default',
-      ['layout[enabled]' => TRUE, 'layout[allow_custom]' => TRUE],
-      'Save'
-    );
-    $this->drupalLogout();
+    LayoutBuilderEntityViewDisplay::load('node.bundle_with_section_field.default')
+      ->enableLayoutBuilder()
+      ->setOverridable()
+      ->save();
 
     // Log in as user you can only configure layouts and access content.
     $this->drupalLogin($this->drupalCreateUser([
@@ -97,7 +89,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
     $this->assertSaveLayout();
 
     $this->drupalGet('node/1');
-    $private_href1 = $this->assertFileAccessibleOnNode($file);
+    $private_href1 = $this->getFileHrefAccessibleOnNode($file);
 
     // Remove the inline block with the private file.
     $this->drupalGet('node/1/layout');
@@ -121,7 +113,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
     $this->assertSaveLayout();
 
     $this->drupalGet('node/1');
-    $private_href2 = $this->assertFileAccessibleOnNode($file2);
+    $private_href2 = $this->getFileHrefAccessibleOnNode($file2);
 
     $this->createNewNodeRevision(1);
 
@@ -131,7 +123,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
     $this->assertSaveLayout();
 
     $this->drupalGet('node/1');
-    $private_href3 = $this->assertFileAccessibleOnNode($file3);
+    $private_href3 = $this->getFileHrefAccessibleOnNode($file3);
 
     // $file2 is on a previous revision of the block which is on a previous
     // revision of the node. The user does not have access to view the previous
@@ -154,7 +146,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
     $this->assertSaveLayout();
 
     $this->drupalGet('node/2');
-    $private_href4 = $this->assertFileAccessibleOnNode($file4);
+    $private_href4 = $this->getFileHrefAccessibleOnNode($file4);
 
     $this->createNewNodeRevision(2);
 
@@ -177,13 +169,13 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @param \Drupal\file\FileInterface $file
    *   The file entity.
    */
-  protected function replaceFileInBlock(FileInterface $file) {
+  protected function replaceFileInBlock(FileInterface $file): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $this->clickContextualLink(static::INLINE_BLOCK_LOCATOR, 'Configure');
+    $assert_session->waitForElement('css', "#drupal-off-canvas input[value='Remove']");
     $assert_session->assertWaitOnAjaxRequest();
-    $page->pressButton('Remove');
-    $assert_session->assertWaitOnAjaxRequest();
+    $page->find('css', '#drupal-off-canvas')->pressButton('Remove');
     $this->attachFileToBlockForm($file);
     $page->pressButton('Update');
     $this->assertDialogClosedAndTextVisible($file->label(), static::INLINE_BLOCK_LOCATOR);
@@ -197,13 +189,13 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @param \Drupal\file\Entity\File $file
    *   The file entity.
    */
-  protected function addInlineFileBlockToLayout($title, File $file) {
+  protected function addInlineFileBlockToLayout($title, File $file): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
     $page->clickLink('Add block');
     $assert_session->assertWaitOnAjaxRequest();
-    $this->assertNotEmpty($assert_session->waitForLink('Create custom block'));
-    $this->clickLink('Create custom block');
+    $this->assertNotEmpty($assert_session->waitForLink('Create content block'));
+    $this->clickLink('Create content block');
     $assert_session->assertWaitOnAjaxRequest();
     $assert_session->fieldValueEquals('Title', '');
     $page->findField('Title')->setValue($title);
@@ -228,15 +220,15 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
       'filename' => $file_name,
       'uri' => "private://$file_name",
       'filemime' => 'text/plain',
-      'status' => FILE_STATUS_PERMANENT,
     ]);
+    $file->setPermanent();
     file_put_contents($file->getFileUri(), $this->getFileSecret($file));
     $file->save();
     return $file;
   }
 
   /**
-   * Asserts a file is accessible on the page.
+   * Returns the href of a file, asserting it is accessible on the page.
    *
    * @param \Drupal\file\FileInterface $file
    *   The file entity.
@@ -244,17 +236,16 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @return string
    *   The file href.
    */
-  protected function assertFileAccessibleOnNode(FileInterface $file) {
-    $assert_session = $this->assertSession();
+  protected function getFileHrefAccessibleOnNode(FileInterface $file): string {
     $page = $this->getSession()->getPage();
-    $assert_session->linkExists($file->label());
+    $this->assertSession()->linkExists($file->label());
     $private_href = $page->findLink($file->label())->getAttribute('href');
     $page->clickLink($file->label());
-    $assert_session->pageTextContains($this->getFileSecret($file));
+    $this->assertSession()->pageTextContains($this->getFileSecret($file));
 
     // Access file directly.
     $this->drupalGet($private_href);
-    $assert_session->pageTextContains($this->getFileSecret($file));
+    $this->assertSession()->pageTextContains($this->getFileSecret($file));
     return $private_href;
   }
 
@@ -267,7 +258,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @return string
    *   The text secret.
    */
-  protected function getFileSecret(FileInterface $file) {
+  protected function getFileSecret(FileInterface $file): string {
     return "The secret in {$file->label()}";
   }
 
@@ -277,9 +268,10 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @param \Drupal\file\FileInterface $file
    *   The file to be attached.
    */
-  protected function attachFileToBlockForm(FileInterface $file) {
+  protected function attachFileToBlockForm(FileInterface $file): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
+    $this->assertSession()->waitForElementVisible('named', ['field', 'files[settings_block_form_field_file_0]']);
     $page->attachFileToField("files[settings_block_form_field_file_0]", $this->fileSystem->realpath($file->getFileUri()));
     $assert_session->assertWaitOnAjaxRequest();
     $this->assertNotEmpty($assert_session->waitForLink($file->label()));
@@ -291,7 +283,7 @@ class InlineBlockPrivateFilesTest extends InlineBlockTestBase {
    * @param int $node_id
    *   The node id.
    */
-  protected function createNewNodeRevision($node_id) {
+  protected function createNewNodeRevision($node_id): void {
     $node = Node::load($node_id);
     $node->setTitle('Update node');
     $node->setNewRevision();

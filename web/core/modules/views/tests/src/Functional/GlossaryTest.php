@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional;
 
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Url;
+use Drupal\Tests\system\Functional\Cache\AssertPageCacheContextsAndTagsTrait;
 use Drupal\views\Tests\AssertViewsCacheTagsTrait;
 use Drupal\views\Views;
 
@@ -14,14 +17,13 @@ use Drupal\views\Views;
  */
 class GlossaryTest extends ViewTestBase {
 
+  use AssertPageCacheContextsAndTagsTrait;
   use AssertViewsCacheTagsTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node'];
+  protected static $modules = ['node'];
 
   /**
    * {@inheritdoc}
@@ -31,7 +33,7 @@ class GlossaryTest extends ViewTestBase {
   /**
    * Tests the default glossary view.
    */
-  public function testGlossaryView() {
+  public function testGlossaryView(): void {
     // Create a content type and add some nodes, with a non-random title.
     $type = $this->drupalCreateContentType();
     $nodes_per_char = [
@@ -62,7 +64,7 @@ class GlossaryTest extends ViewTestBase {
 
     // Check that the amount of nodes per char.
     foreach ($view->result as $item) {
-      $this->assertEqual($nodes_per_char[$item->title_truncated], $item->num_records);
+      $this->assertEquals($nodes_per_char[$item->title_truncated], $item->num_records);
     }
 
     // Enable the glossary to be displayed.
@@ -81,7 +83,6 @@ class GlossaryTest extends ViewTestBase {
         'url',
         'user.node_grants:view',
         'user.permissions',
-        'route',
       ],
       [
         'config:views.view.glossary',
@@ -116,12 +117,11 @@ class GlossaryTest extends ViewTestBase {
       $label = mb_strtoupper($char);
       // Get the summary link for a certain character. Filter by label and href
       // to ensure that both of them are correct.
-      $result = $this->xpath('//a[contains(@href, :href) and normalize-space(text())=:label]/..', [':href' => $href, ':label' => $label]);
-      $this->assertNotEmpty(count($result));
-      // The rendered output looks like "<a href=''>X</a> | (count)" so let's
+      $result = $this->assertSession()->elementExists('xpath', "//a[contains(@href, '{$href}') and normalize-space(text())='{$label}']/..");
+      // The rendered output looks like "<a href="">X</a> | (count)" so let's
       // figure out the int.
-      $result_count = explode(' ', trim(str_replace(['|', '(', ')'], '', $result[0]->getText())))[1];
-      $this->assertEqual($result_count, $count, 'The expected number got rendered.');
+      $result_count = explode(' ', trim(str_replace(['|', '(', ')'], '', $result->getText())))[1];
+      $this->assertEquals($count, $result_count, 'The expected number got rendered.');
     }
   }
 

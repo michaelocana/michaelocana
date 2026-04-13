@@ -12,17 +12,18 @@ class Unicode {
   /**
    * Matches Unicode characters that are word boundaries.
    *
-   * Characters with the following General_category (gc) property values are used
-   * as word boundaries. While this does not fully conform to the Word Boundaries
-   * algorithm described in http://unicode.org/reports/tr29, as PCRE does not
-   * contain the Word_Break property table, this simpler algorithm has to do.
+   * Characters with the following General_category (gc) property values are
+   * used as word boundaries. While this does not fully conform to the Word
+   * Boundaries algorithm described in http://unicode.org/reports/tr29, as PCRE
+   * does not contain the Word_Break property table, this simpler algorithm has
+   * to do.
    * - Cc, Cf, Cn, Co, Cs: Other.
    * - Pc, Pd, Pe, Pf, Pi, Po, Ps: Punctuation.
    * - Sc, Sk, Sm, So: Symbols.
    * - Zl, Zp, Zs: Separators.
    *
-   * Non-boundary characters include the following General_category (gc) property
-   * values:
+   * Non-boundary characters include the following General_category (gc)
+   * property values:
    * - Ll, Lm, Lo, Lt, Lu: Letters.
    * - Mc, Me, Mn: Combining Marks.
    * - Nd, Nl, No: Numbers.
@@ -77,8 +78,7 @@ EOD;
   const STATUS_SINGLEBYTE = 0;
 
   /**
-   * Indicates that full unicode support with the PHP mbstring extension is
-   * being used.
+   * Indicates that full unicode support with PHP mbstring extension is used.
    */
   const STATUS_MULTIBYTE = 1;
 
@@ -111,31 +111,6 @@ EOD;
   }
 
   /**
-   * Sets the value for multibyte support status for the current environment.
-   *
-   * The following status keys are supported:
-   *   - \Drupal\Component\Utility\Unicode::STATUS_MULTIBYTE
-   *     Full unicode support using an extension.
-   *   - \Drupal\Component\Utility\Unicode::STATUS_SINGLEBYTE
-   *     Standard PHP (emulated) unicode support.
-   *   - \Drupal\Component\Utility\Unicode::STATUS_ERROR
-   *     An error occurred. No unicode support.
-   *
-   * @param int $status
-   *   The new status of multibyte support.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. In
-   *   Drupal 9 there will be no way to set the status and in Drupal 8 this
-   *   ability has been removed because mb_*() functions are supplied using
-   *   Symfony's polyfill.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function setStatus($status) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::setStatus() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. In Drupal 9 there will be no way to set the status and in Drupal 8 this ability has been removed because mb_*() functions are supplied using Symfony\'s polyfill. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-  }
-
-  /**
    * Checks for Unicode support in PHP and sets the proper settings if possible.
    *
    * Because of the need to be able to handle text in various encodings, we do
@@ -157,9 +132,6 @@ EOD;
     }
 
     // Check mbstring configuration.
-    if (ini_get('mbstring.func_overload') != 0) {
-      return 'mbstring.func_overload';
-    }
     if (ini_get('mbstring.encoding_translation') != 0) {
       return 'mbstring.encoding_translation';
     }
@@ -168,7 +140,7 @@ EOD;
   }
 
   /**
-   * Decodes UTF byte-order mark (BOM) into the encoding's name.
+   * Decodes UTF byte-order mark (BOM) to the encoding name.
    *
    * @param string $data
    *   The data possibly containing a BOM. This can be the entire contents of
@@ -192,7 +164,7 @@ EOD;
     ];
 
     foreach ($bomMap as $bom => $encoding) {
-      if (strpos($data, $bom) === 0) {
+      if (str_starts_with($data, $bom)) {
         return $encoding;
       }
     }
@@ -219,8 +191,8 @@ EOD;
   /**
    * Truncates a UTF-8-encoded string safely to a number of bytes.
    *
-   * If the end position is in the middle of a UTF-8 sequence, it scans backwards
-   * until the beginning of the byte sequence.
+   * If the end position is in the middle of a UTF-8 sequence, it scans
+   * backwards until the beginning of the byte sequence.
    *
    * Use this function whenever you want to chop off a string at an unsure
    * location. On the other hand, if you're sure that you're splitting on a
@@ -248,65 +220,6 @@ EOD;
     }
 
     return substr($string, 0, $len);
-  }
-
-  /**
-   * Counts the number of characters in a UTF-8 string.
-   *
-   * This is less than or equal to the byte count.
-   *
-   * @param string $text
-   *   The string to run the operation on.
-   *
-   * @return int
-   *   The length of the string.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
-   *   mb_strlen() instead.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function strlen($text) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::strlen() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strlen() instead. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-    return mb_strlen($text);
-  }
-
-  /**
-   * Converts a UTF-8 string to uppercase.
-   *
-   * @param string $text
-   *   The string to run the operation on.
-   *
-   * @return string
-   *   The string in uppercase.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
-   *   mb_strtoupper() instead.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function strtoupper($text) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::strtoupper() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strtoupper() instead. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-    return mb_strtoupper($text);
-  }
-
-  /**
-   * Converts a UTF-8 string to lowercase.
-   *
-   * @param string $text
-   *   The string to run the operation on.
-   *
-   * @return string
-   *   The string in lowercase.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
-   *   mb_strtolower() instead.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function strtolower($text) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::strtolower() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strtolower() instead. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-    return mb_strtolower($text);
   }
 
   /**
@@ -357,33 +270,6 @@ EOD;
   }
 
   /**
-   * Cuts off a piece of a string based on character indices and counts.
-   *
-   * Follows the same behavior as PHP's own substr() function. Note that for
-   * cutting off a string at a known character/substring location, the usage of
-   * PHP's normal strpos/substr is safe and much faster.
-   *
-   * @param string $text
-   *   The input string.
-   * @param int $start
-   *   The position at which to start reading.
-   * @param int $length
-   *   The number of characters to read.
-   *
-   * @return string
-   *   The shortened string.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
-   *   mb_substr() instead.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function substr($text, $start, $length = NULL) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::substr() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_substr() instead. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-    return mb_substr($text, $start, $length);
-  }
-
-  /**
    * Truncates a UTF-8-encoded string safely to a number of characters.
    *
    * @param string $string
@@ -395,24 +281,25 @@ EOD;
    *   If TRUE, attempt to truncate on a word boundary. Word boundaries are
    *   spaces, punctuation, and Unicode characters used as word boundaries in
    *   non-Latin languages; see Unicode::PREG_CLASS_WORD_BOUNDARY for more
-   *   information. If a word boundary cannot be found that would make the length
-   *   of the returned string fall within length guidelines (see parameters
-   *   $max_length and $min_wordsafe_length), word boundaries are ignored.
+   *   information. If a word boundary cannot be found that would make the
+   *   length of the returned string fall within length guidelines (see
+   *   parameters $max_length and $min_wordsafe_length), word boundaries are
+   *   ignored.
    * @param bool $add_ellipsis
    *   If TRUE, add '...' to the end of the truncated string (defaults to
    *   FALSE). The string length will still fall within $max_length.
    * @param int $min_wordsafe_length
-   *   If $wordsafe is TRUE, the minimum acceptable length for truncation (before
-   *   adding an ellipsis, if $add_ellipsis is TRUE). Has no effect if $wordsafe
-   *   is FALSE. This can be used to prevent having a very short resulting string
-   *   that will not be understandable. For instance, if you are truncating the
-   *   string "See myverylongurlexample.com for more information" to a word-safe
-   *   return length of 20, the only available word boundary within 20 characters
-   *   is after the word "See", which wouldn't leave a very informative string. If
-   *   you had set $min_wordsafe_length to 10, though, the function would realise
-   *   that "See" alone is too short, and would then just truncate ignoring word
-   *   boundaries, giving you "See myverylongurl..." (assuming you had set
-   *   $add_ellipses to TRUE).
+   *   If $wordsafe is TRUE, the minimum acceptable length for truncation
+   *   (before adding an ellipsis, if $add_ellipsis is TRUE). Has no effect if
+   *   $wordsafe is FALSE. This can be used to prevent having a very short
+   *   resulting string that will not be understandable. For instance, if you
+   *   are truncating the string "See MyVeryLongURLExample.com for more
+   *   information" to a word-safe return length of 20, the only available word
+   *   boundary within 20 characters is after the word "See", which wouldn't
+   *   leave a very informative string. If you had set $min_wordsafe_length to
+   *   10, though, the function would realize that "See" alone is too short, and
+   *   would then just truncate ignoring word boundaries, giving you "See
+   *   MyVeryLongURL..." (assuming you had set $add_ellipsis to TRUE).
    *
    * @return string
    *   The truncated string.
@@ -441,9 +328,9 @@ EOD;
 
     if ($wordsafe) {
       $matches = [];
-      // Find the last word boundary, if there is one within $min_wordsafe_length
-      // to $max_length characters. preg_match() is always greedy, so it will
-      // find the longest string possible.
+      // Find the last word boundary, if there is one within
+      // $min_wordsafe_length to $max_length characters. preg_match() is always
+      // greedy, so it will find the longest string possible.
       $found = preg_match('/^(.{' . $min_wordsafe_length . ',' . $max_length . '})[' . Unicode::PREG_CLASS_WORD_BOUNDARY . ']/us', $string, $matches);
       if ($found) {
         $string = $matches[1];
@@ -483,92 +370,6 @@ EOD;
   }
 
   /**
-   * Encodes MIME/HTTP headers that contain incorrectly encoded characters.
-   *
-   * For example, Unicode::mimeHeaderEncode('tést.txt') returns
-   * "=?UTF-8?B?dMOpc3QudHh0?=".
-   *
-   * See http://www.rfc-editor.org/rfc/rfc2047.txt for more information.
-   *
-   * Notes:
-   * - Only encode strings that contain non-ASCII characters.
-   * - We progressively cut-off a chunk with self::truncateBytes(). This ensures
-   *   each chunk starts and ends on a character boundary.
-   * - Using \n as the chunk separator may cause problems on some systems and
-   *   may have to be changed to \r\n or \r.
-   *
-   * @param string $string
-   *   The header to encode.
-   * @param bool $shorten
-   *   If TRUE, only return the first chunk of a multi-chunk encoded string.
-   *
-   * @return string
-   *   The mime-encoded header.
-   */
-  public static function mimeHeaderEncode($string, $shorten = FALSE) {
-    if (preg_match('/[^\x20-\x7E]/', $string)) {
-      // floor((75 - strlen("=?UTF-8?B??=")) * 0.75);
-      $chunk_size = 47;
-      $len = strlen($string);
-      $output = '';
-      while ($len > 0) {
-        $chunk = static::truncateBytes($string, $chunk_size);
-        $output .= ' =?UTF-8?B?' . base64_encode($chunk) . "?=\n";
-        if ($shorten) {
-          break;
-        }
-        $c = strlen($chunk);
-        $string = substr($string, $c);
-        $len -= $c;
-      }
-      return trim($output);
-    }
-    return $string;
-  }
-
-  /**
-   * Decodes MIME/HTTP encoded header values.
-   *
-   * @param string $header
-   *   The header to decode.
-   *
-   * @return string
-   *   The mime-decoded header.
-   */
-  public static function mimeHeaderDecode($header) {
-    $callback = function ($matches) {
-      $data = (strtolower($matches[2]) == 'b') ? base64_decode($matches[3]) : str_replace('_', ' ', quoted_printable_decode($matches[3]));
-      if (strtolower($matches[1]) != 'utf-8') {
-        $data = static::convertToUtf8($data, $matches[1]);
-      }
-      return $data;
-    };
-    // First step: encoded chunks followed by other encoded chunks (need to collapse whitespace)
-    $header = preg_replace_callback('/=\?([^?]+)\?([Qq]|[Bb])\?([^?]+|\?(?!=))\?=\s+(?==\?)/', $callback, $header);
-    // Second step: remaining chunks (do not collapse whitespace)
-    return preg_replace_callback('/=\?([^?]+)\?([Qq]|[Bb])\?([^?]+|\?(?!=))\?=/', $callback, $header);
-  }
-
-  /**
-   * Flip U+C0-U+DE to U+E0-U+FD and back. Can be used as preg_replace callback.
-   *
-   * @param array $matches
-   *   An array of matches by preg_replace_callback().
-   *
-   * @return string
-   *   The flipped text.
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. There is
-   *   no direct replacement.
-   *
-   * @see https://www.drupal.org/node/3057322
-   */
-  public static function caseFlip($matches) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::caseFlip() is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. There is no direct replacement. See https://www.drupal.org/node/3057322', E_USER_DEPRECATED);
-    return $matches[0][0] . chr(ord($matches[0][1]) ^ 32);
-  }
-
-  /**
    * Checks whether a string is valid UTF-8.
    *
    * All functions designed to filter input should use drupal_validate_utf8
@@ -578,10 +379,10 @@ EOD;
    * When text containing an invalid UTF-8 lead byte (0xC0 - 0xFF) is presented
    * as UTF-8 to Internet Explorer 6, the program may misinterpret subsequent
    * bytes. When these subsequent bytes are HTML control characters such as
-   * quotes or angle brackets, parts of the text that were deemed safe by filters
-   * end up in locations that are potentially unsafe; An onerror attribute that
-   * is outside of a tag, and thus deemed safe by a filter, can be interpreted
-   * by the browser as if it were inside the tag.
+   * quotes or angle brackets, parts of the text that were deemed safe by
+   * filters end up in locations that are potentially unsafe; An onerror
+   * attribute that is outside of a tag, and thus deemed safe by a filter, can
+   * be interpreted by the browser as if it were inside the tag.
    *
    * The function does not return FALSE for strings containing character codes
    * above U+10FFFF, even though these are prohibited by RFC 3629.
@@ -600,32 +401,6 @@ EOD;
     // containing invalid UTF-8 byte sequences. It does not reject character
     // codes above U+10FFFF (represented by 4 or more octets), though.
     return (preg_match('/^./us', $text) == 1);
-  }
-
-  /**
-   * Finds the position of the first occurrence of a string in another string.
-   *
-   * @param string $haystack
-   *   The string to search in.
-   * @param string $needle
-   *   The string to find in $haystack.
-   * @param int $offset
-   *   If specified, start the search at this number of characters from the
-   *   beginning (default 0).
-   *
-   * @return int|false
-   *   The position where $needle occurs in $haystack, always relative to the
-   *   beginning (independent of $offset), or FALSE if not found. Note that
-   *   a return value of 0 is not the same as FALSE.
-   *
-   * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
-   *   mb_strpos() instead.
-   *
-   * @see https://www.drupal.org/node/2850048
-   */
-  public static function strpos($haystack, $needle, $offset = 0) {
-    @trigger_error('\Drupal\Component\Utility\Unicode::strpos() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strpos() instead. See https://www.drupal.org/node/2850048.', E_USER_DEPRECATED);
-    return mb_strpos($haystack, $needle, $offset);
   }
 
 }

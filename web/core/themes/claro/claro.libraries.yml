@@ -2,13 +2,27 @@ global-styling:
   version: VERSION
   css:
     base:
+      css/base/variables.css: {}
       css/base/elements.css: {}
       css/base/typography.css: {}
       css/base/print.css: {}
     component:
+      css/classy/components/container-inline.css: {}
+      css/classy/components/exposed-filters.css: {}
+      css/classy/components/field.css: {}
+      css/classy/components/icons.css: {}
+      css/classy/components/inline-form.css: {}
+      css/classy/components/item-list.css: {}
+      css/classy/components/link.css: {}
+      css/classy/components/links.css: {}
+      css/classy/components/menu.css: {}
+      css/classy/components/more-link.css: {}
+      css/classy/components/textarea.css: {}
+      css/classy/components/ui-dialog.css: {}
       css/components/accordion.css: {}
       css/components/action-link.css: {}
       css/components/content-header.css: {}
+      css/components/ckeditor5.css: {}
       css/components/container-inline.css: {}
       css/components/container-inline.module.css: {}
       css/components/breadcrumb.css: {}
@@ -20,7 +34,6 @@ global-styling:
       css/components/fieldset.css: {}
       css/components/form.css: {}
       css/components/form--checkbox-radio.css: {}
-      css/components/form--checkbox-radio--ie.css: {}
       css/components/form--field-multiple.css: {}
       css/components/form--managed-file.css: {}
       css/components/form--text.css: {}
@@ -36,13 +49,8 @@ global-styling:
       css/components/tables.css: {}
       css/components/table--file-multiple-widget.css: {}
       css/components/search-admin-settings.css: {}
-      css/components/tablesort-indicator.css: {}
-      css/components/system-status-report-general-info.css: {}
-      css/components/system-status-report.css: {}
-      css/components/system-status-report-counters.css: {}
-      css/components/system-status-counter.css: {}
+      css/components/tableselect.css: {}
       css/components/tabs.css: {}
-      css/components/views-ui.css: {}
     theme:
       css/theme/colors.css: {}
     layout:
@@ -57,28 +65,17 @@ global-styling:
     # such as inputs, action links, buttons, dropbuttons. For usability and
     # accessibility reasons, we keep target sizes big enough on touch screen
     # devices (by not making these elements smaller than their default size).
-    # Modernizr is used for recognizing whether user is using a touch device or
-    # not. This allows conditionally rendering small variation of the control
-    # elements on non-touch devices. In some cases, such as when rendering
-    # links, it is hard recognize when Modernizr should be attached, therefore
-    # it has to be always attached.
-    - core/modernizr
+    # This library allows conditionally rendering small variations of the
+    # control elements on non-touch devices. In some cases, such as when
+    # rendering links, it is hard to recognize when this detection should be
+    # attached, therefore it is always attached.
+    - core/drupal.touchevents-test
 
-# Drupal throws an IncompleteLibraryDefinitionException if a base theme defined
-# library is set to false in a subtheme's libraries-override. This empty
-# library is used as a workaround.
-# @see https://www.drupal.org/node/3098375
-empty:
-  version: VERSION
-  css: {}
-
-node-form:
+form-two-columns:
   version: VERSION
   css:
     layout:
-      css/layout/node-add.css: {}
-  dependencies:
-    - node/form
+      css/layout/form-two-columns.css: {}
 
 maintenance-page:
   version: VERSION
@@ -106,23 +103,10 @@ drupal.nav-tabs:
   js:
     js/nav-tabs.js: {}
   dependencies:
-    - core/matchmedia
     - core/jquery
     - core/drupal
-    - core/jquery.once
+    - core/once
     - core/drupal.debounce
-    - core/collapse
-
-drupal.responsive-detail:
-  version: VERSION
-  js:
-    js/responsive-details.js: {}
-  dependencies:
-    - core/matchmedia
-    - core/matchmedia.addListener
-    - core/jquery
-    - core/jquery.once
-    - core/collapse
 
 claro.jquery.ui:
   version: VERSION
@@ -135,24 +119,26 @@ claro.drupal.dialog:
   css:
     theme:
       css/components/dialog.css: {}
+  dependencies:
+    - claro/claro.jquery.ui
 
-ckeditor-dialog:
+claro.tabledrag:
+  version: VERSION
+  js:
+    js/tabledrag.js: {}
+
+drupal.node.preview:
   version: VERSION
   css:
     theme:
-      css/theme/ckeditor-dialog.css: {}
+      css/components/node-preview.css: {}
 
-ckeditor-editor:
+drupal.tablesort:
   version: VERSION
   css:
-    theme:
-      css/theme/ckeditor-editor.css: {}
-
-tour-styling:
-  version: VERSION
-  css:
-    theme:
-      css/components/tour.theme.css: {}
+    component:
+      css/classy/components/tablesort.css: {}
+      css/components/tablesort-indicator.css: {}
 
 media-form:
   version: VERSION
@@ -162,11 +148,11 @@ media-form:
   dependencies:
     - media/form
 
-image-widget:
+image.admin:
   version: VERSION
   css:
     component:
-      css/layout/image-widget.css: {}
+      css/components/image.admin.css: {}
 
 system.admin:
   version: VERSION
@@ -176,7 +162,6 @@ system.admin:
       css/components/system-admin--links.css: { weight: -10 }
       css/components/system-admin--modules.css: { weight: -10 }
       css/components/system-admin--panel.css: { weight: -10 }
-      css/components/system-admin--status-report.css: { weight: -10 }
     layout:
       css/layout/system-admin--layout.css: { weight: -10 }
   dependencies:
@@ -189,6 +174,12 @@ checkbox:
   dependencies:
     - core/drupal
 
+icon-link:
+  version: VERSION
+  css:
+    component:
+      css/components/icon-link.css: {}
+
 dropbutton:
   version: VERSION
   js:
@@ -200,6 +191,9 @@ autocomplete:
   version: VERSION
   js:
     js/autocomplete.js: {}
+  dependencies:
+    - core/once
+    - claro/claro.jquery.ui
 
 drupal.shortcut:
   version: VERSION
@@ -222,17 +216,45 @@ form.password-confirm:
     component:
       css/components/form--password-confirm.css: {}
   js:
-    js/user.js: {}
+    js/user.theme.js: {}
   dependencies:
-    - core/jquery
     - core/drupal
-    - core/jquery.once
     - claro/global-styling
+
+
+status.report:
+  version: VERSION
+  css:
+    component:
+      css/components/system-status-report-general-info.css: {}
+      css/components/system-status-report.css: {}
+      css/components/system-status-report-counters.css: {}
+      css/components/system-status-counter.css: {}
+  moved_files:
+    claro/global-styling:
+      deprecation_version: 11.2.0
+      removed_version: 12.0.0
+      deprecation_link: https://www.drupal.org/node/3432346
+      css:
+        component:
+          css/components/system-status-report.css:
+            base: css/components/system-status-report.css
+          css/components/system-status-counter.css:
+            base: css/components/system-status-counter.css
+          css/components/system-status-report-counters.css:
+            base: css/components/system-status-report-counters.css
+          css/components/system-status-report-general-info.css:
+            base: css/components/system-status-report-general-info.css
 
 views:
   css:
     component:
       css/components/views-exposed-form.css: {}
+
+views_ui:
+  css:
+    component:
+      css/components/views-ui.css: {}
 
 messages:
   js:
@@ -248,6 +270,8 @@ vertical-tabs:
   css:
     component:
       css/components/vertical-tabs.css: {}
+  js:
+    js/vertical-tabs.js: {}
   dependencies:
     - claro/global-styling
 
@@ -261,6 +285,20 @@ media_library.theme:
   css:
     theme:
       css/theme/media-library.css: {}
+  dependencies:
+    - claro/icon-link
+
+media_library.ui:
+  version: VERSION
+  css:
+    component:
+      css/components/media-library.ui.css : {}
+  js:
+    js/media-library.ui.js: { weight: -1 }
+  dependencies:
+    - core/drupal
+    - core/jquery
+    - core/once
 
 progress:
   version: VERSION
@@ -268,23 +306,34 @@ progress:
     component:
       css/components/progress.css: {}
 
-classy.book-navigation:
+tabbingmanager:
+  version: VERSION
+  dependencies:
+    - claro/claro.jquery.ui
+
+filter:
   version: VERSION
   css:
     component:
-      css/classy/components/book-navigation.css: {}
+      css/theme/filter.theme.css: {}
+
+tableselect:
+  version: VERSION
+  js:
+    js/tableselect.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupal.announce
+    - core/drupal.debounce
+    - core/tabbable
+    - core/once
 
 classy.file:
   version: VERSION
   css:
     component:
       css/classy/components/file.css: { weight: -10 }
-
-classy.forum:
-  version: VERSION
-  css:
-    component:
-      css/classy/components/forum.css: { weight: -10 }
 
 classy.indented:
   version: VERSION

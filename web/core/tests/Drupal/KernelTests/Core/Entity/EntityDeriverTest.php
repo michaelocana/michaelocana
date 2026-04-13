@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
 use Drupal\comment\Entity\CommentType;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\node\Entity\NodeType;
 
@@ -26,7 +29,7 @@ class EntityDeriverTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'system',
     'field',
     'user',
@@ -38,18 +41,18 @@ class EntityDeriverTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
-    parent::setup();
+  protected function setUp(): void {
+    parent::setUp();
 
     $this->installEntitySchema('comment');
     NodeType::create(['type' => 'article', 'name' => 'Article'])->save();
     CommentType::create([
       'id' => 'comment',
-      'name' => 'Default comment',
+      'label' => 'Default comment',
       'target_entity_type_id' => 'node',
     ])->save();
-    entity_test_create_bundle('foo', NULL, 'entity_test_no_bundle');
-    entity_test_create_bundle('entity_test_no_bundle', NULL, 'entity_test_no_bundle');
+    EntityTestHelper::createBundle('foo', NULL, 'entity_test_no_bundle');
+    EntityTestHelper::createBundle('entity_test_no_bundle', NULL, 'entity_test_no_bundle');
     $this->typedDataManager = $this->container->get('typed_data_manager');
   }
 
@@ -58,7 +61,7 @@ class EntityDeriverTest extends KernelTestBase {
    *
    * @dataProvider derivativesProvider
    */
-  public function testDerivatives($data_type, $expect_exception) {
+  public function testDerivatives($data_type, $expect_exception): void {
     if ($expect_exception) {
       $this->expectException(PluginNotFoundException::class);
     }
@@ -68,10 +71,10 @@ class EntityDeriverTest extends KernelTestBase {
   /**
    * Provides test data for ::testDerivatives().
    */
-  public function derivativesProvider() {
+  public static function derivativesProvider() {
     return [
-      'unbundleable entity type with no bundle type' => ['entity:user', FALSE],
-      'unbundleable entity type with bundle type' => ['entity:user:user', TRUE],
+      'un-bundleable entity type with no bundle type' => ['entity:user', FALSE],
+      'un-bundleable entity type with bundle type' => ['entity:user:user', TRUE],
       'bundleable entity type with no bundle type' => ['entity:node', FALSE],
       'bundleable entity type with bundle type' => [
         'entity:node:article',
@@ -81,11 +84,11 @@ class EntityDeriverTest extends KernelTestBase {
         'entity:comment:comment',
         FALSE,
       ],
-      'unbundleable entity type with entity_test_entity_bundle_info()-generated bundle type' => [
+      'un-bundleable entity type with entity_test_entity_bundle_info()-generated bundle type' => [
         'entity:entity_test_no_bundle:foo',
         FALSE,
       ],
-      'unbundleable entity type with entity_test_entity_bundle_info()-generated bundle type with matching name' => [
+      'un-bundleable entity type with entity_test_entity_bundle_info()-generated bundle type with matching name' => [
         'entity:entity_test_no_bundle:entity_test_no_bundle',
         FALSE,
       ],

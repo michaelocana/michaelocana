@@ -5,6 +5,9 @@ namespace Drupal\migrate\Plugin\Derivative;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
+/**
+ * The migrate entity revision deriver.
+ */
 class MigrateEntityRevision implements ContainerDeriverInterface {
 
   /**
@@ -15,7 +18,7 @@ class MigrateEntityRevision implements ContainerDeriverInterface {
   protected $derivatives = [];
 
   /**
-   * The entity definitions
+   * The entity definitions.
    *
    * @var \Drupal\Core\Entity\EntityTypeInterface[]
    */

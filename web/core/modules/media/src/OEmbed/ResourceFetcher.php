@@ -4,46 +4,36 @@ namespace Drupal\media\OEmbed;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Cache\UseCacheBackendTrait;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\RequestOptions;
+use Psr\Http\Client\ClientExceptionInterface;
+
+// cspell:ignore nocdata
 
 /**
  * Fetches and caches oEmbed resources.
  */
 class ResourceFetcher implements ResourceFetcherInterface {
 
-  use UseCacheBackendTrait;
-
-  /**
-   * The HTTP client.
-   *
-   * @var \GuzzleHttp\Client
-   */
-  protected $httpClient;
-
-  /**
-   * The oEmbed provider repository service.
-   *
-   * @var \Drupal\media\OEmbed\ProviderRepositoryInterface
-   */
-  protected $providers;
-
   /**
    * Constructs a ResourceFetcher object.
    *
-   * @param \GuzzleHttp\ClientInterface $http_client
+   * @param \GuzzleHttp\ClientInterface $httpClient
    *   The HTTP client.
    * @param \Drupal\media\OEmbed\ProviderRepositoryInterface $providers
    *   The oEmbed provider repository service.
-   * @param \Drupal\Core\Cache\CacheBackendInterface $cache_backend
-   *   (optional) The cache backend.
+   * @param \Drupal\Core\Cache\CacheBackendInterface $cacheBackend
+   *   The cache backend.
+   * @param int $timeout
+   *   The length of time to wait for the request before the request
+   *   should time out.
    */
-  public function __construct(ClientInterface $http_client, ProviderRepositoryInterface $providers, CacheBackendInterface $cache_backend = NULL) {
-    $this->httpClient = $http_client;
-    $this->providers = $providers;
-    $this->cacheBackend = $cache_backend;
-    $this->useCaches = isset($cache_backend);
+  public function __construct(
+    protected ClientInterface $httpClient,
+    protected ProviderRepositoryInterface $providers,
+    protected CacheBackendInterface $cacheBackend,
+    protected int $timeout = 5,
+  ) {
   }
 
   /**
@@ -52,33 +42,39 @@ class ResourceFetcher implements ResourceFetcherInterface {
   public function fetchResource($url) {
     $cache_id = "media:oembed_resource:$url";
 
-    $cached = $this->cacheGet($cache_id);
+    $cached = $this->cacheBackend->get($cache_id);
     if ($cached) {
       return $this->createResource($cached->data, $url);
     }
 
     try {
-      $response = $this->httpClient->get($url);
+      $response = $this->httpClient->request('GET', $url, [
+        RequestOptions::TIMEOUT => $this->timeout,
+      ]);
     }
-    catch (RequestException $e) {
+    catch (ClientExceptionInterface $e) {
       throw new ResourceException('Could not retrieve the oEmbed resource.', $url, [], $e);
     }
 
-    list($format) = $response->getHeader('Content-Type');
+    [$format] = $response->getHeader('Content-Type');
     $content = (string) $response->getBody();
 
     if (strstr($format, 'text/xml') || strstr($format, 'application/xml')) {
       $data = $this->parseResourceXml($content, $url);
     }
-    elseif (strstr($format, 'text/javascript') || strstr($format, 'application/json')) {
-      $data = Json::decode($content);
-    }
-    // If the response is neither XML nor JSON, we are in bat country.
+    // By default, try to parse the resource data as JSON.
     else {
-      throw new ResourceException('The fetched resource did not have a valid Content-Type header.', $url);
+      $data = Json::decode($content);
+
+      if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new ResourceException('Error decoding oEmbed resource: ' . json_last_error_msg(), $url);
+      }
+    }
+    if (empty($data) || !is_array($data)) {
+      throw new ResourceException('The oEmbed resource could not be decoded.', $url);
     }
 
-    $this->cacheSet($cache_id, $data);
+    $this->cacheBackend->set($cache_id, $data);
 
     return $this->createResource($data, $url);
   }

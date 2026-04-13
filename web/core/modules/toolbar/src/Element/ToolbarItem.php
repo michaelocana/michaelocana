@@ -2,30 +2,29 @@
 
 namespace Drupal\toolbar\Element;
 
-use Drupal\Core\Render\Element\RenderElement;
+use Drupal\Core\Render\Attribute\RenderElement;
+use Drupal\Core\Render\Element\RenderElementBase;
 use Drupal\Core\Url;
 
 /**
  * Provides a toolbar item that is wrapped in markup for common styling.
  *
  * The 'tray' property contains a renderable array.
- *
- * @RenderElement("toolbar_item")
  */
-class ToolbarItem extends RenderElement {
+#[RenderElement('toolbar_item')]
+class ToolbarItem extends RenderElementBase {
 
   /**
    * {@inheritdoc}
    */
   public function getInfo() {
-    $class = get_class($this);
     return [
       '#pre_render' => [
-        [$class, 'preRenderToolbarItem'],
+        [static::class, 'preRenderToolbarItem'],
       ],
       'tab' => [
         '#type' => 'link',
-        '#title' => NULL,
+        '#title' => '',
         '#url' => Url::fromRoute('<front>'),
       ],
     ];

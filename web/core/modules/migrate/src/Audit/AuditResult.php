@@ -116,10 +116,11 @@ class AuditResult implements MarkupInterface, \Countable {
    * Implements \Countable::count() for Twig template compatibility.
    *
    * @return int
+   *   The number of reasons why the migration passed or failed the audit.
    *
    * @see \Drupal\Component\Render\MarkupInterface
    */
-  public function count() {
+  public function count(): int {
     return count($this->reasons);
   }
 
@@ -127,6 +128,7 @@ class AuditResult implements MarkupInterface, \Countable {
    * Returns the reasons the migration passed or failed, as a string.
    *
    * @return string
+   *   The reasons why the migration passed or failed the audit.
    *
    * @see \Drupal\Component\Render\MarkupInterface
    */
@@ -138,8 +140,9 @@ class AuditResult implements MarkupInterface, \Countable {
    * Returns the reasons the migration passed or failed, for JSON serialization.
    *
    * @return string[]
+   *   The reasons why the migration passed or failed the audit.
    */
-  public function jsonSerialize() {
+  public function jsonSerialize(): string {
     return $this->reasons;
   }
 

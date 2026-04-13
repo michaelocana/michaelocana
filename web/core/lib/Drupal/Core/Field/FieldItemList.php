@@ -149,7 +149,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function access($operation = 'view', AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($operation = 'view', ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $access_control_handler = \Drupal::entityTypeManager()->getAccessControlHandler($this->getEntity()->getEntityTypeId());
     return $access_control_handler->fieldAccess($operation, $this->getFieldDefinition(), $account, $this, $return_as_object);
   }
@@ -157,7 +157,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function defaultAccess($operation = 'view', AccountInterface $account = NULL) {
+  public function defaultAccess($operation = 'view', ?AccountInterface $account = NULL) {
     // Grant access per default.
     return AccessResult::allowed();
   }
@@ -265,12 +265,16 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
     // widgets.
     $cardinality = $this->getFieldDefinition()->getFieldStorageDefinition()->getCardinality();
     if ($cardinality != FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED) {
+      $options['max'] = $cardinality;
+      if ($label = $this->getFieldDefinition()->getLabel()) {
+        $options['maxMessage'] = $this->t('%name: this field cannot hold more than @count values.', [
+          '%name' => $label,
+          '@count' => $cardinality,
+        ]);
+      }
       $constraints[] = $this->getTypedDataManager()
         ->getValidationConstraintManager()
-        ->create('Count', [
-          'max' => $cardinality,
-          'maxMessage' => t('%name: this field cannot hold more than @count values.', ['%name' => $this->getFieldDefinition()->getLabel(), '@count' => $cardinality]),
-        ]);
+        ->create('Count', $options);
     }
 
     return $constraints;
@@ -350,13 +354,37 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
       $definition->setRequired(FALSE);
       $definition->setDescription('');
 
-      // Use the widget currently configured for the 'default' form mode, or
-      // fallback to the default widget for the field type.
+      /** @var \Drupal\Core\Entity\Display\EntityFormDisplayInterface $entity_form_display */
       $entity_form_display = \Drupal::service('entity_display.repository')
         ->getFormDisplay($entity->getEntityTypeId(), $entity->bundle());
-      $widget = $entity_form_display->getRenderer($this->getFieldDefinition()->getName());
-      if (!$widget) {
-        $widget = \Drupal::service('plugin.manager.field.widget')->getInstance(['field_definition' => $this->getFieldDefinition()]);
+      /** @var \Drupal\Core\Field\WidgetPluginManager $field_widget_plugin_manager */
+      $field_widget_plugin_manager = \Drupal::service('plugin.manager.field.widget');
+
+      // Use the widget currently configured for the 'default' form mode, or
+      // fallback to the default widget for the field type.
+      if (($configuration = $entity_form_display->getComponent($definition->getName())) && isset($configuration['type'])) {
+        // Get the plugin instance manually to ensure an up-to-date field
+        // definition is used.
+        // @see \Drupal\Core\Entity\Entity\EntityFormDisplay::getRenderer
+        $widget = $field_widget_plugin_manager->getInstance([
+          'field_definition' => $definition,
+          'form_mode' => $entity_form_display->getOriginalMode(),
+          'prepare' => FALSE,
+          'configuration' => $configuration,
+        ]);
+      }
+      else {
+        $options = [
+          'field_definition' => $this->getFieldDefinition(),
+        ];
+        // If the field does not have a widget configured in the 'default' form
+        // mode, check if there are default entity form display options defined
+        // for the 'default' form mode in the form state.
+        // @see \Drupal\field_ui\Controller\FieldConfigAddController::fieldConfigAddConfigureForm
+        if (($default_options = $form_state->get('default_options')) && isset($default_options['entity_form_display']['default'])) {
+          $options['configuration'] = $default_options['entity_form_display']['default'];
+        }
+        $widget = $field_widget_plugin_manager->getInstance($options);
       }
 
       $form_state->set('default_value_widget', $widget);

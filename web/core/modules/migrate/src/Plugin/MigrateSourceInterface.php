@@ -9,13 +9,18 @@ use Drupal\migrate\Row;
  * Defines an interface for migrate sources.
  *
  * @see \Drupal\migrate\Plugin\MigratePluginManager
- * @see \Drupal\migrate\Annotation\MigrateSource
+ * @see \Drupal\migrate\Attribute\MigrateSource
  * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  * @see plugin_api
  *
  * @ingroup migration
  */
 interface MigrateSourceInterface extends \Countable, \Iterator, PluginInspectionInterface {
+
+  /**
+   * Indicates that the source is not countable.
+   */
+  const NOT_COUNTABLE = -1;
 
   /**
    * Returns available fields on the source.

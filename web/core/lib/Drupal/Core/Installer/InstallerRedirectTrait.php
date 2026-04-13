@@ -3,6 +3,7 @@
 namespace Drupal\Core\Installer;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Database\ConnectionNotDefinedException;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Database\DatabaseException;
 use Drupal\Core\Database\DatabaseNotFoundException;
@@ -17,6 +18,7 @@ trait InstallerRedirectTrait {
    * Returns whether the current PHP process runs on CLI.
    *
    * @return bool
+   *   TRUE if the current PHP process is running on CLI, otherwise FALSE.
    */
   protected function isCli() {
     return PHP_SAPI === 'cli';
@@ -25,7 +27,7 @@ trait InstallerRedirectTrait {
   /**
    * Determines if an exception handler should redirect to the installer.
    *
-   * @param \Exception $exception
+   * @param \Throwable $exception
    *   The exception to check.
    * @param \Drupal\Core\Database\Connection|null $connection
    *   (optional) The default database connection. If not provided, a less
@@ -37,7 +39,7 @@ trait InstallerRedirectTrait {
    *   TRUE if the exception handler should redirect to the installer because
    *   Drupal is not installed yet, or FALSE otherwise.
    */
-  protected function shouldRedirectToInstaller(\Exception $exception, Connection $connection = NULL) {
+  protected function shouldRedirectToInstaller(\Throwable $exception, ?Connection $connection = NULL) {
     // Never redirect on the command line.
     if ($this->isCli()) {
       return FALSE;
@@ -51,7 +53,7 @@ trait InstallerRedirectTrait {
     // If the database wasn't found, assume the user hasn't entered it properly
     // and redirect to the installer. This check needs to come first because a
     // DatabaseNotFoundException is also an instance of DatabaseException.
-    if ($exception instanceof DatabaseNotFoundException) {
+    if ($exception instanceof DatabaseNotFoundException || $exception instanceof ConnectionNotDefinedException) {
       return TRUE;
     }
 
@@ -72,9 +74,9 @@ trait InstallerRedirectTrait {
     // Redirect if the database is empty.
     if ($connection) {
       try {
-        return !$connection->schema()->tableExists('sessions');
+        return !$connection->schema()->tableExists('sequences');
       }
-      catch (\Exception $e) {
+      catch (\Exception) {
         // If we still have an exception at this point, we need to be careful
         // since we should not redirect if the exception represents an error on
         // an already-installed site (for example, if the database server went

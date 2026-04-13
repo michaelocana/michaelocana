@@ -7,11 +7,16 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\TypedData\FieldItemDataDefinitionInterface;
+use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInternalPropertiesHelper;
 use Drupal\jsonapi\Normalizer\Value\CacheableNormalization;
 use Drupal\jsonapi\ResourceType\ResourceType;
 use Drupal\serialization\Normalizer\CacheableNormalizerInterface;
+use Drupal\serialization\Normalizer\JsonSchemaReflectionTrait;
+use Drupal\serialization\Normalizer\SchematicNormalizerTrait;
 use Drupal\serialization\Normalizer\SerializedColumnNormalizerTrait;
+use Drupal\serialization\Serializer\JsonSchemaProviderSerializerInterface;
+use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
 /**
@@ -26,13 +31,8 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterface {
 
   use SerializedColumnNormalizerTrait;
-
-  /**
-   * The interface or class that this Normalizer supports.
-   *
-   * @var string
-   */
-  protected $supportedInterfaceOrClass = FieldItemInterface::class;
+  use SchematicNormalizerTrait;
+  use JsonSchemaReflectionTrait;
 
   /**
    * The entity type manager.
@@ -59,22 +59,23 @@ class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterfac
    * cacheability in mind, and hence bubbles cacheability out of band. This must
    * catch it, and pass it to the value object that JSON:API uses.
    */
-  public function normalize($field_item, $format = NULL, array $context = []) {
+  public function doNormalize($object, $format = NULL, array $context = []): array|string|int|float|bool|\ArrayObject|NULL {
+    assert($object instanceof FieldItemInterface);
     /** @var \Drupal\Core\TypedData\TypedDataInterface $property */
-    $values = [];
     $context[CacheableNormalizerInterface::SERIALIZATION_CONTEXT_CACHEABILITY] = new CacheableMetadata();
-    if (!empty($field_item->getProperties(TRUE))) {
+    // Default: The field has only internal (or no) properties but has a public
+    // value.
+    $values = $object->getValue();
+    // There are non-internal properties. Normalize those.
+    if ($field_properties = TypedDataInternalPropertiesHelper::getNonInternalProperties($object)) {
       // We normalize each individual value, so each can do their own casting,
       // if needed.
-      $field_properties = TypedDataInternalPropertiesHelper::getNonInternalProperties($field_item);
-      foreach ($field_properties as $property_name => $property) {
-        $values[$property_name] = $this->serializer->normalize($property, $format, $context);
-      }
+      $values = array_map(function ($property) use ($format, $context) {
+        return $this->serializer->normalize($property, $format, $context);
+      }, $field_properties);
       // Flatten if there is only a single property to normalize.
-      $values = static::rasterizeValueRecursive(count($field_properties) == 1 ? reset($values) : $values);
-    }
-    else {
-      $values = $field_item->getValue();
+      $flatten = count($field_properties) === 1 && $object::mainPropertyName() !== NULL;
+      $values = static::rasterizeValueRecursive($flatten ? reset($values) : $values);
     }
     $normalization = new CacheableNormalization(
       $context[CacheableNormalizerInterface::SERIALIZATION_CONTEXT_CACHEABILITY],
@@ -87,7 +88,7 @@ class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterfac
   /**
    * {@inheritdoc}
    */
-  public function denormalize($data, $class, $format = NULL, array $context = []) {
+  public function denormalize($data, $class, $format = NULL, array $context = []): mixed {
     $item_definition = $context['field_definition']->getItemDefinition();
     assert($item_definition instanceof FieldItemDataDefinitionInterface);
 
@@ -126,6 +127,46 @@ class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterfac
 
     $data_internal = [];
     if (!empty($property_definitions)) {
+      $writable_properties = array_keys(array_filter($property_definitions, function (DataDefinitionInterface $data_definition) : bool {
+        return !$data_definition->isReadOnly();
+      }));
+      $invalid_property_names = [];
+      foreach ($data as $property_name => $property_value) {
+        if (!isset($property_definitions[$property_name])) {
+          $alt = static::getAlternatives($property_name, $writable_properties);
+          $invalid_property_names[$property_name] = reset($alt);
+        }
+      }
+      if (!empty($invalid_property_names)) {
+        $suggestions = array_values(array_filter($invalid_property_names));
+        // Only use the "Did you mean"-style error message if there is a
+        // suggestion for every invalid property name.
+        if (count($suggestions) === count($invalid_property_names)) {
+          $format = count($invalid_property_names) === 1
+            ? "The property '%s' does not exist on the '%s' field of type '%s'. Did you mean '%s'?"
+            : "The properties '%s' do not exist on the '%s' field of type '%s'. Did you mean '%s'?";
+          throw new UnexpectedValueException(sprintf(
+            $format,
+            implode("', '", array_keys($invalid_property_names)),
+            $item_definition->getFieldDefinition()->getName(),
+            $item_definition->getFieldDefinition()->getType(),
+            implode("', '", $suggestions)
+          ));
+        }
+        else {
+          $format = count($invalid_property_names) === 1
+            ? "The property '%s' does not exist on the '%s' field of type '%s'. Writable properties are: '%s'."
+            : "The properties '%s' do not exist on the '%s' field of type '%s'. Writable properties are: '%s'.";
+          throw new UnexpectedValueException(sprintf(
+            $format,
+            implode("', '", array_keys($invalid_property_names)),
+            $item_definition->getFieldDefinition()->getName(),
+            $item_definition->getFieldDefinition()->getType(),
+            implode("', '", $writable_properties)
+          ));
+        }
+      }
+
       foreach ($data as $property_name => $property_value) {
         $property_value_class = $property_definitions[$property_name]->getClass();
         $data_internal[$property_name] = $denormalize_property($property_name, $property_value, $property_value_class, $format, $context);
@@ -136,6 +177,37 @@ class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterfac
     }
 
     return $data_internal;
+  }
+
+  /**
+   * Provides alternatives for a given array and key.
+   *
+   * @param string $search_key
+   *   The search key to get alternatives for.
+   * @param array $keys
+   *   The search space to search for alternatives in.
+   *
+   * @return string[]
+   *   An array of strings with suitable alternatives.
+   *
+   * @see \Drupal\Component\DependencyInjection\Container::getAlternatives()
+   */
+  private static function getAlternatives(string $search_key, array $keys) : array {
+    // $search_key is user input and could be longer than the 255 string length
+    // limit of levenshtein().
+    if (strlen($search_key) > 255) {
+      return [];
+    }
+
+    $alternatives = [];
+    foreach ($keys as $key) {
+      $lev = levenshtein($search_key, $key);
+      if ($lev <= strlen($search_key) / 3 || str_contains($key, $search_key)) {
+        $alternatives[] = $key;
+      }
+    }
+
+    return $alternatives;
   }
 
   /**
@@ -163,6 +235,54 @@ class FieldItemNormalizer extends NormalizerBase implements DenormalizerInterfac
     $field_item = $field->appendItem();
     assert($field_item instanceof FieldItemInterface);
     return $field_item;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getNormalizationSchema(mixed $object, array $context = []): array {
+    $schema = ['type' => 'object'];
+    if (is_string($object)) {
+      return ['$comment' => 'No detailed schema available.'] + $schema;
+    }
+    assert($object instanceof FieldItemInterface);
+    $field_properties = TypedDataInternalPropertiesHelper::getNonInternalProperties($object);
+    if (count($field_properties) === 0) {
+      // The field item has only internal (or no) properties. In this case, the
+      // value is normalized from ::getValue(). Use a schema from the method or
+      // interface, if available.
+      return $this->getJsonSchemaForMethod(
+        $object,
+        'getValue',
+        ['$comment' => sprintf('Cannot determine schema for %s::getValue().', $object::class)]
+      );
+    }
+    // If we did not early return, iterate over the non-internal properties.
+    foreach ($field_properties as $property_name => $property) {
+      $property_schema = [
+        'title' => (string) $property->getDataDefinition()->getLabel(),
+      ];
+      assert($this->serializer instanceof JsonSchemaProviderSerializerInterface);
+      $property_schema = array_merge(
+        $this->serializer->getJsonSchema($property, $context),
+        $property_schema,
+      );
+      $schema['properties'][$property_name] = $property_schema;
+    }
+    // Flatten if there is only a single property to normalize.
+    if (count($field_properties) === 1 && $object::mainPropertyName() !== NULL) {
+      $schema = $schema['properties'][$object::mainPropertyName()] ?? [];
+    }
+    return $schema;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [
+      FieldItemInterface::class => TRUE,
+    ];
   }
 
 }

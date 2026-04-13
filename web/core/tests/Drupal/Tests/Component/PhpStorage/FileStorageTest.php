@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Component\PhpStorage;
 
 use Drupal\Component\PhpStorage\FileStorage;
 use Drupal\Component\Utility\Random;
+use Drupal\TestTools\Extension\DeprecationBridge\ExpectDeprecationTrait;
 use org\bovigo\vfs\vfsStreamDirectory;
-use PHPUnit\Framework\Error\Warning;
 
 /**
  * @coversDefaultClass \Drupal\Component\PhpStorage\FileStorage
@@ -13,6 +15,8 @@ use PHPUnit\Framework\Error\Warning;
  * @group PhpStorage
  */
 class FileStorageTest extends PhpStorageTestBase {
+
+  use ExpectDeprecationTrait;
 
   /**
    * Standard test settings to pass to storage instances.
@@ -24,7 +28,7 @@ class FileStorageTest extends PhpStorageTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->standardSettings = [
@@ -41,23 +45,15 @@ class FileStorageTest extends PhpStorageTestBase {
    * @covers ::exists
    * @covers ::delete
    */
-  public function testCRUD() {
+  public function testCRUD(): void {
     $php = new FileStorage($this->standardSettings);
     $this->assertCRUD($php);
   }
 
   /**
-   * @covers ::writeable
-   */
-  public function testWriteable() {
-    $php = new FileStorage($this->standardSettings);
-    $this->assertTrue($php->writeable());
-  }
-
-  /**
    * @covers ::deleteAll
    */
-  public function testDeleteAll() {
+  public function testDeleteAll(): void {
     // Random generator.
     $random_generator = new Random();
 
@@ -68,11 +64,11 @@ class FileStorageTest extends PhpStorageTestBase {
 
     // Find a global that doesn't exist.
     do {
-      $random = mt_rand(10000, 100000);
+      $random = 'test' . mt_rand(10000, 100000);
     } while (isset($GLOBALS[$random]));
 
     // Write out a PHP file and ensure it's successfully loaded.
-    $code = "<?php\n\$GLOBALS[$random] = TRUE;";
+    $code = "<?php\n\$GLOBALS['$random'] = TRUE;";
     $this->assertTrue($php->save($name, $code), 'Saved php file');
     $php->load($name);
     $this->assertTrue($GLOBALS[$random], 'File saved correctly with correct value');
@@ -82,7 +78,7 @@ class FileStorageTest extends PhpStorageTestBase {
 
     $this->assertTrue($php->deleteAll(), 'Delete all reported success');
     $this->assertFalse($php->load($name));
-    $this->assertDirectoryNotExists($this->directory . '/test');
+    $this->assertDirectoryDoesNotExist($this->directory . '/test');
 
     // Should still return TRUE if directory has already been deleted.
     $this->assertTrue($php->deleteAll(), 'Delete all succeeds with nothing to delete');
@@ -92,16 +88,28 @@ class FileStorageTest extends PhpStorageTestBase {
   /**
    * @covers ::createDirectory
    */
-  public function testCreateDirectoryFailWarning() {
+  public function testCreateDirectoryFailWarning(): void {
     $directory = new vfsStreamDirectory('permissionDenied', 0200);
     $storage = new FileStorage([
       'directory' => $directory->url(),
       'bin' => 'test',
     ]);
     $code = "<?php\n echo 'here';";
-    $this->expectException(Warning::class);
-    $this->expectExceptionMessage('mkdir(): Permission Denied');
+
+    // PHPUnit 10 cannot expect warnings, so we have to catch them ourselves.
+    $messages = [];
+    set_error_handler(function (int $errno, string $errstr) use (&$messages): void {
+      $messages[] = [$errno, $errstr];
+    });
+
     $storage->save('subdirectory/foo.php', $code);
+
+    restore_error_handler();
+    $this->assertCount(2, $messages);
+    $this->assertSame(E_USER_WARNING, $messages[0][0]);
+    $this->assertSame('mkdir(): Permission Denied', $messages[0][1]);
+    $this->assertSame(E_WARNING, $messages[1][0]);
+    $this->assertStringStartsWith('file_put_contents(vfs://permissionDenied/test/subdirectory/foo.php)', $messages[1][1]);
   }
 
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel\Handler;
 
 use Drupal\Tests\views\Kernel\ViewsKernelTestBase;
@@ -20,6 +22,9 @@ class FieldFileSizeTest extends ViewsKernelTestBase {
    */
   public static $testViews = ['test_view'];
 
+  /**
+   * Provides a dataset with various 'age' values representing file sizes.
+   */
   public function dataSet() {
     $data = parent::dataSet();
     $data[0]['age'] = 0;
@@ -30,6 +35,9 @@ class FieldFileSizeTest extends ViewsKernelTestBase {
     return $data;
   }
 
+  /**
+   * Maps the 'age' field to the 'file_size' handler for Views.
+   */
   public function viewsData() {
     $data = parent::viewsData();
     $data['views_test_data']['age']['field']['id'] = 'file_size';
@@ -37,7 +45,10 @@ class FieldFileSizeTest extends ViewsKernelTestBase {
     return $data;
   }
 
-  public function testFieldFileSize() {
+  /**
+   * Tests the FileSize field handler for correct formatting in Views.
+   */
+  public function testFieldFileSize(): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
 
@@ -52,16 +63,16 @@ class FieldFileSizeTest extends ViewsKernelTestBase {
     $this->executeView($view);
 
     // Test with the formatted option.
-    $this->assertEqual($view->field['age']->advancedRender($view->result[0]), '');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[1]), '10 bytes');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[2]), '1000 bytes');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[3]), '9.77 KB');
+    $this->assertEquals('', $view->field['age']->advancedRender($view->result[0]));
+    $this->assertEquals('10 bytes', $view->field['age']->advancedRender($view->result[1]));
+    $this->assertEquals('1000 bytes', $view->field['age']->advancedRender($view->result[2]));
+    $this->assertEquals('9.77 KB', $view->field['age']->advancedRender($view->result[3]));
     // Test with the bytes option.
     $view->field['age']->options['file_size_display'] = 'bytes';
-    $this->assertEqual($view->field['age']->advancedRender($view->result[0]), '');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[1]), '10');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[2]), '1000');
-    $this->assertEqual($view->field['age']->advancedRender($view->result[3]), '10000');
+    $this->assertEquals('', $view->field['age']->advancedRender($view->result[0]));
+    $this->assertEquals('10', $view->field['age']->advancedRender($view->result[1]));
+    $this->assertEquals('1000', $view->field['age']->advancedRender($view->result[2]));
+    $this->assertEquals('10000', $view->field['age']->advancedRender($view->result[3]));
   }
 
 }

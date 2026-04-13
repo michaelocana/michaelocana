@@ -1,6 +1,5 @@
-import { execSync } from 'child_process';
-import { URL } from 'url';
-import { commandAsWebserver } from '../globals';
+const { execSync } = require('node:child_process');
+const { commandAsWebserver } = require('../globals');
 
 /**
  * Logs in as the admin user.
@@ -12,7 +11,7 @@ import { commandAsWebserver } from '../globals';
  */
 exports.command = function drupalLoginAsAdmin(callback) {
   const self = this;
-  this.drupalUserIsLoggedIn(sessionExists => {
+  this.drupalUserIsLoggedIn((sessionExists) => {
     if (sessionExists) {
       this.drupalLogout();
     }
@@ -24,7 +23,7 @@ exports.command = function drupalLoginAsAdmin(callback) {
 
     this.drupalRelativeURL(userLink.toString());
 
-    this.drupalUserIsLoggedIn(sessionExists => {
+    this.drupalUserIsLoggedIn((sessionExists) => {
       if (!sessionExists) {
         throw new Error('Logging in as an admin user failed.');
       }

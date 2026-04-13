@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\shortcut\Functional;
 
 use Drupal\shortcut\Entity\Shortcut;
@@ -13,11 +15,9 @@ use Drupal\Tests\BrowserTestBase;
 abstract class ShortcutTestBase extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'toolbar', 'shortcut'];
+  protected static $modules = ['node', 'toolbar', 'shortcut'];
 
   /**
    * User with permission to administer shortcuts.
@@ -47,7 +47,10 @@ abstract class ShortcutTestBase extends BrowserTestBase {
    */
   protected $set;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     if ($this->profile != 'standard') {
@@ -58,7 +61,7 @@ abstract class ShortcutTestBase extends BrowserTestBase {
       // Populate the default shortcut set.
       $shortcut = Shortcut::create([
         'shortcut_set' => 'default',
-        'title' => t('Add content'),
+        'title' => 'Add content',
         'weight' => -20,
         'link' => [
           'uri' => 'internal:/node/add',
@@ -68,7 +71,7 @@ abstract class ShortcutTestBase extends BrowserTestBase {
 
       $shortcut = Shortcut::create([
         'shortcut_set' => 'default',
-        'title' => t('All content'),
+        'title' => 'All content',
         'weight' => -19,
         'link' => [
           'uri' => 'internal:/admin/content',
@@ -110,7 +113,7 @@ abstract class ShortcutTestBase extends BrowserTestBase {
    */
   public function generateShortcutSet($label = '', $id = NULL) {
     $set = ShortcutSet::create([
-      'id' => isset($id) ? $id : strtolower($this->randomMachineName()),
+      'id' => $id ?? $this->randomMachineName(),
       'label' => empty($label) ? $this->randomString() : $label,
     ]);
     $set->save();

@@ -2,6 +2,7 @@
 
 namespace Drupal\user;
 
+use Drupal\Core\Config\Entity\ConfigEntityStorage;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 
@@ -32,7 +33,7 @@ class RoleForm extends EntityForm {
       '#required' => TRUE,
       '#disabled' => !$entity->isNew(),
       '#size' => 30,
-      '#maxlength' => 64,
+      '#maxlength' => ConfigEntityStorage::MAX_ID_LENGTH,
       '#machine_name' => [
         'exists' => ['\Drupal\user\Entity\Role', 'load'],
       ],
@@ -42,7 +43,7 @@ class RoleForm extends EntityForm {
       '#value' => $entity->getWeight(),
     ];
 
-    return parent::form($form, $form_state, $entity);
+    return parent::form($form, $form_state);
   }
 
   /**
@@ -58,11 +59,11 @@ class RoleForm extends EntityForm {
     $edit_link = $this->entity->toLink($this->t('Edit'), 'edit-form')->toString();
     if ($status == SAVED_UPDATED) {
       $this->messenger()->addStatus($this->t('Role %label has been updated.', ['%label' => $entity->label()]));
-      $this->logger('user')->notice('Role %label has been updated.', ['%label' => $entity->label(), 'link' => $edit_link]);
+      $this->logger('user')->info('Role %label has been updated.', ['%label' => $entity->label(), 'link' => $edit_link]);
     }
     else {
       $this->messenger()->addStatus($this->t('Role %label has been added.', ['%label' => $entity->label()]));
-      $this->logger('user')->notice('Role %label has been added.', ['%label' => $entity->label(), 'link' => $edit_link]);
+      $this->logger('user')->info('Role %label has been added.', ['%label' => $entity->label(), 'link' => $edit_link]);
     }
     $form_state->setRedirect('entity.user_role.collection');
   }

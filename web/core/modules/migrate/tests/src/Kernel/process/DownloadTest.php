@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Kernel\process;
 
 use Drupal\Core\StreamWrapper\StreamWrapperInterface;
@@ -20,12 +22,12 @@ class DownloadTest extends FileTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['system'];
+  protected static $modules = ['system'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->container->get('stream_wrapper_manager')->registerWrapper('temporary', 'Drupal\Core\StreamWrapper\TemporaryStream', StreamWrapperInterface::LOCAL_NORMAL);
   }
@@ -33,21 +35,21 @@ class DownloadTest extends FileTestBase {
   /**
    * Tests a download that overwrites an existing local file.
    */
-  public function testOverwritingDownload() {
-    // Create a pre-existing file at the destination, to test overwrite behavior.
+  public function testOverwritingDownload(): void {
+    // Create a pre-existing file at the destination.
     $destination_uri = $this->createUri('existing_file.txt');
 
     // Test destructive download.
     $actual_destination = $this->doTransform($destination_uri);
     $this->assertSame($destination_uri, $actual_destination, 'Import returned a destination that was not renamed');
-    $this->assertFileNotExists('public://existing_file_0.txt');
+    $this->assertFileDoesNotExist('public://existing_file_0.txt');
   }
 
   /**
    * Tests a download that renames the downloaded file if there's a collision.
    */
-  public function testNonDestructiveDownload() {
-    // Create a pre-existing file at the destination, to test overwrite behavior.
+  public function testNonDestructiveDownload(): void {
+    // Create a pre-existing file at the destination.
     $destination_uri = $this->createUri('another_existing_file.txt');
 
     // Test non-destructive download.
@@ -59,8 +61,8 @@ class DownloadTest extends FileTestBase {
   /**
    * Tests that an exception is thrown if the destination URI is not writable.
    */
-  public function testWriteProtectedDestination() {
-    // Create a pre-existing file at the destination, to test overwrite behavior.
+  public function testWriteProtectedDestination(): void {
+    // Create a pre-existing file at the destination.
     $destination_uri = $this->createUri('not-writable.txt');
 
     // Make the destination non-writable.
@@ -81,7 +83,7 @@ class DownloadTest extends FileTestBase {
       $fix_permissions();
       $this->fail('MigrateException was not thrown for non-writable destination URI.');
     }
-    catch (MigrateException $e) {
+    catch (MigrateException) {
       $this->assertTrue(TRUE, 'MigrateException was thrown for non-writable destination URI.');
       $fix_permissions();
     }
@@ -115,7 +117,13 @@ class DownloadTest extends FileTestBase {
       'http://drupal.org/favicon.ico',
       $destination_uri,
     ];
-    return $plugin->transform($value, $executable, $row, 'foobaz');
+
+    // Assert that number of stream resources in use is the same before and
+    // after the download.
+    $initial_count = count(get_resources('stream'));
+    $return = $plugin->transform($value, $executable, $row, 'foo');
+    $this->assertCount($initial_count, get_resources('stream'));
+    return $return;
   }
 
 }

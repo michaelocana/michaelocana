@@ -11,11 +11,17 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\migrate\EntityFieldDefinitionTrait;
 use Drupal\migrate\Plugin\migrate\source\SourcePluginBase;
+use Drupal\migrate\Plugin\MigrateSourceInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Source plugin to get content entities from the current version of Drupal.
+ *
+ * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use
+ * \Drupal\migrate\Plugin\migrate\source\ContentEntity instead.
+ *
+ * @see https://www.drupal.org/node/3498916
  *
  * This plugin uses the Entity API to export entity data. If the source entity
  * type has custom field storage fields or computed fields, this class will need
@@ -30,14 +36,24 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   of this bundle.
  * - include_translations: (optional) Indicates if the entity translations
  *   should be included, defaults to TRUE.
+ * - add_revision_id: (optional) Indicates if the revision key is added to the
+ *   source IDs, defaults to TRUE.
  *
  * Examples:
  *
- * This will return all nodes, from every bundle and every translation. It does
- * not return all revisions, just the default one.
+ * This will return the default revision for all nodes, from every bundle and
+ * every translation. The revision key is added to the source IDs.
  * @code
  * source:
  *   plugin: content_entity:node
+ * @endcode
+ *
+ * This will return the default revision for all nodes, from every bundle and
+ * every translation. The revision key is not added to the source IDs.
+ * @code
+ * source:
+ *   plugin: content_entity:node
+ *   add_revision_id: false
  * @endcode
  *
  * This will only return nodes of type 'article' in their default language.
@@ -48,11 +64,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   include_translations: false
  * @endcode
  *
- * @MigrateSource(
- *   id = "content_entity",
- *   source_module = "migrate_drupal",
- *   deriver = "\Drupal\migrate_drupal\Plugin\migrate\source\ContentEntityDeriver",
- * )
+ * For additional configuration keys, refer to the parent class:
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  */
 class ContentEntity extends SourcePluginBase implements ContainerFactoryPluginInterface {
   use EntityFieldDefinitionTrait;
@@ -93,12 +106,15 @@ class ContentEntity extends SourcePluginBase implements ContainerFactoryPluginIn
   protected $defaultConfiguration = [
     'bundle' => NULL,
     'include_translations' => TRUE,
+    'add_revision_id' => TRUE,
   ];
 
   /**
    * {@inheritdoc}
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info) {
+    @trigger_error(__CLASS__ . ' is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use \Drupal\migrate\Plugin\migrate\source\ContentEntity instead. See https://www.drupal.org/node/3498916', E_USER_DEPRECATED);
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration);
     if (empty($plugin_definition['entity_type'])) {
       throw new InvalidPluginDefinitionException($plugin_id, 'Missing required "entity_type" definition.');
     }
@@ -124,7 +140,7 @@ class ContentEntity extends SourcePluginBase implements ContainerFactoryPluginIn
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, ?MigrationInterface $migration = NULL) {
     return new static(
       $configuration,
       $plugin_id,
@@ -217,20 +233,24 @@ class ContentEntity extends SourcePluginBase implements ContainerFactoryPluginIn
     if (!empty($this->configuration['bundle'])) {
       $query->condition($this->entityType->getKey('bundle'), $this->configuration['bundle']);
     }
+    // Exclude anonymous user account.
+    if ($this->entityType->id() === 'user' && !empty($this->entityType->getKey('id'))) {
+      $query->condition($this->entityType->getKey('id'), 0, '>');
+    }
     return $query;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function count($refresh = FALSE) {
+  public function count($refresh = FALSE): int {
     // If no translations are included, then a simple query is possible.
     if (!$this->configuration['include_translations']) {
       return parent::count($refresh);
     }
-    // @TODO: Determine a better way to retrieve a valid count for translations.
-    // https://www.drupal.org/project/drupal/issues/2937166
-    return -1;
+    // @todo Determine a better way to retrieve a valid count for translations.
+    //   https://www.drupal.org/project/drupal/issues/2937166
+    return MigrateSourceInterface::NOT_COUNTABLE;
   }
 
   /**
@@ -265,7 +285,7 @@ class ContentEntity extends SourcePluginBase implements ContainerFactoryPluginIn
   public function getIds() {
     $id_key = $this->entityType->getKey('id');
     $ids[$id_key] = $this->getDefinitionFromEntity($id_key);
-    if ($this->entityType->isRevisionable()) {
+    if ($this->configuration['add_revision_id'] && $this->entityType->isRevisionable()) {
       $revision_key = $this->entityType->getKey('revision');
       $ids[$revision_key] = $this->getDefinitionFromEntity($revision_key);
     }

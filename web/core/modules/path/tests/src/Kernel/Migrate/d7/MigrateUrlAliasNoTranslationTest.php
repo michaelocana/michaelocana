@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\path\Kernel\Migrate\d7;
 
 /**
@@ -12,7 +14,7 @@ class MigrateUrlAliasNoTranslationTest extends MigrateUrlAliasTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->executeMigration('d7_url_alias');
   }

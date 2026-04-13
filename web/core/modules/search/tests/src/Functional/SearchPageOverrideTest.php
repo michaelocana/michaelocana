@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -31,7 +33,10 @@ class SearchPageOverrideTest extends BrowserTestBase {
    */
   public $searchUser;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Log in as a user that can create and search content.
@@ -42,11 +47,14 @@ class SearchPageOverrideTest extends BrowserTestBase {
     $this->drupalLogin($this->searchUser);
   }
 
-  public function testSearchPageHook() {
+  /**
+   * Tests that the search results page can be overridden by a custom plugin.
+   */
+  public function testSearchPageHook(): void {
     $keys = 'bike shed ' . $this->randomMachineName();
     $this->drupalGet("search/dummy_path", ['query' => ['keys' => $keys]]);
-    $this->assertText('Dummy search snippet', 'Dummy search snippet is shown');
-    $this->assertText('Test page text is here', 'Page override is working');
+    $this->assertSession()->pageTextContains('Dummy search snippet');
+    $this->assertSession()->pageTextContains('Test page text is here');
   }
 
 }

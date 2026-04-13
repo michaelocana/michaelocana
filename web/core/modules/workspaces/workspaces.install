@@ -6,83 +6,11 @@
  */
 
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Entity\ContentEntityNullStorage;
-use Drupal\Core\Field\BaseFieldDefinition;
-use Drupal\workspaces\Entity\Workspace;
-
-/**
- * Implements hook_requirements().
- */
-function workspaces_requirements($phase) {
-  $requirements = [];
-  if ($phase === 'install') {
-    if (\Drupal::moduleHandler()->moduleExists('workspace')) {
-      $requirements['workspace_incompatibility'] = [
-        'severity' => REQUIREMENT_ERROR,
-        'description' => t('Workspaces can not be installed when the contributed Workspace module is also installed. See the <a href=":link">upgrade path</a> page for more information on how to upgrade.', [
-          ':link' => 'https://www.drupal.org/node/2987783',
-        ]),
-      ];
-    }
-  }
-
-  return $requirements;
-}
-
-/**
- * Implements hook_module_preinstall().
- */
-function workspaces_module_preinstall($module) {
-  if ($module !== 'workspaces') {
-    return;
-  }
-
-  /** @var \Drupal\workspaces\WorkspaceManagerInterface $workspace_manager */
-  $workspace_manager = \Drupal::service('workspaces.manager');
-  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
-  foreach ($entity_definition_update_manager->getEntityTypes() as $entity_type) {
-    $revision_metadata_keys = $entity_type->get('revision_metadata_keys');
-    if ($workspace_manager->isEntityTypeSupported($entity_type)) {
-      $entity_type->setRevisionMetadataKey('workspace', 'workspace');
-      $entity_definition_update_manager->updateEntityType($entity_type);
-    }
-  }
-}
-
-/**
- * Implements hook_install().
- */
-function workspaces_install() {
-  // Set the owner of these default workspaces to be first user which which has
-  // the 'administrator' role. This way we avoid hard coding user ID 1 for sites
-  // that prefer to not give it any special meaning.
-  $admin_roles = \Drupal::entityTypeManager()->getStorage('user_role')->getQuery()
-    ->condition('is_admin', TRUE)
-    ->execute();
-  if (!empty($admin_roles)) {
-    $query = \Drupal::entityTypeManager()->getStorage('user')->getQuery()
-      ->condition('roles', $admin_roles, 'IN')
-      ->condition('status', 1)
-      ->sort('uid', 'ASC')
-      ->range(0, 1);
-    $result = $query->execute();
-  }
-
-  // Default to user ID 1 if we could not find any other administrator users.
-  $owner_id = !empty($result) ? reset($result) : 1;
-
-  // Create a 'stage' workspace by default.
-  Workspace::create([
-    'id' => 'stage',
-    'label' => 'Stage',
-    'uid' => $owner_id,
-  ])->save();
-}
 
 /**
  * Implements hook_schema().
  */
-function workspaces_schema() {
+function workspaces_schema(): array {
   $schema['workspace_association'] = [
     'description' => 'Stores the association between entity revisions and their workspace.',
     'fields' => [
@@ -104,7 +32,15 @@ function workspaces_schema() {
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 0,
         'description' => 'The ID of the associated entity.',
+      ],
+      'target_entity_id_string' => [
+        'type' => 'varchar_ascii',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The string ID of the associated entity.',
       ],
       'target_entity_revision_id' => [
         'type' => 'int',
@@ -113,88 +49,52 @@ function workspaces_schema() {
         'description' => 'The revision ID of the associated entity.',
       ],
     ],
+    'primary key' => ['workspace', 'target_entity_type_id', 'target_entity_id', 'target_entity_id_string'],
     'indexes' => [
       'target_entity_revision_id' => ['target_entity_revision_id'],
     ],
-    'primary key' => ['workspace', 'target_entity_type_id', 'target_entity_id'],
   ];
 
   return $schema;
 }
 
 /**
- * Add the 'workspace' revision metadata field on all supported entity types.
+ * Implements hook_update_last_removed().
  */
-function workspaces_update_8801() {
-  /** @var \Drupal\workspaces\WorkspaceManagerInterface $workspace_manager */
-  $workspace_manager = \Drupal::service('workspaces.manager');
-  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
-  foreach ($entity_definition_update_manager->getEntityTypes() as $entity_type_id => $entity_type) {
-    if ($workspace_manager->isEntityTypeSupported($entity_type)) {
-      $revision_metadata_keys = $entity_type->get('revision_metadata_keys');
-
-      if (!isset($revision_metadata_keys['workspace'])) {
-        $revision_metadata_field_name = 'workspace';
-
-        // Bail out if there's an existing field called 'workspace'.
-        if ($entity_definition_update_manager->getFieldStorageDefinition($revision_metadata_field_name, $entity_type_id)) {
-          throw new \RuntimeException("An existing 'workspace' field was found for the '$entity_type_id' entity type. Set the 'workspace' revision metadata key to use a different field name and run this update function again.");
-        }
-
-        $entity_type->setRevisionMetadataKey('workspace', $revision_metadata_field_name);
-        $entity_definition_update_manager->updateEntityType($entity_type);
-      }
-      else {
-        $revision_metadata_field_name = $revision_metadata_keys['workspace'];
-      }
-
-      $field_storage = BaseFieldDefinition::create('entity_reference')
-        ->setLabel(t('Workspace'))
-        ->setDescription(t('Indicates the workspace that this revision belongs to.'))
-        ->setSetting('target_type', 'workspace')
-        ->setInternal(TRUE)
-        ->setTranslatable(FALSE)
-        ->setRevisionable(TRUE);
-
-      $entity_definition_update_manager->installFieldStorageDefinition($revision_metadata_field_name, $entity_type_id, 'workspaces', $field_storage);
-    }
-  }
-
-  return t("The 'workspace' revision metadata field has been installed.");
+function workspaces_update_last_removed(): int {
+  return 8803;
 }
 
 /**
- * Add the 'parent' field to the 'workspace' entity type.
+ * Update workspace associations to support entity types with string IDs.
  */
-function workspaces_update_8802() {
-  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+function workspaces_update_11101(): void {
+  $schema = \Drupal::database()->schema();
 
-  // Install the new 'parent' field.
-  $storage_definition = BaseFieldDefinition::create('entity_reference')
-    ->setLabel(t('Parent'))
-    ->setDescription(t('The parent workspace.'))
-    ->setSetting('target_type', 'workspace')
-    ->setReadOnly(TRUE);
+  $target_id_spec = [
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'The ID of the associated entity.',
+  ];
+  $schema->changeField('workspace_association', 'target_entity_id', 'target_entity_id', $target_id_spec);
 
-  $entity_definition_update_manager->installFieldStorageDefinition('parent', 'workspace', 'workspaces', $storage_definition);
+  $target_id_string_spec = [
+    'type' => 'varchar_ascii',
+    'length' => 128,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'The string ID of the associated entity.',
+  ];
+  $schema->addField('workspace_association', 'target_entity_id_string', $target_id_string_spec, [
+    'primary key' => ['workspace', 'target_entity_type_id', 'target_entity_id', 'target_entity_id_string'],
+  ]);
 }
 
 /**
- * Remove the Workspace Association entity storage if necessary.
+ * Install the new Workspaces UI module.
  */
-function workspaces_update_8803() {
-  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
-  $entity_type = $entity_definition_update_manager->getEntityType('workspace_association');
-
-  // We can't migrate the workspace association data if the entity type is not
-  // using its default storage.
-  // @see workspaces_post_update_move_association_data()
-  if ($entity_type && $entity_type->getHandlerClasses()['storage'] === 'Drupal\workspaces\WorkspaceAssociationStorage') {
-    \Drupal::state()->set('workspaces_update_8803.tables', [
-      'base_table' => $entity_type->getBaseTable(),
-      'revision_table' => $entity_type->getRevisionTable(),
-    ]);
-    $entity_type->setStorageClass(ContentEntityNullStorage::class);
-    $entity_definition_update_manager->uninstallEntityType($entity_type);
-  }
+function workspaces_update_11102(): void {
+  \Drupal::service('module_installer')->install(['workspaces_ui']);
 }

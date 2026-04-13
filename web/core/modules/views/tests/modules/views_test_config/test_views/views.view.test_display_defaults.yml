@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_display_defaults
-label: ''
+label: test_display_defaults
 module: views
 description: ''
 tag: ''
@@ -12,7 +12,7 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: null
     display_options:
       access:

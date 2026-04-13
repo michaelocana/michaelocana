@@ -52,7 +52,7 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param array $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\ImageToolkit\ImageToolkitOperationManagerInterface $operation_manager
@@ -123,12 +123,21 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
       // Get the plugin to use for the operation and apply the operation.
       return $this->getToolkitOperation($operation)->apply($arguments);
     }
-    catch (PluginNotFoundException $e) {
-      $this->logger->error("The selected image handling toolkit '@toolkit' can not process operation '@operation'.", ['@toolkit' => $this->getPluginId(), '@operation' => $operation]);
+    catch (PluginNotFoundException) {
+      $this->logger->error("The selected image handling toolkit '@toolkit' can not process operation '@operation'.", [
+        '@toolkit' => $this->getPluginId(),
+        '@operation' => $operation,
+      ]);
       return FALSE;
     }
-    catch (\InvalidArgumentException $e) {
-      $this->logger->warning($e->getMessage(), []);
+    catch (\Throwable $t) {
+      $this->logger->warning("The image toolkit '@toolkit' failed processing '@operation' for image '@image'. Reported error: @class - @message", [
+        '@toolkit' => $this->getPluginId(),
+        '@operation' => $operation,
+        '@image' => $this->getSource(),
+        '@class' => get_class($t),
+        '@message' => $t->getMessage(),
+      ]);
       return FALSE;
     }
   }

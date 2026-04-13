@@ -3,28 +3,43 @@
 namespace Drupal\views\Plugin\views\style;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
+use Drupal\views\Attribute\ViewsStyle;
 
 /**
  * Default style plugin to render an RSS feed.
  *
  * @ingroup views_style_plugins
- *
- * @ViewsStyle(
- *   id = "rss",
- *   title = @Translation("RSS Feed"),
- *   help = @Translation("Generates an RSS feed from a view."),
- *   theme = "views_view_rss",
- *   display_types = {"feed"}
- * )
  */
+#[ViewsStyle(
+  id: "rss",
+  title: new TranslatableMarkup("RSS Feed"),
+  help: new TranslatableMarkup("Generates an RSS feed from a view."),
+  theme: "views_view_rss",
+  display_types: ["feed"],
+)]
 class Rss extends StylePluginBase {
+
+  /**
+   * The RSS namespaces.
+   */
+  public array $namespaces;
+
+  /**
+   * The channel elements.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public array $channel_elements;
 
   /**
    * {@inheritdoc}
    */
   protected $usesRowPlugin = TRUE;
 
+  /**
+   * Attaches the RSS icon and feed link to the view.
+   */
   public function attachTo(array &$build, $display_id, Url $feed_url, $title) {
     $url_options = [];
     $input = $this->view->getExposedInput();
@@ -51,6 +66,9 @@ class Rss extends StylePluginBase {
     ];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -59,6 +77,9 @@ class Rss extends StylePluginBase {
     return $options;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
@@ -74,7 +95,7 @@ class Rss extends StylePluginBase {
   /**
    * Return an array of additional XHTML elements to add to the channel.
    *
-   * @return
+   * @return array
    *   A render array.
    */
   protected function getChannelElements() {
@@ -96,11 +117,10 @@ class Rss extends StylePluginBase {
     return $description;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function render() {
-    if (empty($this->view->rowPlugin)) {
-      trigger_error('Drupal\views\Plugin\views\style\Rss: Missing row plugin', E_WARNING);
-      return [];
-    }
     $rows = [];
 
     // This will be filled in by the row plugin and is used later on in the
@@ -126,6 +146,11 @@ class Rss extends StylePluginBase {
       '#view' => $this->view,
       '#options' => $this->options,
       '#rows' => $rows,
+      '#attached' => [
+        'http_header' => [
+          ['Content-Type', 'application/rss+xml; charset=utf-8'],
+        ],
+      ],
     ];
     unset($this->view->row_index);
     return $build;

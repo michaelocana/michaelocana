@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\locale\Functional;
 
 use Drupal\Core\StreamWrapper\PublicStream;
@@ -28,7 +30,7 @@ class LocaleTranslationDownloadTest extends LocaleUpdateBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $moduleHandler = $this->container->get('module_handler');
     $moduleHandler->loadInclude('locale', 'inc', 'locale.batch');
@@ -45,7 +47,7 @@ class LocaleTranslationDownloadTest extends LocaleUpdateBase {
   /**
    * Tests translation download from remote sources.
    */
-  public function testUpdateImportSourceRemote() {
+  public function testUpdateImportSourceRemote(): void {
 
     // Provide remote and 'previously' downloaded translation file.
     $this->setTranslationFiles();
@@ -62,7 +64,7 @@ class LocaleTranslationDownloadTest extends LocaleUpdateBase {
     $result = locale_translation_download_source($source_file, 'translations://');
 
     $this->assertEquals('translations://contrib_module_one-8.x-1.1.de._po', $result->uri);
-    $this->assertFileNotExists('translations://contrib_module_one-8.x-1.1.de_0._po');
+    $this->assertFileDoesNotExist('translations://contrib_module_one-8.x-1.1.de_0._po');
     $this->assertFileExists('translations://contrib_module_one-8.x-1.1.de._po');
     $this->assertStringNotContainsString('__old_content__', file_get_contents('translations://contrib_module_one-8.x-1.1.de._po'));
   }

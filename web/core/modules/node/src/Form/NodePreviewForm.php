@@ -3,7 +3,6 @@
 namespace Drupal\node\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Form\FormBase;
@@ -17,14 +16,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @internal
  */
 class NodePreviewForm extends FormBase {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = [
-    'entityManager' => 'entity.manager',
-  ];
 
   /**
    * The entity display repository.
@@ -78,12 +69,12 @@ class NodePreviewForm extends FormBase {
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The current state of the form.
    * @param \Drupal\Core\Entity\EntityInterface $node
-   *   The node being previews
+   *   The node being previews.
    *
    * @return array
    *   The form structure.
    */
-  public function buildForm(array $form, FormStateInterface $form_state, EntityInterface $node = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?EntityInterface $node = NULL) {
     $view_mode = $node->preview_view_mode;
 
     $query_options = ['query' => ['uuid' => $node->uuid()]];

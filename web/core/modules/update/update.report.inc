@@ -2,11 +2,11 @@
 
 /**
  * @file
- * Code required only when rendering the available updates report.
  */
 
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Url;
+use Drupal\update\ProjectRelease;
 use Drupal\update\UpdateFetcherInterface;
 use Drupal\update\UpdateManagerInterface;
 
@@ -19,10 +19,10 @@ use Drupal\update\UpdateManagerInterface;
  *   An associative array containing:
  *   - data: An array of data about each project's status.
  */
-function template_preprocess_update_report(&$variables) {
+function template_preprocess_update_report(&$variables): void {
   $data = isset($variables['data']) && is_array($variables['data']) ? $variables['data'] : [];
 
-  $last = \Drupal::state()->get('update.last_check') ?: 0;
+  $last = \Drupal::state()->get('update.last_check', 0);
 
   $variables['last_checked'] = [
     '#theme' => 'update_last_check',
@@ -87,8 +87,8 @@ function template_preprocess_update_report(&$variables) {
     'core' => t('Drupal core'),
     'module' => t('Modules'),
     'theme' => t('Themes'),
-    'module-disabled' => t('Uninstalled modules'),
-    'theme-disabled' => t('Uninstalled themes'),
+    'module-uninstalled' => t('Uninstalled modules'),
+    'theme-uninstalled' => t('Uninstalled themes'),
   ];
 
   $variables['project_types'] = [];
@@ -112,18 +112,18 @@ function template_preprocess_update_report(&$variables) {
  *   An associative array containing:
  *   - version: An array of information about the release version.
  */
-function template_preprocess_update_version(array &$variables) {
-  $version = $variables['version'];
-  if (empty($version['core_compatibility_message'])) {
+function template_preprocess_update_version(array &$variables): void {
+  $release = ProjectRelease::createFromArray($variables['version']);
+  if (!$release->getCoreCompatibilityMessage()) {
     return;
   }
-  $core_compatible = !empty($version['core_compatible']);
+  $core_compatible = $release->isCoreCompatible();
   $variables['core_compatibility_details'] = [
     '#type' => 'details',
     '#title' => $core_compatible ? t('Compatible') : t('Not compatible'),
     '#open' => !$core_compatible,
     'message' => [
-      '#markup' => $version['core_compatibility_message'],
+      '#markup' => $release->getCoreCompatibilityMessage(),
     ],
     '#attributes' => [
       'class' => [
@@ -142,7 +142,7 @@ function template_preprocess_update_version(array &$variables) {
  *   An associative array containing:
  *   - project: An array of information about the project.
  */
-function template_preprocess_update_project_status(&$variables) {
+function template_preprocess_update_project_status(&$variables): void {
   // Storing by reference because we are sorting the project values.
   $project = &$variables['project'];
 
@@ -333,4 +333,35 @@ function template_preprocess_update_project_status(&$variables) {
     '#alt' => $text,
     '#title' => $text,
   ];
+}
+
+/**
+ * Prepares variables for update fetch error message templates.
+ *
+ * Default template: update-fetch-error-message.html.twig.
+ *
+ * @param array $variables
+ *   An associative array of template variables.
+ */
+function template_preprocess_update_fetch_error_message(&$variables): void {
+  $variables['error_message'] = [
+    'message' => [
+      '#markup' => t('Failed to fetch available update data:'),
+    ],
+    'items' => [
+      '#theme' => 'item_list',
+      '#items' => [
+        'documentation_link' => t('See <a href="@url">PHP OpenSSL requirements</a> in the Drupal.org handbook for possible reasons this could happen and what you can do to resolve them.', ['@url' => 'https://www.drupal.org/node/3170647']),
+      ],
+    ],
+  ];
+  if (\Drupal::moduleHandler()->moduleExists('dblog') && \Drupal::currentUser()->hasPermission('access site reports')) {
+    $options = ['query' => ['type' => ['update']]];
+    $dblog_url = Url::fromRoute('dblog.overview', [], $options);
+    $variables['error_message']['items']['#items']['dblog'] = t('Check <a href="@url">your local system logs</a> for additional error messages.', ['@url' => $dblog_url->toString()]);
+  }
+  else {
+    $variables['error_message']['items']['#items']['logs'] = t('Check your local system logs for additional error messages.');
+  }
+
 }

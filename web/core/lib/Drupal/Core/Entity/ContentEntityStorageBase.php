@@ -2,10 +2,11 @@
 
 namespace Drupal\Core\Entity;
 
-use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Cache\MemoryCache\MemoryCacheInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
+use Drupal\Core\Entity\Exception\AmbiguousBundleClassException;
+use Drupal\Core\Entity\Exception\BundleClassInheritanceException;
+use Drupal\Core\Entity\Exception\MissingBundleClassException;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Language\LanguageInterface;
@@ -15,13 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Base class for content entity storage handlers.
  */
-abstract class ContentEntityStorageBase extends EntityStorageBase implements ContentEntityStorageInterface, DynamicallyFieldableEntityStorageInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
+abstract class ContentEntityStorageBase extends EntityStorageBase implements ContentEntityStorageInterface, DynamicallyFieldableEntityStorageInterface, BundleEntityStorageInterface {
 
   /**
    * The entity bundle key.
@@ -67,21 +62,44 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
    *   The entity field manager.
    * @param \Drupal\Core\Cache\CacheBackendInterface $cache
    *   The cache backend to be used.
-   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface|null $memory_cache
+   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memory_cache
    *   The memory cache backend.
    * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info
    *   The entity type bundle info.
    */
-  public function __construct(EntityTypeInterface $entity_type, EntityFieldManagerInterface $entity_field_manager, CacheBackendInterface $cache, MemoryCacheInterface $memory_cache = NULL, EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL) {
+  public function __construct(EntityTypeInterface $entity_type, EntityFieldManagerInterface $entity_field_manager, CacheBackendInterface $cache, MemoryCacheInterface $memory_cache, EntityTypeBundleInfoInterface $entity_type_bundle_info) {
     parent::__construct($entity_type, $memory_cache);
     $this->bundleKey = $this->entityType->getKey('bundle');
     $this->entityFieldManager = $entity_field_manager;
     $this->cacheBackend = $cache;
-    if (!$entity_type_bundle_info) {
-      @trigger_error('Calling ContentEntityStorageBase::__construct() with the $entity_type_bundle_info argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
-    }
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function create(array $values = []) {
+    $bundle = $this->getBundleFromValues($values);
+    $entity_class = $this->getEntityClass($bundle);
+    // @todo Decide what to do if preCreate() tries to change the bundle.
+    // @see https://www.drupal.org/project/drupal/issues/3230792
+    $entity_class::preCreate($this, $values);
+
+    // Assign a new UUID if there is none yet.
+    if ($this->uuidKey && $this->uuidService && !isset($values[$this->uuidKey])) {
+      $values[$this->uuidKey] = $this->uuidService->generate();
+    }
+
+    $entity = $this->doCreate($values);
+    $entity->enforceIsNew();
+
+    $entity->postCreate($this);
+
+    // Modules might need to add or change the data initially held by the new
+    // entity object, for instance to fill-in default values.
+    $this->invokeHook('create', $entity);
+
+    return $entity;
   }
 
   /**
@@ -101,34 +119,98 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
    * {@inheritdoc}
    */
   protected function doCreate(array $values) {
-    // We have to determine the bundle first.
-    $bundle = FALSE;
-    if ($this->bundleKey) {
-      if (!isset($values[$this->bundleKey])) {
-        throw new EntityStorageException('Missing bundle for entity type ' . $this->entityTypeId);
-      }
-
-      // Normalize the bundle value. This is an optimized version of
-      // \Drupal\Core\Field\FieldInputValueNormalizerTrait::normalizeValue()
-      // because we just need the scalar value.
-      $bundle_value = $values[$this->bundleKey];
-      if (!is_array($bundle_value)) {
-        // The bundle value is a scalar, use it as-is.
-        $bundle = $bundle_value;
-      }
-      elseif (is_numeric(array_keys($bundle_value)[0])) {
-        // The bundle value is a field item list array, keyed by delta.
-        $bundle = reset($bundle_value[0]);
-      }
-      else {
-        // The bundle value is a field item array, keyed by the field's main
-        // property name.
-        $bundle = reset($bundle_value);
-      }
+    $bundle = $this->getBundleFromValues($values);
+    if ($this->bundleKey && !$bundle) {
+      throw new EntityStorageException('Missing bundle for entity type ' . $this->entityTypeId);
     }
-    $entity = new $this->entityClass([], $this->entityTypeId, $bundle);
+    $entity_class = $this->getEntityClass($bundle);
+    $entity = new $entity_class([], $this->entityTypeId, $bundle);
     $this->initFieldValues($entity, $values);
     return $entity;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getBundleFromClass(string $class_name): ?string {
+    $bundle_for_class = NULL;
+
+    foreach ($this->entityTypeBundleInfo->getBundleInfo($this->entityTypeId) as $bundle => $bundle_info) {
+      if (!empty($bundle_info['class']) && $bundle_info['class'] === $class_name) {
+        if ($bundle_for_class) {
+          throw new AmbiguousBundleClassException($class_name);
+        }
+        else {
+          $bundle_for_class = $bundle;
+        }
+      }
+    }
+
+    return $bundle_for_class;
+  }
+
+  /**
+   * Retrieves the bundle from an array of values.
+   *
+   * @param array $values
+   *   An array of values to set, keyed by field name.
+   *
+   * @return string|null
+   *   The bundle or NULL if not set.
+   */
+  protected function getBundleFromValues(array $values): ?string {
+    $bundle = NULL;
+
+    // Make sure we have a reasonable bundle key. If not, bail early.
+    if (!$this->bundleKey || !isset($values[$this->bundleKey])) {
+      return NULL;
+    }
+
+    // Normalize the bundle value. This is an optimized version of
+    // \Drupal\Core\Field\FieldInputValueNormalizerTrait::normalizeValue()
+    // because we just need the scalar value.
+    $bundle_value = $values[$this->bundleKey];
+    if (!is_array($bundle_value)) {
+      // The bundle value is a scalar, use it as-is.
+      $bundle = $bundle_value;
+    }
+    elseif (is_numeric(array_keys($bundle_value)[0])) {
+      // The bundle value is a field item list array, keyed by delta.
+      $bundle = reset($bundle_value[0]);
+    }
+    else {
+      // The bundle value is a field item array, keyed by the field's main
+      // property name.
+      $bundle = reset($bundle_value);
+    }
+    return $bundle;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntityClass(?string $bundle = NULL): string {
+    $entity_class = parent::getEntityClass();
+
+    // If no bundle is set, use the entity type ID as the bundle ID.
+    $bundle = $bundle ?? $this->getEntityTypeId();
+
+    // Return the bundle class if it has been defined for this bundle.
+    $bundle_info = $this->entityTypeBundleInfo->getBundleInfo($this->entityTypeId);
+    $bundle_class = $bundle_info[$bundle]['class'] ?? NULL;
+
+    // Bundle classes should exist and extend the main entity class.
+    if ($bundle_class) {
+      if (!class_exists($bundle_class)) {
+        throw new MissingBundleClassException($bundle_class);
+      }
+      elseif (!is_subclass_of($bundle_class, $entity_class)) {
+        throw new BundleClassInheritanceException($bundle_class, $entity_class);
+      }
+      return $bundle_class;
+    }
+
+    return $entity_class;
   }
 
   /**
@@ -348,7 +430,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
       // defined, the stored version is loaded explicitly. Since the merged
       // revision generated here is not stored anywhere, we need to populate the
       // "original" property manually, so that changes can be properly detected.
-      $new_revision->original = clone $new_revision;
+      $new_revision->setOriginal(clone $new_revision);
     }
 
     // Eventually mark the new revision as such.
@@ -379,7 +461,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
     $entity_type = $this->getEntityType();
 
     // A list of known revision metadata fields which should be skipped from
-    // the comparision.
+    // the comparison.
     $field_names = [
       $entity_type->getKey('revision'),
       $entity_type->getKey('revision_translation_affected'),
@@ -430,6 +512,8 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
         ->range(0, 1)
         ->sort($this->entityType->getKey('revision'), 'DESC')
         ->accessCheck(FALSE)
+        ->addMetaData('entity_id', $entity_id)
+        ->addTag('latest_translated_affected_revision')
         ->execute();
 
       $this->latestRevisionIds[$entity_id][$langcode] = key($result);
@@ -488,7 +572,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
    *   The field definition.
-   * @param $batch_size
+   * @param int $batch_size
    *   The maximum number of field data records to purge before returning.
    *
    * @return \Drupal\Core\Field\FieldItemListInterface[]
@@ -514,7 +598,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   /**
    * {@inheritdoc}
    */
-  protected function preLoad(array &$ids = NULL) {
+  protected function preLoad(?array &$ids = NULL) {
     $entities = [];
 
     // Call hook_entity_preload().
@@ -550,7 +634,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   public function loadRevision($revision_id) {
     $revisions = $this->loadMultipleRevisions([$revision_id]);
 
-    return isset($revisions[$revision_id]) ? $revisions[$revision_id] : NULL;
+    return $revisions[$revision_id] ?? NULL;
   }
 
   /**
@@ -591,45 +675,13 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   /**
    * Actually loads revision field item values from the storage.
    *
-   * @param int|string $revision_id
-   *   The revision identifier.
-   *
-   * @return \Drupal\Core\Entity\EntityInterface|null
-   *   The specified entity revision or NULL if not found.
-   *
-   * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0.
-   *   \Drupal\Core\Entity\ContentEntityStorageBase::doLoadMultipleRevisionsFieldItems()
-   *   should be implemented instead.
-   *
-   * @see https://www.drupal.org/node/2924915
-   */
-  abstract protected function doLoadRevisionFieldItems($revision_id);
-
-  /**
-   * Actually loads revision field item values from the storage.
-   *
-   * This method should always be overridden and not called either directly or
-   * from parent::doLoadMultipleRevisionsFieldItems. It will be marked abstract
-   * in drupal:9.0.0
-   *
    * @param array $revision_ids
    *   An array of revision identifiers.
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   The specified entity revisions or an empty array if none are found.
-   *
-   * @todo Remove this logic and make the method abstract in
-   *   https://www.drupal.org/project/drupal/issues/3069696
    */
-  protected function doLoadMultipleRevisionsFieldItems($revision_ids) {
-    @trigger_error('Calling ' . __NAMESPACE__ . 'ContentEntityStorageBase::doLoadMultipleRevisionsFieldItems() directly is deprecated in drupal:8.8.0 and the method will be made abstract in drupal:9.0.0. Storage implementations should override and implement their own loading logic. See https://www.drupal.org/node/3069692', E_USER_DEPRECATED);
-    $revisions = [];
-    foreach ($revision_ids as $revision_id) {
-      $revisions[] = $this->doLoadRevisionFieldItems($revision_id);
-    }
-
-    return $revisions;
-  }
+  abstract protected function doLoadMultipleRevisionsFieldItems($revision_ids);
 
   /**
    * {@inheritdoc}
@@ -654,10 +706,12 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
 
     $this->populateAffectedRevisionTranslations($entity);
 
-    // Populate the "revision_default" flag. We skip this when we are resaving
-    // the revision because this is only allowed for default revisions, and
-    // these cannot be made non-default.
-    if ($this->entityType->isRevisionable() && $entity->isNewRevision()) {
+    // Populate the "revision_default" flag. Skip this when we are resaving
+    // the revision, and the flag is set to FALSE, since it is not possible to
+    // set a previously default revision to non-default. However, setting a
+    // previously non-default revision to default is allowed for advanced
+    // use-cases.
+    if ($this->entityType->isRevisionable() && ($entity->isNewRevision() || $entity->isDefaultRevision())) {
       $revision_default_key = $this->entityType->getRevisionMetadataKey('revision_default');
       $entity->set($revision_default_key, $entity->isDefaultRevision());
     }
@@ -697,12 +751,26 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
       $entity->updateLoadedRevisionId();
     }
 
+    // Use the loaded revision instead of default one to check for data change.
+    if (!$entity->isNew() && !$entity->getOriginal() && !$entity->wasDefaultRevision()) {
+      $original = $this->loadRevision($entity->getLoadedRevisionId());
+      $entity->setOriginal($original);
+    }
+
     $id = parent::doPreSave($entity);
+
+    $previously_default_revision = $entity->wasDefaultRevision();
+    $no_longer_default = !$entity->isDefaultRevision();
+    $original_same_as_current = $entity->getOriginal()?->getRevisionId() == $entity->getLoadedRevisionId();
+    $not_new_revision = !$entity->isNewRevision();
+    if ($previously_default_revision && $no_longer_default && $original_same_as_current && $not_new_revision) {
+      throw new EntityStorageException("An existing default revision of the '{$this->entityTypeId}' entity type can not be changed to a non-default revision.");
+    }
 
     if (!$entity->isNew()) {
       // If the ID changed then original can't be loaded, throw an exception
       // in that case.
-      if (empty($entity->original) || $entity->id() != $entity->original->id()) {
+      if (!$entity->getOriginal() || $entity->id() != $entity->getOriginal()->id()) {
         throw new EntityStorageException("Update existing '{$this->entityTypeId}' entity while changing the ID is not supported.");
       }
       // Do not allow changing the revision ID when resaving the current
@@ -778,14 +846,14 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   abstract protected function doDeleteRevisionFieldItems(ContentEntityInterface $revision);
 
   /**
-   * Checks translation statuses and invoke the related hooks if needed.
+   * Checks translation statuses and invokes the related hooks if needed.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being saved.
    */
   protected function invokeTranslationHooks(ContentEntityInterface $entity) {
     $translations = $entity->getTranslationLanguages(FALSE);
-    $original_translations = $entity->original->getTranslationLanguages(FALSE);
+    $original_translations = $entity->getOriginal()->getTranslationLanguages(FALSE);
     $all_translations = array_keys($translations + $original_translations);
 
     // Notify modules of translation insertion/deletion.
@@ -794,7 +862,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
         $this->invokeHook('translation_insert', $entity->getTranslation($langcode));
       }
       elseif (!isset($translations[$langcode]) && isset($original_translations[$langcode])) {
-        $this->invokeHook('translation_delete', $entity->original->getTranslation($langcode));
+        $this->invokeHook('translation_delete', $entity->getOriginal()->getTranslation($langcode));
       }
     }
   }
@@ -808,15 +876,19 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   protected function invokeStorageLoadHook(array &$entities) {
     if (!empty($entities)) {
       // Call hook_entity_storage_load().
-      foreach ($this->moduleHandler()->getImplementations('entity_storage_load') as $module) {
-        $function = $module . '_entity_storage_load';
-        $function($entities, $this->entityTypeId);
-      }
+      $this->moduleHandler()->invokeAllWith(
+        'entity_storage_load',
+        function (callable $hook, string $module) use (&$entities) {
+          $hook($entities, $this->entityTypeId);
+        }
+      );
       // Call hook_TYPE_storage_load().
-      foreach ($this->moduleHandler()->getImplementations($this->entityTypeId . '_storage_load') as $module) {
-        $function = $module . '_' . $this->entityTypeId . '_storage_load';
-        $function($entities);
-      }
+      $this->moduleHandler()->invokeAllWith(
+        $this->entityTypeId . '_storage_load',
+        function (callable $hook, string $module) use (&$entities) {
+          $hook($entities);
+        }
+      );
     }
   }
 
@@ -884,10 +956,19 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
 
     // We need to call the delete method for field items of removed
     // translations.
-    if ($method == 'postSave' && !empty($entity->original)) {
-      $original_langcodes = array_keys($entity->original->getTranslationLanguages());
+    if ($method == 'postSave' && $entity->getOriginal()) {
+      $original_langcodes = array_keys($entity->getOriginal()->getTranslationLanguages());
       foreach (array_diff($original_langcodes, $langcodes) as $removed_langcode) {
-        $translation = $entity->original->getTranslation($removed_langcode);
+        /** @var \Drupal\Core\Entity\ContentEntityInterface $translation */
+        $translation = $entity->getOriginal()->getTranslation($removed_langcode);
+
+        // Fields may rely on the isDefaultTranslation() method to determine
+        // what is going to be deleted - the whole entity or a particular
+        // translation.
+        if ($translation->isDefaultTranslation()) {
+          $translation->setDefaultTranslationEnforced(FALSE);
+        }
+
         $fields = $translation->getTranslatableFields();
         foreach ($fields as $name => $items) {
           $items->delete();
@@ -1014,7 +1095,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
    * @return \Drupal\Core\Entity\ContentEntityInterface[]
    *   Array of entities from the persistent cache.
    */
-  protected function getFromPersistentCache(array &$ids = NULL) {
+  protected function getFromPersistentCache(?array &$ids = NULL) {
     if (!$this->entityType->isPersistentlyCacheable() || empty($ids)) {
       return [];
     }
@@ -1049,13 +1130,14 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
       return;
     }
 
-    $cache_tags = [
-      $this->entityTypeId . '_values',
-      'entity_field_info',
-    ];
+    $items = [];
     foreach ($entities as $id => $entity) {
-      $this->cacheBackend->set($this->buildCacheId($id), $entity, CacheBackendInterface::CACHE_PERMANENT, $cache_tags);
+      $items[$this->buildCacheId($id)] = [
+        'data' => $entity,
+        'tags' => ['entity_field_info'],
+      ];
     }
+    $this->cacheBackend->setMultiple($items);
   }
 
   /**
@@ -1106,9 +1188,17 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
   }
 
   /**
-   * {@inheritdoc}
+   * Resets the entity cache.
+   *
+   * Content entities have both an in-memory static cache and a persistent
+   * cache. Use this method to clear all caches. To clear just the in-memory
+   * cache, use the 'entity.memory_cache' service.
+   *
+   * @param array $ids
+   *   (optional) If specified, the cache is reset for the entities with the
+   *   given ids only.
    */
-  public function resetCache(array $ids = NULL) {
+  public function resetCache(?array $ids = NULL) {
     if ($ids) {
       parent::resetCache($ids);
       if ($this->entityType->isPersistentlyCacheable()) {
@@ -1123,7 +1213,7 @@ abstract class ContentEntityStorageBase extends EntityStorageBase implements Con
     else {
       parent::resetCache();
       if ($this->entityType->isPersistentlyCacheable()) {
-        Cache::invalidateTags([$this->entityTypeId . '_values']);
+        $this->cacheBackend->deleteAll();
       }
       $this->latestRevisionIds = [];
     }

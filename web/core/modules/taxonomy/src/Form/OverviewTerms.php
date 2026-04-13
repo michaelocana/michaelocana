@@ -3,8 +3,6 @@
 namespace Drupal\taxonomy\Form;
 
 use Drupal\Component\Utility\Unicode;
-use Drupal\Core\Access\AccessResult;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -22,12 +20,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @internal
  */
 class OverviewTerms extends FormBase {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The module handler service.
@@ -89,24 +81,16 @@ class OverviewTerms extends FormBase {
    *   The renderer service.
    * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
    *   The entity repository.
-   * @param \Drupal\Core\Pager\PagerManagerInterface|null $pager_manager
+   * @param \Drupal\Core\Pager\PagerManagerInterface $pager_manager
    *   The pager manager.
    */
-  public function __construct(ModuleHandlerInterface $module_handler, EntityTypeManagerInterface $entity_type_manager, RendererInterface $renderer = NULL, EntityRepositoryInterface $entity_repository = NULL, PagerManagerInterface $pager_manager = NULL) {
+  public function __construct(ModuleHandlerInterface $module_handler, EntityTypeManagerInterface $entity_type_manager, RendererInterface $renderer, EntityRepositoryInterface $entity_repository, PagerManagerInterface $pager_manager) {
     $this->moduleHandler = $module_handler;
     $this->entityTypeManager = $entity_type_manager;
     $this->storageController = $entity_type_manager->getStorage('taxonomy_term');
     $this->termListBuilder = $entity_type_manager->getListBuilder('taxonomy_term');
-    $this->renderer = $renderer ?: \Drupal::service('renderer');
-    if (!$entity_repository) {
-      @trigger_error('Calling OverviewTerms::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
+    $this->renderer = $renderer;
     $this->entityRepository = $entity_repository;
-    if (!$pager_manager) {
-      @trigger_error('Calling OverviewTerms::__construct() without the $pager_manager argument is deprecated in drupal:8.8.0 and the $pager_manager argument will be required in drupal:9.0.0. See https://www.drupal.org/node/2779457', E_USER_DEPRECATED);
-      $pager_manager = \Drupal::service('pager.manager');
-    }
     $this->pagerManager = $pager_manager;
   }
 
@@ -146,12 +130,12 @@ class OverviewTerms extends FormBase {
    * @return array
    *   The form structure.
    */
-  public function buildForm(array $form, FormStateInterface $form_state, VocabularyInterface $taxonomy_vocabulary = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?VocabularyInterface $taxonomy_vocabulary = NULL) {
     $form_state->set(['taxonomy', 'vocabulary'], $taxonomy_vocabulary);
     $vocabulary_hierarchy = $this->storageController->getVocabularyHierarchyType($taxonomy_vocabulary->id());
     $parent_fields = FALSE;
 
-    $page = $this->getRequest()->query->get('page') ?: 0;
+    $page = $this->pagerManager->findPage();
     // Number of terms per page.
     $page_increment = $this->config('taxonomy.settings')->get('terms_per_page_admin');
     // Elements shown on this page.
@@ -174,8 +158,11 @@ class OverviewTerms extends FormBase {
 
     $delta = 0;
     $term_deltas = [];
-    $tree = $this->storageController->loadTree($taxonomy_vocabulary->id(), 0, NULL, TRUE);
+    // Terms are not loaded to avoid excessive memory consumption for large
+    // vocabularies. Needed terms are loaded explicitly afterward.
+    $tree = $this->storageController->loadTree($taxonomy_vocabulary->id(), 0, NULL, FALSE);
     $tree_index = 0;
+    $complete_tree = NULL;
     do {
       // In case this tree is completely empty.
       if (empty($tree[$tree_index])) {
@@ -194,23 +181,23 @@ class OverviewTerms extends FormBase {
       }
 
       // Do not let a term start the page that is not at the root.
-      $term = $tree[$tree_index];
-      if (isset($term->depth) && ($term->depth > 0) && !isset($back_step)) {
+      $raw_term = $tree[$tree_index];
+      if (isset($raw_term->depth) && ($raw_term->depth > 0) && !isset($back_step)) {
         $back_step = 0;
-        while ($pterm = $tree[--$tree_index]) {
+        while ($parent_term = $tree[--$tree_index]) {
           $before_entries--;
           $back_step++;
-          if ($pterm->depth == 0) {
+          if ($parent_term->depth == 0) {
             $tree_index--;
             // Jump back to the start of the root level parent.
             continue 2;
           }
         }
       }
-      $back_step = isset($back_step) ? $back_step : 0;
+      $back_step = $back_step ?? 0;
 
       // Continue rendering the tree until we reach the a new root item.
-      if ($page_entries >= $page_increment + $back_step + 1 && $term->depth == 0 && $root_entries > 1) {
+      if ($page_entries >= $page_increment + $back_step + 1 && $raw_term->depth == 0 && $root_entries > 1) {
         $complete_tree = TRUE;
         // This new item at the root level is the first item on the next page.
         $after_entries++;
@@ -223,19 +210,29 @@ class OverviewTerms extends FormBase {
       // Finally, if we've gotten down this far, we're rendering a term on this
       // page.
       $page_entries++;
-      $term_deltas[$term->id()] = isset($term_deltas[$term->id()]) ? $term_deltas[$term->id()] + 1 : 0;
-      $key = 'tid:' . $term->id() . ':' . $term_deltas[$term->id()];
+      $term_deltas[$raw_term->tid] = isset($term_deltas[$raw_term->tid]) ? $term_deltas[$raw_term->tid] + 1 : 0;
+      $key = 'tid:' . $raw_term->tid . ':' . $term_deltas[$raw_term->tid];
 
       // Keep track of the first term displayed on this page.
       if ($page_entries == 1) {
-        $form['#first_tid'] = $term->id();
+        $form['#first_tid'] = $raw_term->tid;
       }
       // Keep a variable to make sure at least 2 root elements are displayed.
-      if ($term->parents[0] == 0) {
+      if ($raw_term->parents[0] == 0) {
         $root_entries++;
       }
-      $current_page[$key] = $term;
+      $current_page[$key] = $raw_term;
     } while (isset($tree[++$tree_index]));
+
+    // Load all the terms we're going to display and set the weight and parents
+    // from the tree.
+    $terms = $this->storageController->loadMultiple(array_keys($term_deltas));
+    $current_page = array_map(function ($raw_term) use ($terms) {
+      $term = $terms[$raw_term->tid];
+      $term->depth = $raw_term->depth;
+      $term->parents = $raw_term->parents;
+      return $term;
+    }, $current_page);
 
     // Because we didn't use a pager query, set the necessary pager variables.
     $total_entries = $before_entries + $page_entries + $after_entries;
@@ -245,7 +242,7 @@ class OverviewTerms extends FormBase {
     // error. Ensure the form is rebuilt in the same order as the user
     // submitted.
     $user_input = $form_state->getUserInput();
-    if (!empty($user_input)) {
+    if (!empty($user_input['terms'])) {
       // Get the POST order.
       $order = array_flip(array_keys($user_input['terms']));
       // Update our form with the new order.
@@ -267,34 +264,18 @@ class OverviewTerms extends FormBase {
       '%name' => $taxonomy_vocabulary->label(),
     ];
     if ($this->currentUser()->hasPermission('administer taxonomy') || $this->currentUser()->hasPermission('edit terms in ' . $taxonomy_vocabulary->id())) {
-      switch ($vocabulary_hierarchy) {
-        case VocabularyInterface::HIERARCHY_DISABLED:
-          $help_message = $this->t('You can reorganize the terms in %capital_name using their drag-and-drop handles, and group terms under a parent term by sliding them under and to the right of the parent.', $args);
-          break;
-
-        case VocabularyInterface::HIERARCHY_SINGLE:
-          $help_message = $this->t('%capital_name contains terms grouped under parent terms. You can reorganize the terms in %capital_name using their drag-and-drop handles.', $args);
-          break;
-
-        case VocabularyInterface::HIERARCHY_MULTIPLE:
-          $help_message = $this->t('%capital_name contains terms with multiple parents. Drag and drop of terms with multiple parents is not supported, but you can re-enable drag-and-drop support by editing each term to include only a single parent.', $args);
-          break;
-      }
+      $help_message = match ($vocabulary_hierarchy) {
+        VocabularyInterface::HIERARCHY_DISABLED => $this->t('You can reorganize the terms in %capital_name using their drag-and-drop handles, and group terms under a parent term by sliding them under and to the right of the parent.', $args),
+        VocabularyInterface::HIERARCHY_SINGLE => $this->t('%capital_name contains terms grouped under parent terms. You can reorganize the terms in %capital_name using their drag-and-drop handles.', $args),
+        VocabularyInterface::HIERARCHY_MULTIPLE => $this->t('%capital_name contains terms with multiple parents. Drag and drop of terms with multiple parents is not supported, but you can re-enable drag-and-drop support by editing each term to include only a single parent.', $args),
+      };
     }
     else {
-      switch ($vocabulary_hierarchy) {
-        case VocabularyInterface::HIERARCHY_DISABLED:
-          $help_message = $this->t('%capital_name contains the following terms.', $args);
-          break;
-
-        case VocabularyInterface::HIERARCHY_SINGLE:
-          $help_message = $this->t('%capital_name contains terms grouped under parent terms', $args);
-          break;
-
-        case VocabularyInterface::HIERARCHY_MULTIPLE:
-          $help_message = $this->t('%capital_name contains terms with multiple parents.', $args);
-          break;
-      }
+      $help_message = match ($vocabulary_hierarchy) {
+        VocabularyInterface::HIERARCHY_DISABLED =>  $this->t('%capital_name contains the following terms.', $args),
+        VocabularyInterface::HIERARCHY_SINGLE => $this->t('%capital_name contains terms grouped under parent terms', $args),
+        VocabularyInterface::HIERARCHY_MULTIPLE => $this->t('%capital_name contains terms with multiple parents.', $args),
+      };
     }
 
     // Get the IDs of the terms edited on the current page which have pending
@@ -314,13 +295,14 @@ class OverviewTerms extends FormBase {
 
     // Only allow access to change parents and reorder the tree if there are no
     // pending revisions and there are no terms with multiple parents.
-    $update_tree_access = AccessResult::allowedIf(empty($pending_term_ids) && $vocabulary_hierarchy !== VocabularyInterface::HIERARCHY_MULTIPLE);
-
+    $update_tree_access = $taxonomy_vocabulary->access('reset all weights', NULL, TRUE);
     $form['help'] = [
       '#type' => 'container',
       'message' => ['#markup' => $help_message],
     ];
-    if (!$update_tree_access->isAllowed()) {
+
+    $operations_access = !empty($pending_term_ids) || $vocabulary_hierarchy === VocabularyInterface::HIERARCHY_MULTIPLE;
+    if ($operations_access) {
       $form['help']['#attributes']['class'] = ['messages', 'messages--warning'];
     }
 
@@ -340,8 +322,9 @@ class OverviewTerms extends FormBase {
       '#empty' => $empty,
       '#header' => [
         'term' => $this->t('Name'),
+        'status' => $this->t('Status'),
         'operations' => $this->t('Operations'),
-        'weight' => $update_tree_access->isAllowed() ? $this->t('Weight') : NULL,
+        'weight' => !$operations_access ? $this->t('Weight') : NULL,
       ],
       '#attributes' => [
         'id' => 'taxonomy',
@@ -352,10 +335,11 @@ class OverviewTerms extends FormBase {
     foreach ($current_page as $key => $term) {
       $form['terms'][$key] = [
         'term' => [],
+        'status' => [],
         'operations' => [],
         'weight' => $update_tree_access->isAllowed() ? [] : NULL,
       ];
-      /** @var $term \Drupal\Core\Entity\EntityInterface */
+      /** @var \Drupal\Core\Entity\EntityInterface $term */
       $term = $this->entityRepository->getTranslationFromContext($term);
       $form['terms'][$key]['#term'] = $term;
       $indentation = [];
@@ -370,6 +354,10 @@ class OverviewTerms extends FormBase {
         '#type' => 'link',
         '#title' => $term->getName(),
         '#url' => $term->toUrl(),
+      ];
+      $form['terms'][$key]['status'] = [
+        '#type' => 'item',
+        '#markup' => ($term->isPublished()) ? $this->t('Published') : $this->t('Unpublished'),
       ];
 
       // Add a special class for terms with pending revision so we can highlight
@@ -408,8 +396,6 @@ class OverviewTerms extends FormBase {
           ],
         ];
       }
-      $update_access = $term->access('update', NULL, TRUE);
-      $update_tree_access = $update_tree_access->andIf($update_access);
 
       if ($update_tree_access->isAllowed()) {
         $form['terms'][$key]['weight'] = [
@@ -449,7 +435,7 @@ class OverviewTerms extends FormBase {
 
       // Add an error class if this row contains a form error.
       foreach ($errors as $error_key => $error) {
-        if (strpos($error_key, $key) === 0) {
+        if (str_starts_with($error_key, $key)) {
           $form['terms'][$key]['#attributes']['class'][] = 'error';
         }
       }
@@ -528,7 +514,9 @@ class OverviewTerms extends FormBase {
 
     $vocabulary = $form_state->get(['taxonomy', 'vocabulary']);
     $changed_terms = [];
-    $tree = $this->storageController->loadTree($vocabulary->id(), 0, NULL, TRUE);
+    // Terms are not loaded to avoid excessive memory consumption for large
+    // vocabularies. Needed terms are loaded explicitly afterward.
+    $tree = $this->storageController->loadTree($vocabulary->id(), 0, NULL, FALSE);
 
     if (empty($tree)) {
       return;
@@ -536,14 +524,14 @@ class OverviewTerms extends FormBase {
 
     // Build a list of all terms that need to be updated on previous pages.
     $weight = 0;
-    $term = $tree[0];
-    while ($term->id() != $form['#first_tid']) {
-      if ($term->parents[0] == 0 && $term->getWeight() != $weight) {
-        $term->setWeight($weight);
-        $changed_terms[$term->id()] = $term;
+    $raw_term = $tree[0];
+    $term_weights = [];
+    while ($raw_term->tid != $form['#first_tid']) {
+      if ($raw_term->parents[0] == 0 && $raw_term->weight != $weight) {
+        $term_weights[$raw_term->tid] = $weight;
       }
       $weight++;
-      $term = $tree[$weight];
+      $raw_term = $tree[$weight];
     }
 
     // Renumber the current page weights and assign any new parents.
@@ -551,12 +539,14 @@ class OverviewTerms extends FormBase {
     foreach ($form_state->getValue('terms') as $tid => $values) {
       if (isset($form['terms'][$tid]['#term'])) {
         $term = $form['terms'][$tid]['#term'];
-        // Give terms at the root level a weight in sequence with terms on previous pages.
+        // Give terms at the root level a weight in sequence with terms on
+        // previous pages.
         if ($values['term']['parent'] == 0 && $term->getWeight() != $weight) {
           $term->setWeight($weight);
           $changed_terms[$term->id()] = $term;
         }
-        // Terms not at the root level can safely start from 0 because they're all on this page.
+        // Terms not at the root level can safely start from 0 because they're
+        // all on this page.
         elseif ($values['term']['parent'] > 0) {
           $level_weights[$values['term']['parent']] = isset($level_weights[$values['term']['parent']]) ? $level_weights[$values['term']['parent']] + 1 : 0;
           if ($level_weights[$values['term']['parent']] != $term->getWeight()) {
@@ -575,12 +565,17 @@ class OverviewTerms extends FormBase {
 
     // Build a list of all terms that need to be updated on following pages.
     for ($weight; $weight < count($tree); $weight++) {
-      $term = $tree[$weight];
-      if ($term->parents[0] == 0 && $term->getWeight() != $weight) {
-        $term->parent->target_id = $term->parents[0];
-        $term->setWeight($weight);
-        $changed_terms[$term->id()] = $term;
+      $raw_term = $tree[$weight];
+      if ($raw_term->parents[0] == 0 && $raw_term->weight != $weight) {
+        $term_weights[$raw_term->tid] = $weight;
       }
+    }
+
+    // Load all the items that need to be updated at once.
+    $terms = $this->storageController->loadMultiple(array_keys($term_weights));
+    foreach ($terms as $term) {
+      $term->setWeight($term_weights[$term->id()]);
+      $changed_terms[$term->id()] = $term;
     }
 
     if (!empty($changed_terms)) {
@@ -608,7 +603,7 @@ class OverviewTerms extends FormBase {
    * Redirects to confirmation form for the reset action.
    */
   public function submitReset(array &$form, FormStateInterface $form_state) {
-    /** @var $vocabulary \Drupal\taxonomy\VocabularyInterface */
+    /** @var \Drupal\taxonomy\VocabularyInterface $vocabulary */
     $vocabulary = $form_state->get(['taxonomy', 'vocabulary']);
     $form_state->setRedirectUrl($vocabulary->toUrl('reset-form'));
   }

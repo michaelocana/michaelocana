@@ -7,40 +7,97 @@ use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Menu\MenuLinkManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Url;
-use Drupal\migrate\MigrateLookupInterface;
-use Drupal\migrate\Plugin\MigrationInterface;
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateExecutableInterface;
+use Drupal\migrate\MigrateLookupInterface;
 use Drupal\migrate\MigrateSkipRowException;
-use Drupal\migrate\Plugin\MigrateProcessInterface;
+use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
+// cspell:ignore plid
+
 /**
- * This plugin figures out menu link parent plugin IDs.
+ * Determines the parent of a menu link.
  *
- * @MigrateProcessPlugin(
- *   id = "menu_link_parent"
- * )
+ * Menu link item belongs to a menu such as 'Navigation' or 'Administration'.
+ * Menu link item also has a parent item unless it is the root element of the
+ * menu.
+ *
+ * This process plugin determines the parent item of a menu link. If the parent
+ * item can't be determined by ID, we try to determine it by a combination of
+ * menu name and parent link path.
+ *
+ * The source is an array of three values:
+ * - parent_id: The numeric ID of the parent menu link, or 0 if the link is the
+ *   root element of the menu.
+ * - menu_name: The name of the menu the menu link item belongs to.
+ * - parent_link_path: The Drupal path or external URL the parent of this menu
+ *   link points to.
+ *
+ * There is one configuration option:
+ * - lookup_migrations: (optional) An array of migration IDs. If missing or
+ *   null, then the current migration is used to look up parent_id. If provided,
+ *   then use just the listed migrations for that look-up.
+ *
+ * Examples:
+ *
+ * @code
+ * process:
+ *   parent:
+ *     plugin: menu_link_parent
+ *     source:
+ *       - plid
+ *       - menu_name
+ *       - parent_link_path
+ * @endcode
+ * In this example, first look for a menu link that had an ID defined by 'plid'
+ * in the source (e.g., '20'). If that fails, try to determine the parent by a
+ * combination of a menu name (e.g., 'management') and a parent menu link path
+ * (e.g., 'admin/structure').
+ *
+ * @code
+ * process:
+ *   parent:
+ *     plugin: menu_link_parent
+ *     source:
+ *       - plid
+ *       - menu_name
+ *       - parent_link_path
+ *     lookup_migrations: []
+ * @endcode
+ * In this example, skip the migration lookup and find the parent item using
+ * just the menu name and the link path.
+ *
+ * @code
+ * process:
+ *   parent:
+ *     plugin: menu_link_parent
+ *     source:
+ *       - plid
+ *       - menu_name
+ *       - parent_link_path
+ *     lookup_migrations:
+ *       - this_migration
+ *       - another_migration
+ * @endcode
+ * In this example, use this_migration and another_migration (in that order) to
+ * look up plid. When lookup_migrations is provided, the current migration is
+ * not added by default. If you want to use it, then include it in the list.
+ *
+ * @see https://www.drupal.org/docs/8/api/menu-api
+ * @see \Drupal\migrate\Plugin\MigrateProcessInterface
  */
+#[MigrateProcess('menu_link_parent')]
 class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPluginInterface {
 
   /**
+   * The menu link plugin manager.
+   *
    * @var \Drupal\Core\Menu\MenuLinkManagerInterface
    */
   protected $menuLinkManager;
-
-  /**
-   * The Migration process plugin.
-   *
-   * @var \Drupal\migrate\Plugin\MigrateProcessInterface
-   *
-   * @deprecated in drupal:8.8.x and is removed from drupal:9.0.0. Use
-   *   the migrate.lookup service instead.
-   *
-   * @see https://www.drupal.org/node/3047268
-   */
-  protected $migrationPlugin;
 
   /**
    * The currently running migration.
@@ -57,9 +114,18 @@ class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPlugin
   protected $migrateLookup;
 
   /**
+   * The menu link entity storage handler.
+   *
    * @var \Drupal\Core\Entity\EntityStorageInterface
    */
   protected $menuLinkStorage;
+
+  /**
+   * The migration IDs to use for looking up the parent link.
+   *
+   * @var string[]
+   */
+  protected array $lookupMigrations;
 
   /**
    * Constructs a MenuLinkParent object.
@@ -67,7 +133,7 @@ class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPlugin
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\migrate\MigrateLookupInterface $migrate_lookup
@@ -79,31 +145,20 @@ class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPlugin
    * @param \Drupal\migrate\Plugin\MigrationInterface $migration
    *   The currently running migration.
    */
-  // @codingStandardsIgnoreLine
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, $migrate_lookup, MenuLinkManagerInterface $menu_link_manager, EntityStorageInterface $menu_link_storage, MigrationInterface $migration = NULL) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrateLookupInterface $migrate_lookup, MenuLinkManagerInterface $menu_link_manager, EntityStorageInterface $menu_link_storage, MigrationInterface $migration) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-    if ($migrate_lookup instanceof MigrateProcessInterface) {
-      @trigger_error('Passing a migration process plugin as the fourth argument to ' . __METHOD__ . ' is deprecated in drupal:8.8.0 and will throw an error in drupal:9.0.0. Pass the migrate.lookup service instead. See https://www.drupal.org/node/3047268', E_USER_DEPRECATED);
-      $this->migrationPlugin = $migrate_lookup;
-      $migrate_lookup = \Drupal::service('migrate.lookup');
-    }
-    elseif (!$migrate_lookup instanceof MigrateLookupInterface) {
-      throw new \InvalidArgumentException("The fourth argument to " . __METHOD__ . " must be an instance of MigrateLookupInterface.");
-    }
-    elseif (!$migration instanceof MigrationInterface) {
-      throw new \InvalidArgumentException("The seventh argument to " . __METHOD__ . " must be an instance of MigrationInterface.");
-    }
+
     $this->migration = $migration;
     $this->migrateLookup = $migrate_lookup;
     $this->menuLinkManager = $menu_link_manager;
     $this->menuLinkStorage = $menu_link_storage;
+    $this->lookupMigrations = $this->configuration['lookup_migrations'] ?? [$this->migration->id()];
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
-    $migration_configuration['migration'][] = $migration->id();
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, ?MigrationInterface $migration = NULL) {
     return new static(
       $configuration,
       $plugin_id,
@@ -122,29 +177,17 @@ class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPlugin
    */
   public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
     $parent_id = array_shift($value);
+
+    // Handle root elements of a menu.
     if (!$parent_id) {
-      // Top level item.
       return '';
     }
-    // This BC layer is included because if the plugin constructor was called
-    // in the legacy way with a migration_lookup process plugin, it may have
-    // been preconfigured with a different migration to look up against. While
-    // this is unlikely, for maximum BC we will continue to use the plugin to do
-    // the lookup if it is provided, and support for this will be removed in
-    // Drupal 9.
-    if ($this->migrationPlugin) {
-      try {
-        $already_migrated_id = $this
-          ->migrationPlugin
-          ->transform($parent_id, $migrate_executable, $row, $destination_property);
-      }
-      catch (MigrateSkipRowException $e) {
-      }
-    }
-    else {
-      $lookup_result = $this->migrateLookup->lookup($this->migration->id(), [$parent_id]);
+
+    foreach ($this->lookupMigrations as $migration_id) {
+      $lookup_result = $this->migrateLookup->lookup($migration_id, [$parent_id]);
       if ($lookup_result) {
         $already_migrated_id = $lookup_result[0]['id'];
+        break;
       }
     }
 
@@ -152,25 +195,31 @@ class MenuLinkParent extends ProcessPluginBase implements ContainerFactoryPlugin
       return $link->getPluginId();
     }
 
+    // Parent could not be determined by ID, so we try to determine by the
+    // combination of the menu name and parent link path.
     if (isset($value[1])) {
-      list($menu_name, $parent_link_path) = $value;
+      [$menu_name, $parent_link_path] = $value;
 
-      $links = [];
+      // If the parent link path is external, URL will be useless because the
+      // link will definitely not correspond to a Drupal route.
       if (UrlHelper::isExternal($parent_link_path)) {
-        $links = $this->menuLinkStorage->loadByProperties(['link__uri' => $parent_link_path]);
+        $links = $this->menuLinkStorage->loadByProperties([
+          'menu_name' => $menu_name,
+          'link.uri' => $parent_link_path,
+        ]);
       }
       else {
-        $url = Url::fromUserInput("/$parent_link_path");
+        $url = Url::fromUserInput('/' . ltrim($parent_link_path, '/'));
         if ($url->isRouted()) {
           $links = $this->menuLinkManager->loadLinksByRoute($url->getRouteName(), $url->getRouteParameters(), $menu_name);
         }
       }
-      if (count($links) == 1) {
-        /** @var \Drupal\Core\Menu\MenuLinkInterface $link */
-        $link = reset($links);
-        return $link->getPluginId();
+      if (!empty($links)) {
+        return reset($links)->getPluginId();
       }
     }
+
+    // Parent could not be determined.
     throw new MigrateSkipRowException(sprintf("No parent link found for plid '%d' in menu '%s'.", $parent_id, $value[0]));
   }
 

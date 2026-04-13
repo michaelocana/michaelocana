@@ -1,10 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block_content\Functional;
 
-use Drupal\block_content\Entity\BlockContent;
 use Drupal\block_content\Entity\BlockContentType;
-use Drupal\Core\Database\Database;
 use Drupal\Tests\content_translation\Functional\ContentTranslationUITestBase;
 
 /**
@@ -15,11 +15,9 @@ use Drupal\Tests\content_translation\Functional\ContentTranslationUITestBase;
 class BlockContentTranslationUITest extends ContentTranslationUITestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'content_translation',
     'block',
@@ -30,7 +28,7 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
@@ -48,11 +46,12 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     $this->entityTypeId = 'block_content';
     $this->bundle = 'basic';
     $this->testLanguageSelector = FALSE;
     parent::setUp();
+    $this->doSetup();
 
     $this->drupalPlaceBlock('page_title_block');
   }
@@ -60,7 +59,7 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setupBundle() {
+  protected function setupBundle(): void {
     // Create the basic bundle since it is provided by standard.
     $bundle = BlockContentType::create([
       'id' => $this->bundle,
@@ -79,39 +78,18 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
       'access administration pages',
       'administer blocks',
       'administer block_content fields',
+      'access block library',
+      'create basic block content',
+      'edit any basic block content',
+      'delete any basic block content',
     ]);
-  }
-
-  /**
-   * Creates a custom block.
-   *
-   * @param bool|string $title
-   *   (optional) Title of block. When no value is given uses a random name.
-   *   Defaults to FALSE.
-   * @param bool|string $bundle
-   *   (optional) Bundle name. When no value is given, defaults to
-   *   $this->bundle. Defaults to FALSE.
-   *
-   * @return \Drupal\block_content\Entity\BlockContent
-   *   Created custom block.
-   */
-  protected function createBlockContent($title = FALSE, $bundle = FALSE) {
-    $title = $title ?: $this->randomMachineName();
-    $bundle = $bundle ?: $this->bundle;
-    $block_content = BlockContent::create([
-      'info' => $title,
-      'type' => $bundle,
-      'langcode' => 'en',
-    ]);
-    $block_content->save();
-    return $block_content;
   }
 
   /**
    * {@inheritdoc}
    */
   protected function getNewEntityValues($langcode) {
-    return ['info' => mb_strtolower($this->randomMachineName())] + parent::getNewEntityValues($langcode);
+    return ['info' => $this->randomMachineName()] + parent::getNewEntityValues($langcode);
   }
 
   /**
@@ -131,7 +109,7 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
   /**
    * {@inheritdoc}
    */
-  protected function doTestBasicTranslation() {
+  protected function doTestBasicTranslation(): void {
     parent::doTestBasicTranslation();
 
     // Ensure that a block translation can be created using the same description
@@ -147,44 +125,21 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
     try {
       $entity->save();
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Blocks can have translations with the same "info" value.');
     }
 
     // Check that the translate operation link is shown.
-    $this->drupalGet('admin/structure/block/block-content');
-    $this->assertLinkByHref('block/' . $entity->id() . '/translations');
-  }
-
-  /**
-   * Test that no metadata is stored for a disabled bundle.
-   */
-  public function testDisabledBundle() {
-    // Create a bundle that does not have translation enabled.
-    $disabled_bundle = $this->randomMachineName();
-    $bundle = BlockContentType::create([
-      'id' => $disabled_bundle,
-      'label' => $disabled_bundle,
-      'revision' => FALSE,
-    ]);
-    $bundle->save();
-
-    // Create a block content for each bundle.
-    $enabled_block_content = $this->createBlockContent();
-    $disabled_block_content = $this->createBlockContent(FALSE, $bundle->id());
-
-    // Make sure that only a single row was inserted into the block table.
-    $rows = Database::getConnection()->query('SELECT * FROM {block_content_field_data} WHERE id = :id', [':id' => $enabled_block_content->id()])->fetchAll();
-    $this->assertCount(1, $rows);
+    $this->drupalGet('admin/content/block');
+    $this->assertSession()->linkByHrefExists('admin/content/block/' . $entity->id() . '/translations');
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doTestTranslationEdit() {
+  protected function doTestTranslationEdit(): void {
     $storage = $this->container->get('entity_type.manager')
       ->getStorage($this->entityTypeId);
-    $storage->resetCache([$this->entityId]);
     $entity = $storage->load($this->entityId);
     $languages = $this->container->get('language_manager')->getLanguages();
 
@@ -194,13 +149,7 @@ class BlockContentTranslationUITest extends ContentTranslationUITestBase {
         $options = ['language' => $languages[$langcode]];
         $url = $entity->toUrl('edit-form', $options);
         $this->drupalGet($url);
-
-        $title = t('<em>Edit @type</em> @title [%language translation]', [
-          '@type' => $entity->bundle(),
-          '@title' => $entity->getTranslation($langcode)->label(),
-          '%language' => $languages[$langcode]->getName(),
-        ]);
-        $this->assertRaw($title);
+        $this->assertSession()->pageTextContains("Edit {$entity->bundle()} {$entity->getTranslation($langcode)->label()} [{$languages[$langcode]->getName()} translation]");
       }
     }
   }

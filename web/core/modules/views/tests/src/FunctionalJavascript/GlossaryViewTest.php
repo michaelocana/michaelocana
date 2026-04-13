@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\FunctionalJavascript;
 
 use Drupal\Core\Url;
@@ -22,26 +24,32 @@ class GlossaryViewTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['language', 'node', 'views', 'views_test_config'];
+  protected static $modules = [
+    'language',
+    'node',
+    'views',
+    'views_test_config',
+  ];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'starterkit_theme';
 
   /**
-   * @var array
    * The test Views to enable.
+   *
+   * @var array
    */
   public static $testViews = ['test_glossary'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
-    ViewTestData::createTestViews(get_class($this), ['views_test_config']);
+    ViewTestData::createTestViews(static::class, ['views_test_config']);
 
     // Create a Content type and some test nodes with titles that start with
     // different letters.
@@ -75,7 +83,7 @@ class GlossaryViewTest extends WebDriverTestBase {
   /**
    * Tests the AJAX callbacks for the glossary view.
    */
-  public function testGlossaryDefault() {
+  public function testGlossaryDefault(): void {
     // Visit the default Glossary page.
     $url = Url::fromRoute('view.test_glossary.page_1');
     $this->drupalGet($url);
@@ -95,9 +103,9 @@ class GlossaryViewTest extends WebDriverTestBase {
   }
 
   /**
-   * Test that the glossary also works on a language prefixed URL.
+   * Tests that the glossary also works on a language prefixed URL.
    */
-  public function testGlossaryLanguagePrefix() {
+  public function testGlossaryLanguagePrefix(): void {
     ConfigurableLanguage::createFromLangcode('nl')->save();
 
     $config = $this->config('language.negotiation');

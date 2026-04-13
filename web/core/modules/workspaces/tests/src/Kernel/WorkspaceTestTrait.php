@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workspaces\Kernel;
 
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\workspaces\Entity\Handler\IgnoredWorkspaceHandler;
 use Drupal\workspaces\Entity\Workspace;
 
 /**
@@ -37,6 +41,12 @@ trait WorkspaceTestTrait {
     $this->installEntitySchema('workspace');
     $this->installSchema('workspaces', ['workspace_association']);
 
+    // Install the entity schema for supported entity types to ensure that the
+    // 'workspace' revision metadata field gets created.
+    foreach (array_keys(\Drupal::service('workspaces.information')->getSupportedEntityTypes()) as $entity_type_id) {
+      $this->installEntitySchema($entity_type_id);
+    }
+
     // Create two workspaces by default, 'live' and 'stage'.
     $this->workspaces['live'] = Workspace::create(['id' => 'live', 'label' => 'Live']);
     $this->workspaces['live']->save();
@@ -65,7 +75,17 @@ trait WorkspaceTestTrait {
   }
 
   /**
-   * Creates the following workspace hierarchy:
+   * Switches the test runner's context to Live.
+   */
+  protected function switchToLive(): void {
+    \Drupal::service('workspaces.manager')->switchToLive();
+  }
+
+  /**
+   * Creates a test workspace hierarchy.
+   *
+   * The full hierarchy including the default workspaces 'live' and 'stage' is:
+   *
    * live
    * - stage
    *   - dev
@@ -74,13 +94,13 @@ trait WorkspaceTestTrait {
    * - qa
    */
   protected function createWorkspaceHierarchy() {
-    $this->workspaces['dev'] = Workspace::create(['id' => 'dev', 'parent' => 'stage']);
+    $this->workspaces['dev'] = Workspace::create(['id' => 'dev', 'parent' => 'stage', 'label' => 'dev']);
     $this->workspaces['dev']->save();
-    $this->workspaces['local_1'] = Workspace::create(['id' => 'local_1', 'parent' => 'dev']);
+    $this->workspaces['local_1'] = Workspace::create(['id' => 'local_1', 'parent' => 'dev', 'label' => 'local_1']);
     $this->workspaces['local_1']->save();
-    $this->workspaces['local_2'] = Workspace::create(['id' => 'local_2', 'parent' => 'dev']);
+    $this->workspaces['local_2'] = Workspace::create(['id' => 'local_2', 'parent' => 'dev', 'label' => 'local_2']);
     $this->workspaces['local_2']->save();
-    $this->workspaces['qa'] = Workspace::create(['id' => 'qa', 'parent' => 'live']);
+    $this->workspaces['qa'] = Workspace::create(['id' => 'qa', 'parent' => 'live', 'label' => 'qa']);
     $this->workspaces['qa']->save();
   }
 
@@ -97,7 +117,7 @@ trait WorkspaceTestTrait {
     $workspace_association = \Drupal::service('workspaces.association');
     foreach ($expected as $workspace_id => $expected_tracked_revision_ids) {
       $tracked_entities = $workspace_association->getTrackedEntities($workspace_id, $entity_type_id);
-      $tracked_revision_ids = isset($tracked_entities[$entity_type_id]) ? $tracked_entities[$entity_type_id] : [];
+      $tracked_revision_ids = $tracked_entities[$entity_type_id] ?? [];
       $this->assertEquals($expected_tracked_revision_ids, array_keys($tracked_revision_ids));
     }
   }
@@ -129,6 +149,39 @@ trait WorkspaceTestTrait {
     }
 
     return $query->execute();
+  }
+
+  /**
+   * Marks an entity type as ignored in a workspace.
+   *
+   * @param string $entity_type_id
+   *   The entity type ID.
+   */
+  protected function ignoreEntityType(string $entity_type_id): void {
+    $entity_type = clone \Drupal::entityTypeManager()->getDefinition($entity_type_id);
+    $entity_type->setHandlerClass('workspace', IgnoredWorkspaceHandler::class);
+    \Drupal::state()->set("$entity_type_id.entity_type", $entity_type);
+    \Drupal::entityTypeManager()->clearCachedDefinitions();
+  }
+
+  /**
+   * Creates an entity.
+   *
+   * @param string $entity_type_id
+   *   The entity type ID.
+   * @param array $values
+   *   An array of values for the entity.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface
+   *   The created entity.
+   */
+  protected function createEntity(string $entity_type_id, array $values = []): EntityInterface {
+    $storage = \Drupal::entityTypeManager()->getStorage($entity_type_id);
+
+    $entity = $storage->create($values);
+    $entity->save();
+
+    return $entity;
   }
 
 }

@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -39,14 +42,20 @@ abstract class EntityLanguageTestBase extends EntityKernelTestBase {
    */
   protected $untranslatableFieldName;
 
-  public static $modules = ['language', 'entity_test'];
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = ['language', 'entity_test'];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->languageManager = $this->container->get('language_manager');
 
-    foreach (entity_test_entity_types() as $entity_type_id) {
+    foreach (EntityTestHelper::getEntityTypes() as $entity_type_id) {
       // The entity_test schema is installed by the parent.
       if ($entity_type_id != 'entity_test') {
         $this->installEntitySchema($entity_type_id);
@@ -56,20 +65,20 @@ abstract class EntityLanguageTestBase extends EntityKernelTestBase {
     $this->installConfig(['language']);
 
     // Create the test field.
-    module_load_install('entity_test');
+    $this->container->get('module_handler')->loadInclude('entity_test', 'install');
     entity_test_install();
 
     // Enable translations for the test entity type.
     $this->state->set('entity_test.translation', TRUE);
 
     // Create a translatable test field.
-    $this->fieldName = mb_strtolower($this->randomMachineName() . '_field_name');
+    $this->fieldName = $this->randomMachineName() . '_field_name';
 
     // Create an untranslatable test field.
-    $this->untranslatableFieldName = mb_strtolower($this->randomMachineName() . '_field_name');
+    $this->untranslatableFieldName = $this->randomMachineName() . '_field_name';
 
     // Create field fields in all entity variations.
-    foreach (entity_test_entity_types() as $entity_type) {
+    foreach (EntityTestHelper::getEntityTypes() as $entity_type) {
       FieldStorageConfig::create([
         'field_name' => $this->fieldName,
         'entity_type' => $entity_type,
@@ -118,6 +127,8 @@ abstract class EntityLanguageTestBase extends EntityKernelTestBase {
    *
    * @param string $entity_type
    *   The type of the entity fields are attached to.
+   * @param string $bundle
+   *   The bundle of the entity.
    */
   protected function toggleFieldTranslatability($entity_type, $bundle) {
     $fields = [$this->fieldName, $this->untranslatableFieldName];
@@ -127,7 +138,7 @@ abstract class EntityLanguageTestBase extends EntityKernelTestBase {
       $field->set('translatable', $translatable);
       $field->save();
       $field = FieldConfig::loadByName($entity_type, $bundle, $field_name);
-      $this->assertEqual($field->isTranslatable(), $translatable, 'Field translatability changed.');
+      $this->assertEquals($translatable, $field->isTranslatable(), 'Field translatability changed.');
     }
     \Drupal::cache('entity')->deleteAll();
   }

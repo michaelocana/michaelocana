@@ -47,7 +47,7 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $values = [], DataDefinitionInterface $item_definition = NULL) {
+  public function __construct(array $values = [], ?DataDefinitionInterface $item_definition = NULL) {
     $this->definition = $values;
     $this->itemDefinition = $item_definition;
   }
@@ -96,7 +96,7 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
   /**
    * Sets the item definition.
    *
-   * @param \Drupal\Core\TypedData\DataDefinition $definition
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $definition
    *   A list item's data definition.
    *
    * @return $this

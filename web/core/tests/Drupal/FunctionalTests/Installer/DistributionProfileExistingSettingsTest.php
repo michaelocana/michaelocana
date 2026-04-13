@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Installer;
 
 use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Database\Database;
 use Drupal\Core\DrupalKernel;
-use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -30,7 +31,7 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function prepareEnvironment() {
+  protected function prepareEnvironment(): void {
     parent::prepareEnvironment();
     $this->info = [
       'type' => 'profile',
@@ -39,14 +40,14 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
       'distribution' => [
         'name' => 'My Distribution',
         'install' => [
-          'theme' => 'bartik',
+          'theme' => 'olivero',
         ],
       ],
     ];
     // File API functions are not available yet.
-    $path = $this->siteDirectory . '/profiles/mydistro';
+    $path = $this->siteDirectory . '/profiles/my_distribution';
     mkdir($path, 0777, TRUE);
-    file_put_contents("$path/mydistro.info.yml", Yaml::encode($this->info));
+    file_put_contents("$path/my_distribution.info.yml", Yaml::encode($this->info));
 
     // Pre-configure hash salt.
     // Any string is valid, so simply use the class name of this test.
@@ -79,7 +80,7 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUpLanguage() {
+  protected function setUpLanguage(): void {
     // Make settings file not writable.
     $filename = $this->siteDirectory . '/settings.php';
     // Make the settings file read-only.
@@ -87,11 +88,11 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
     chmod($filename, 0444);
 
     // Verify that the distribution name appears.
-    $this->assertRaw($this->info['distribution']['name']);
+    $this->assertSession()->pageTextContains($this->info['distribution']['name']);
     // Verify that the requested theme is used.
-    $this->assertRaw($this->info['distribution']['install']['theme']);
+    $this->assertSession()->responseContains($this->info['distribution']['install']['theme']);
     // Verify that the "Choose profile" step does not appear.
-    $this->assertNoText('profile');
+    $this->assertSession()->pageTextNotContains('profile');
 
     parent::setUpLanguage();
   }
@@ -99,14 +100,14 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUpProfile() {
+  protected function setUpProfile(): void {
     // This step is skipped, because there is a distribution profile.
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function setUpSettings() {
+  protected function setUpSettings(): void {
     // This step should not appear, since settings.php is fully configured
     // already.
   }
@@ -114,19 +115,18 @@ class DistributionProfileExistingSettingsTest extends InstallerTestBase {
   /**
    * Confirms that the installation succeeded.
    */
-  public function testInstalled() {
-    $this->assertUrl('user/1');
+  public function testInstalled(): void {
+    $this->assertSession()->addressEquals('user/1');
     $this->assertSession()->statusCodeEquals(200);
     // Confirm that we are logged-in after installation.
-    $this->assertText($this->rootUser->getAccountName());
+    $this->assertSession()->pageTextContains($this->rootUser->getAccountName());
 
     // Confirm that Drupal recognizes this distribution as the current profile.
-    $this->assertEqual(\Drupal::installProfile(), 'mydistro');
-    $this->assertArrayNotHasKey('install_profile', Settings::getAll(), 'The install profile has not been written to settings.php.');
-    $this->assertEqual($this->config('core.extension')->get('profile'), 'mydistro', 'The install profile has been written to core.extension configuration.');
+    $this->assertEquals('my_distribution', \Drupal::installProfile());
+    $this->assertEquals('my_distribution', $this->config('core.extension')->get('profile'), 'The install profile has been written to core.extension configuration.');
 
     $this->rebuildContainer();
-    $this->assertEqual(\Drupal::installProfile(), 'mydistro');
+    $this->assertEquals('my_distribution', \Drupal::installProfile());
   }
 
 }

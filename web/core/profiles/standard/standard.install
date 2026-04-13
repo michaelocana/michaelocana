@@ -2,10 +2,9 @@
 
 /**
  * @file
- * Install, update and uninstall functions for the standard installation profile.
+ * Install, update and uninstall functions for the standard profile.
  */
 
-use Drupal\user\Entity\User;
 use Drupal\shortcut\Entity\Shortcut;
 
 /**
@@ -15,16 +14,7 @@ use Drupal\shortcut\Entity\Shortcut;
  *
  * @see system_install()
  */
-function standard_install() {
-  // Assign user 1 the "administrator" role.
-  $user = User::load(1);
-  $user->roles[] = 'administrator';
-  $user->save();
-
-  // We install some menu links, so we have to rebuild the router, to ensure the
-  // menu links are valid.
-  \Drupal::service('router.builder')->rebuildIfNeeded();
-
+function standard_install(): void {
   // Populate the default shortcut set.
   $shortcut = Shortcut::create([
     'shortcut_set' => 'default',

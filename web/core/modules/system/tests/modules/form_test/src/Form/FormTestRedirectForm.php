@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -26,11 +28,20 @@ class FormTestRedirectForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form['redirection'] = [
       '#type' => 'checkbox',
-      '#title' => t('Use redirection'),
+      '#title' => $this->t('Use redirection'),
     ];
     $form['destination'] = [
       '#type' => 'textfield',
-      '#title' => t('Redirect destination'),
+      '#title' => $this->t('Redirect destination'),
+      '#states' => [
+        'visible' => [
+          ':input[name="redirection"]' => ['checked' => TRUE],
+        ],
+      ],
+    ];
+    $form['ignore_destination'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Ignore destination query parameter'),
       '#states' => [
         'visible' => [
           ':input[name="redirection"]' => ['checked' => TRUE],
@@ -39,7 +50,7 @@ class FormTestRedirectForm extends FormBase {
     ];
     $form['submit'] = [
       '#type' => 'submit',
-      '#value' => t('Submit'),
+      '#value' => $this->t('Submit'),
     ];
 
     return $form;
@@ -52,9 +63,10 @@ class FormTestRedirectForm extends FormBase {
     if (!$form_state->isValueEmpty('redirection')) {
       if (!$form_state->isValueEmpty('destination')) {
         // The destination is a random URL, so we can't use routed URLs.
-        // @todo Revist this in https://www.drupal.org/node/2418219.
+        // @todo Revisit this in https://www.drupal.org/node/2418219.
         $form_state->setRedirectUrl(Url::fromUserInput('/' . $form_state->getValue('destination')));
       }
+      $form_state->setIgnoreDestination((bool) $form_state->getValue('ignore_destination'));
     }
     else {
       $form_state->disableRedirect();

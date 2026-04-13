@@ -2,51 +2,64 @@
 
 namespace Drupal\field\Entity;
 
+use Drupal\Core\Entity\Attribute\ConfigEntityType;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\FieldableEntityStorageInterface;
 use Drupal\Core\Field\FieldConfigBase;
 use Drupal\Core\Field\FieldException;
+use Drupal\field\FieldConfigAccessControlHandler;
+use Drupal\field\FieldConfigStorage;
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\field\FieldConfigInterface;
 
 /**
  * Defines the Field entity.
- *
- * @ConfigEntityType(
- *   id = "field_config",
- *   label = @Translation("Field"),
- *   label_collection = @Translation("Fields"),
- *   label_singular = @Translation("field"),
- *   label_plural = @Translation("fields"),
- *   label_count = @PluralTranslation(
- *     singular = "@count field",
- *     plural = "@count fields",
- *   ),
- *   handlers = {
- *     "access" = "Drupal\field\FieldConfigAccessControlHandler",
- *     "storage" = "Drupal\field\FieldConfigStorage"
- *   },
- *   config_prefix = "field",
- *   entity_keys = {
- *     "id" = "id",
- *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "field_name",
- *     "entity_type",
- *     "bundle",
- *     "label",
- *     "description",
- *     "required",
- *     "translatable",
- *     "default_value",
- *     "default_value_callback",
- *     "settings",
- *     "field_type",
- *   }
- * )
  */
+#[ConfigEntityType(
+  id: 'field_config',
+  label: new TranslatableMarkup('Field'),
+  label_collection: new TranslatableMarkup('Fields'),
+  label_singular: new TranslatableMarkup('field'),
+  label_plural: new TranslatableMarkup('fields'),
+  config_prefix: 'field',
+  entity_keys: [
+    'id' => 'id',
+    'label' => 'label',
+  ],
+  handlers: [
+    'access' => FieldConfigAccessControlHandler::class,
+    'storage' => FieldConfigStorage::class,
+  ],
+  label_count: [
+    'singular' => '@count field',
+    'plural' => '@count fields',
+  ],
+  constraints: [
+    'RequiredConfigDependencies' => ['field_storage_config'],
+    'ImmutableProperties' => [
+      'id',
+      'entity_type',
+      'field_name',
+      'bundle',
+      'field_type',
+    ],
+  ],
+  config_export: [
+    'id',
+    'field_name',
+    'entity_type',
+    'bundle',
+    'label',
+    'description',
+    'required',
+    'translatable',
+    'default_value',
+    'default_value_callback',
+    'settings',
+    'field_type',
+  ],
+)]
 class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
 
   /**
@@ -90,6 +103,9 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
    *   bundle to which the field is attached to. Other array elements will be
    *   used to set the corresponding properties on the class; see the class
    *   property documentation for details.
+   * @param string $entity_type
+   *   (optional) The entity type on which the field should be created.
+   *   Defaults to "field_config".
    */
   public function __construct(array $values, $entity_type = 'field_config') {
     // Allow either an injected FieldStorageConfig object, or a field_name and
@@ -139,7 +155,7 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
   }
 
   /**
-   * Overrides \Drupal\Core\Entity\Entity::preSave().
+   * Overrides \Drupal\Core\Entity\EntityBase::preSave().
    *
    * @throws \Drupal\Core\Field\FieldException
    *   If the field definition is invalid.
@@ -163,17 +179,17 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
     }
     else {
       // Some updates are always disallowed.
-      if ($this->entity_type != $this->original->entity_type) {
+      if ($this->entity_type != $this->getOriginal()->entity_type) {
         throw new FieldException("Cannot change an existing field's entity_type.");
       }
-      if ($this->bundle != $this->original->bundle) {
+      if ($this->bundle != $this->getOriginal()->bundle) {
         throw new FieldException("Cannot change an existing field's bundle.");
       }
-      if ($storage_definition->uuid() != $this->original->getFieldStorageDefinition()->uuid()) {
+      if ($storage_definition->uuid() != $this->getOriginal()->getFieldStorageDefinition()->uuid()) {
         throw new FieldException("Cannot change an existing field's storage.");
       }
       // Notify the entity storage.
-      \Drupal::service('field_definition.listener')->onFieldDefinitionUpdate($this, $this->original);
+      \Drupal::service('field_definition.listener')->onFieldDefinitionUpdate($this, $this->getOriginal());
     }
 
     parent::preSave($storage);
@@ -219,16 +235,7 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
    * {@inheritdoc}
    */
   public static function postDelete(EntityStorageInterface $storage, array $fields) {
-    // Clear the cache upfront, to refresh the results of getBundles().
-    \Drupal::service('entity_field.manager')->clearCachedFieldDefinitions();
-
-    // Notify the entity storage.
-    foreach ($fields as $field) {
-      if (!$field->deleted) {
-        \Drupal::service('field_definition.listener')->onFieldDefinitionDelete($field);
-      }
-    }
-
+    parent::postDelete($storage, $fields);
     // If this is part of a configuration synchronization then the following
     // configuration updates are not necessary.
     $entity = reset($fields);
@@ -258,7 +265,6 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
     $link_templates = parent::linkTemplates();
     if (\Drupal::moduleHandler()->moduleExists('field_ui')) {
       $link_templates["{$this->entity_type}-field-edit-form"] = 'entity.field_config.' . $this->entity_type . '_field_edit_form';
-      $link_templates["{$this->entity_type}-storage-edit-form"] = 'entity.field_config.' . $this->entity_type . '_storage_edit_form';
       $link_templates["{$this->entity_type}-field-delete-form"] = 'entity.field_config.' . $this->entity_type . '_field_delete_form';
 
       if (isset($link_templates['config-translation-overview'])) {
@@ -309,10 +315,10 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
       }
 
       if (!$field_storage_definition) {
-        throw new FieldException("Attempt to create a field {$this->field_name} that does not exist on entity type {$this->entity_type}.");
+        throw new FieldException("Attempted to create, modify or delete an instance of field with name {$this->field_name} on entity type {$this->entity_type} when the field storage does not exist.");
       }
       if (!$field_storage_definition instanceof FieldStorageConfigInterface) {
-        throw new FieldException("Attempt to create a configurable field of non-configurable field storage {$this->field_name}.");
+        throw new FieldException("Attempted to create, modify or delete a configurable field of non-configurable field storage {$this->field_name}.");
       }
       $this->fieldStorage = $field_storage_definition;
     }
@@ -366,7 +372,7 @@ class FieldConfig extends FieldConfigBase implements FieldConfigInterface {
    * @param string $field_name
    *   Name of the field.
    *
-   * @return static
+   * @return \Drupal\field\FieldConfigInterface|null
    *   The field config entity if one exists for the provided field
    *   name, otherwise NULL.
    */

@@ -1,9 +1,8 @@
-name: 'Custom Block'
+name: 'Block Content'
 type: module
-description: 'Allows the creation of custom blocks and block types.'
+description: 'Allows the creation of content blocks and block types.'
 package: Core
 version: VERSION
-core: 8.x
 dependencies:
   - drupal:block
   - drupal:text

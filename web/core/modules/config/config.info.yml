@@ -1,7 +1,6 @@
 name: 'Configuration Manager'
 type: module
-description: 'Allows administrators to import and export configuration changes.'
+description: 'Allows importing and exporting configuration changes.'
 package: Core
 version: VERSION
-core: 8.x
 configure: config.sync

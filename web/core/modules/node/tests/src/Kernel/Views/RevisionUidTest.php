@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel\Views;
 
 use Drupal\node\Entity\Node;
@@ -23,7 +25,7 @@ class RevisionUidTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'node_test_views',
     'system',
@@ -53,7 +55,7 @@ class RevisionUidTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
 
     $this->installSchema('node', 'node_access');
@@ -61,19 +63,20 @@ class RevisionUidTest extends ViewsKernelTestBase {
     $this->installEntitySchema('user');
 
     if ($import_test_views) {
-      ViewTestData::createTestViews(get_class($this), ['node_test_views']);
+      ViewTestData::createTestViews(static::class, ['node_test_views']);
     }
   }
 
   /**
    * Tests the node_revision_uid relationship.
    */
-  public function testRevisionUid() {
+  public function testRevisionUid(): void {
     $primary_author = $this->createUser();
     $secondary_author = $this->createUser();
 
     $node_type = NodeType::create([
       'type' => 'page',
+      'name' => 'Page',
     ]);
     $node_type->save();
     $node = Node::create([

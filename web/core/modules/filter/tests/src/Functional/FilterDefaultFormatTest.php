@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\filter\Functional;
 
 use Drupal\filter\Entity\FilterFormat;
@@ -13,11 +15,9 @@ use Drupal\Tests\BrowserTestBase;
 class FilterDefaultFormatTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['filter'];
+  protected static $modules = ['filter'];
 
   /**
    * {@inheritdoc}
@@ -27,7 +27,7 @@ class FilterDefaultFormatTest extends BrowserTestBase {
   /**
    * Tests if the default text format is accessible to users.
    */
-  public function testDefaultTextFormats() {
+  public function testDefaultTextFormats(): void {
     // Create two text formats, and two users. The first user has access to
     // both formats, but the second user only has access to the second one.
     $admin_user = $this->drupalCreateUser(['administer filters']);
@@ -35,14 +35,15 @@ class FilterDefaultFormatTest extends BrowserTestBase {
     $formats = [];
     for ($i = 0; $i < 2; $i++) {
       $edit = [
-        'format' => mb_strtolower($this->randomMachineName()),
+        'format' => $this->randomMachineName(),
         'name' => $this->randomMachineName(),
       ];
-      $this->drupalPostForm('admin/config/content/formats/add', $edit, t('Save configuration'));
+      $this->drupalGet('admin/config/content/formats/add');
+      $this->submitForm($edit, 'Save configuration');
       $this->resetFilterCaches();
       $formats[] = FilterFormat::load($edit['format']);
     }
-    list($first_format, $second_format) = $formats;
+    [$first_format, $second_format] = $formats;
     $second_format_permission = $second_format->getPermissionName();
     $first_user = $this->drupalCreateUser([
       $first_format->getPermissionName(),
@@ -55,31 +56,33 @@ class FilterDefaultFormatTest extends BrowserTestBase {
     $edit = [];
     $edit['formats[' . $first_format->id() . '][weight]'] = -2;
     $edit['formats[' . $second_format->id() . '][weight]'] = -1;
-    $this->drupalPostForm('admin/config/content/formats', $edit, t('Save'));
+    $this->drupalGet('admin/config/content/formats');
+    $this->submitForm($edit, 'Save');
     $this->resetFilterCaches();
 
     // Check that each user's default format is the lowest weighted format that
     // the user has access to.
     $actual = filter_default_format($first_user);
     $expected = $first_format->id();
-    $this->assertEqual($actual, $expected, "First user's default format $actual is the expected lowest weighted format $expected that the user has access to.");
+    $this->assertEquals($expected, $actual, "First user's default format {$actual} is the expected lowest weighted format {$expected} that the user has access to.");
     $actual = filter_default_format($second_user);
     $expected = $second_format->id();
-    $this->assertEqual($actual, $expected, "Second user's default format $actual is the expected lowest weighted format $expected that the user has access to, and different to the first user's.");
+    $this->assertEquals($expected, $actual, "Second user's default format {$actual} is the expected lowest weighted format {$expected} that the user has access to, and different to the first user's.");
 
     // Reorder the two formats, and check that both users now have the same
     // default.
     $edit = [];
     $edit['formats[' . $second_format->id() . '][weight]'] = -3;
-    $this->drupalPostForm('admin/config/content/formats', $edit, t('Save'));
+    $this->drupalGet('admin/config/content/formats');
+    $this->submitForm($edit, 'Save');
     $this->resetFilterCaches();
-    $this->assertEqual(filter_default_format($first_user), filter_default_format($second_user), 'After the formats are reordered, both users have the same default format.');
+    $this->assertEquals(filter_default_format($first_user), filter_default_format($second_user), 'After the formats are reordered, both users have the same default format.');
   }
 
   /**
    * Rebuilds text format and permission caches in the thread running the tests.
    */
-  protected function resetFilterCaches() {
+  protected function resetFilterCaches(): void {
     filter_formats_reset();
   }
 

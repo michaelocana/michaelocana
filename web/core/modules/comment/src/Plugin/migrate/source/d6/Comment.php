@@ -5,8 +5,15 @@ namespace Drupal\comment\Plugin\migrate\source\d6;
 use Drupal\migrate\Row;
 use Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase;
 
+// cspell:ignore vancode
+
 /**
  * Drupal 6 comment source from database.
+ *
+ * For available configuration keys, refer to the parent classes.
+ *
+ * @see \Drupal\migrate\Plugin\migrate\source\SqlBase
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  *
  * @MigrateSource(
  *   id = "d6_comment",
@@ -20,11 +27,11 @@ class Comment extends DrupalSqlBase {
    */
   public function query() {
     $query = $this->select('comments', 'c')
-      ->fields('c', ['cid', 'pid', 'nid', 'uid', 'subject',
-      'comment', 'hostname', 'timestamp', 'status', 'thread', 'name',
-      'mail', 'homepage', 'format',
-    ]);
-    $query->innerJoin('node', 'n', 'c.nid = n.nid');
+      ->fields('c', ['cid', 'pid', 'nid', 'uid', 'subject', 'comment',
+        'hostname', 'timestamp', 'status', 'thread', 'name', 'mail', 'homepage',
+        'format',
+      ]);
+    $query->innerJoin('node', 'n', '[c].[nid] = [n].[nid]');
     $query->fields('n', ['type', 'language']);
     $query->orderBy('c.timestamp');
     return $query;
@@ -34,45 +41,7 @@ class Comment extends DrupalSqlBase {
    * {@inheritdoc}
    */
   public function prepareRow(Row $row) {
-    // @todo Remove the call to ->prepareComment() in
-    // https://www.drupal.org/project/drupal/issues/3069260 when the Drupal 9
-    // branch opens.
-    return parent::prepareRow($this->prepareComment($row));
-  }
-
-  /**
-   * Provides a BC layer for deprecated sources.
-   *
-   * This is a backward compatibility layer for the deprecated migrate source
-   * plugins d6_comment_variable and d6_comment_variable_per_comment_type.
-   *
-   * @param \Drupal\migrate\Row $row
-   *   The row from the source to process.
-   *
-   * @return \Drupal\migrate\Row
-   *   The row object.
-   *
-   * @throws \Exception
-   *   Passing a Row with a frozen source to this method will trigger an
-   *   \Exception when attempting to set the source properties.
-   *
-   * @todo Remove usages of this method and deprecate for removal in
-   *   https://www.drupal.org/project/drupal/issues/3069260 when the Drupal 9
-   *   branch opens.
-   */
-  protected function prepareComment(Row $row) {
-    if ($this->variableGet('comment_subject_field_' . $row->getSourceProperty('type'), 1)) {
-      // Comment subject visible.
-      $row->setSourceProperty('field_name', 'comment');
-      $row->setSourceProperty('comment_type', 'comment');
-    }
-    else {
-      $row->setSourceProperty('field_name', 'comment_no_subject');
-      $row->setSourceProperty('comment_type', 'comment_no_subject');
-    }
-
     // In D6, status=0 means published, while in D8 means the opposite.
-    // See https://www.drupal.org/node/237636.
     $row->setSourceProperty('status', !$row->getSourceProperty('status'));
 
     // If node did not have a language, use site default language as a fallback.
@@ -81,7 +50,7 @@ class Comment extends DrupalSqlBase {
       $language = $language_default ? $language_default->language : 'en';
       $row->setSourceProperty('language', $language);
     }
-    return $row;
+    return parent::prepareRow($row);
   }
 
   /**

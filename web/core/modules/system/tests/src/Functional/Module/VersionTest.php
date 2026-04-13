@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\Module;
 
 /**
  * Tests module version dependencies.
  *
  * @group Module
+ * @group #slow
  */
 class VersionTest extends ModuleTestBase {
 
@@ -15,11 +18,12 @@ class VersionTest extends ModuleTestBase {
   protected $defaultTheme = 'stark';
 
   /**
-   * Test version dependencies.
+   * Tests version dependencies.
    */
-  public function testModuleVersions() {
+  public function testModuleVersions(): void {
     $dependencies = [
-      // Alternating between being compatible and incompatible with 8.x-2.4-beta3.
+      // Alternating between being compatible and incompatible with
+      // 8.x-2.4-beta3.
       // The first is always a compatible.
       'common_test',
       // Branch incompatibility.
@@ -53,8 +57,12 @@ class VersionTest extends ModuleTestBase {
     $n = count($dependencies);
     for ($i = 0; $i < $n; $i++) {
       $this->drupalGet('admin/modules');
-      $checkbox = $this->xpath('//input[@id="edit-modules-module-test-enable"]');
-      $this->assertEqual(!empty($checkbox[0]->getAttribute('disabled')), $i % 2, $dependencies[$i]);
+      if ($i % 2 == 0) {
+        $this->assertSession()->fieldEnabled('edit-modules-module-test-enable');
+      }
+      else {
+        $this->assertSession()->fieldDisabled('edit-modules-module-test-enable');
+      }
     }
   }
 

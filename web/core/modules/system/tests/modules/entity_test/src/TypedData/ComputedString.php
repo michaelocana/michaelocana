@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\entity_test\TypedData;
 
 use Drupal\Core\Cache\Cache;
@@ -10,6 +12,13 @@ use Drupal\Core\TypedData\TypedData;
  * A computed property for test strings.
  */
 class ComputedString extends TypedData implements CacheableDependencyInterface {
+
+  /**
+   * The data value.
+   *
+   * @var mixed
+   */
+  protected $value;
 
   /**
    * {@inheritdoc}

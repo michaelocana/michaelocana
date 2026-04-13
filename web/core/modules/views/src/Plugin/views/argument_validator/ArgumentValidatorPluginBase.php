@@ -14,9 +14,9 @@ use Drupal\views\Plugin\views\PluginBase;
  * Views argument validator plugins validate arguments (contextual filters) on
  * views. They can ensure arguments are valid, and even do transformations on
  * the arguments. They can also provide replacement patterns for the view title.
- * For example, the 'content' validator verifies verifies that the argument
- * value corresponds to a node, loads that node, and provides the node title
- * as a replacement pattern for the view title.
+ * For example, the 'content' validator verifies that the argument value
+ * corresponds to a node, loads that node, and provides the node title as a
+ * replacement pattern for the view title.
  *
  * Argument validator plugins extend
  * \Drupal\views\Plugin\views\argument_validator\ArgumentValidatorPluginBase.
@@ -39,6 +39,12 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
    * @var \Drupal\views\Plugin\views\argument\ArgumentPluginBase
    */
   protected $argument;
+
+  /**
+   * The option name.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $option_name;
 
   /**
    * Sets the parent argument this plugin is associated with.
@@ -82,8 +88,8 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
   /**
    * Blocks user input when the form is shown but we don´t have access.
    *
-   * This is only called by child objects if specified in the buildOptionsForm(),
-   * so it will not always be used.
+   * This is only called by child objects if specified in the
+   * buildOptionsForm(), so it will not always be used.
    */
   protected function checkAccess(&$form, $option_name) {
     if (!$this->access()) {
@@ -117,7 +123,9 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
    *   A context definition that represents the argument or NULL if that is
    *   not possible.
    */
-  public function getContextDefinition() {}
+  public function getContextDefinition() {
+    return NULL;
+  }
 
 }
 

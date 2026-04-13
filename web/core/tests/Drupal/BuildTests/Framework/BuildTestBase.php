@@ -1,24 +1,35 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\BuildTests\Framework;
 
-use Behat\Mink\Driver\Goutte\Client;
-use Behat\Mink\Driver\GoutteDriver;
+use Behat\Mink\Driver\BrowserKitDriver;
 use Behat\Mink\Mink;
 use Behat\Mink\Session;
+use Composer\InstalledVersions;
 use Drupal\Component\FileSystem\FileSystem as DrupalFilesystem;
-use Drupal\Tests\PhpunitCompatibilityTrait;
+use Drupal\Tests\DrupalTestBrowser;
+use Drupal\Tests\PhpUnitCompatibilityTrait;
+use Drupal\TestTools\Extension\RequiresComposerTrait;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\BrowserKit\Client as SymfonyClient;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFilesystem;
 use Symfony\Component\Finder\Finder;
-use Symfony\Component\Lock\Factory;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\FlockStore;
 use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
  * Provides a workspace to test build processes.
+ *
+ * Module tests extending BuildTestBase must exist in the
+ * Drupal\Tests\your_module\Build namespace and live in the
+ * modules/your_module/tests/src/Build directory.
+ *
+ * Tests for core/lib/Drupal classes extending BuildTestBase must exist in the
+ * \Drupal\BuildTests namespace and live in the core/tests/Drupal/BuildTests
+ * directory.
  *
  * If you need to build a file system and then run a command from the command
  * line then this is the test framework for you.
@@ -44,16 +55,14 @@ use Symfony\Component\Process\Process;
  *   built into the test, or abstract base classes.
  * - Allow parallel testing, using random/unique port numbers for different HTTP
  *   servers.
- * - Allow the use of PHPUnit-style (at)require annotations for external shell
- *   commands.
  *
  * We don't use UiHelperInterface because it is too tightly integrated to
  * Drupal.
  */
 abstract class BuildTestBase extends TestCase {
 
-  use ExternalCommandRequirementsTrait;
-  use PhpunitCompatibilityTrait;
+  use RequiresComposerTrait;
+  use PhpUnitCompatibilityTrait;
 
   /**
    * The working directory where this test will manipulate files.
@@ -142,24 +151,22 @@ abstract class BuildTestBase extends TestCase {
   private $commandProcess;
 
   /**
-   * {@inheritdoc}
+   * The PHP executable finder.
+   *
+   * @var \Symfony\Component\Process\PhpExecutableFinder
    */
-  public static function setUpBeforeClass() {
-    parent::setUpBeforeClass();
-    static::checkClassCommandRequirements();
-  }
+  private PhpExecutableFinder $phpFinder;
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-    static::checkMethodCommandRequirements($this->getName());
     $this->phpFinder = new PhpExecutableFinder();
     // Set up the workspace directory.
     // @todo Glean working directory from env vars, etc.
     $fs = new SymfonyFilesystem();
-    $this->workspaceDir = $fs->tempnam(DrupalFilesystem::getOsTemporaryDirectory(), '/build_workspace_' . md5($this->getName() . microtime(TRUE)));
+    $this->workspaceDir = $fs->tempnam(DrupalFilesystem::getOsTemporaryDirectory(), '/build_workspace_' . md5($this->name() . microtime(TRUE)));
     $fs->remove($this->workspaceDir);
     $fs->mkdir($this->workspaceDir);
     $this->initMink();
@@ -168,7 +175,7 @@ abstract class BuildTestBase extends TestCase {
   /**
    * {@inheritdoc}
    */
-  protected function tearDown() {
+  protected function tearDown(): void {
     parent::tearDown();
 
     $this->stopServer();
@@ -184,7 +191,7 @@ abstract class BuildTestBase extends TestCase {
         ->directories()
         ->ignoreVCS(FALSE)
         ->ignoreDotFiles(FALSE)
-        // composer script is a symlink and fails chmod. Ignore it.
+        // Composer script is a symlink and fails chmod. Ignore it.
         ->notPath('/^vendor\/bin\/composer$/');
       $fs->chmod($finder->getIterator(), 0775, 0000);
       $fs->remove($ws);
@@ -216,18 +223,12 @@ abstract class BuildTestBase extends TestCase {
    * Set up the Mink session manager.
    *
    * @return \Behat\Mink\Session
+   *   The Mink session.
    */
   protected function initMink() {
-    // If the Symfony BrowserKit client can followMetaRefresh(), we should use
-    // the Goutte descendent instead of ours.
-    if (method_exists(SymfonyClient::class, 'followMetaRefresh')) {
-      $client = new Client();
-    }
-    else {
-      $client = new DrupalMinkClient();
-    }
+    $client = new DrupalTestBrowser();
     $client->followMetaRefresh(TRUE);
-    $driver = new GoutteDriver($client);
+    $driver = new BrowserKitDriver($client);
     $session = new Session($driver);
     $this->mink = new Mink();
     $this->mink->registerSession('default', $session);
@@ -269,6 +270,16 @@ abstract class BuildTestBase extends TestCase {
    */
   public function assertErrorOutputContains($expected) {
     $this->assertStringContainsString($expected, $this->commandProcess->getErrorOutput());
+  }
+
+  /**
+   * Assert text is not present in the error output of the most recent command.
+   *
+   * @param string $expected
+   *   Text we expect not to find in the error output of the command.
+   */
+  public function assertErrorOutputNotContains($expected) {
+    $this->assertStringNotContainsString($expected, $this->commandProcess->getErrorOutput());
   }
 
   /**
@@ -317,12 +328,13 @@ abstract class BuildTestBase extends TestCase {
    *   execute the command. Defaults to the workspace directory.
    *
    * @return \Symfony\Component\Process\Process
+   *   The process object.
    */
   public function executeCommand($command_line, $working_dir = NULL) {
-    $this->commandProcess = new Process($command_line);
+    $this->commandProcess = Process::fromShellCommandline($command_line);
     $this->commandProcess->setWorkingDirectory($this->getWorkingPath($working_dir))
-      ->setTimeout(300)
-      ->setIdleTimeout(300);
+      ->setTimeout(360)
+      ->setIdleTimeout(360);
     $this->commandProcess->run();
     return $this->commandProcess;
   }
@@ -432,13 +444,14 @@ abstract class BuildTestBase extends TestCase {
       ->start();
     // Wait until the web server has started. It is started if the port is no
     // longer available.
-    for ($i = 0; $i < 1000; $i++) {
+    for ($i = 0; $i < 50; $i++) {
+      usleep(100000);
       if (!$this->checkPortIsAvailable($port)) {
         return $ps;
       }
-      usleep(1000);
     }
-    throw new \RuntimeException(sprintf("Unable to start the web server.\nERROR OUTPUT:\n%s", $ps->getErrorOutput()));
+
+    throw new \RuntimeException(sprintf("Unable to start the web server.\nCMD: %s \nCODE: %d\nSTATUS: %s\nOUTPUT:\n%s\n\nERROR OUTPUT:\n%s", $ps->getCommandLine(), $ps->getExitCode(), $ps->getStatus(), $ps->getOutput(), $ps->getErrorOutput()));
   }
 
   /**
@@ -463,9 +476,9 @@ abstract class BuildTestBase extends TestCase {
    * @throws \RuntimeException
    *   Thrown when there are no available ports within the range.
    */
-  protected function findAvailablePort() {
+  protected function findAvailablePort(): int {
     $store = new FlockStore(DrupalFilesystem::getOsTemporaryDirectory());
-    $lock_factory = new Factory($store);
+    $lock_factory = new LockFactory($store);
 
     $counter = 100;
     while ($counter--) {
@@ -495,12 +508,13 @@ abstract class BuildTestBase extends TestCase {
   /**
    * Checks whether a port is available.
    *
-   * @param $port
+   * @param int $port
    *   A number between 1024 and 65536.
    *
    * @return bool
+   *   TRUE if the port is available, FALSE otherwise.
    */
-  protected function checkPortIsAvailable($port) {
+  protected function checkPortIsAvailable($port): bool {
     $fp = @fsockopen(self::$hostName, $port, $errno, $errstr, 1);
     // If fsockopen() fails to connect, probably nothing is listening.
     // It could be a firewall but that's impossible to detect, so as a
@@ -520,8 +534,9 @@ abstract class BuildTestBase extends TestCase {
    * Test should never call this. Used by standUpServer().
    *
    * @return int
+   *   The port number.
    */
-  protected function getPortNumber() {
+  protected function getPortNumber(): int {
     if (empty($this->hostPort)) {
       $this->hostPort = $this->findAvailablePort();
     }
@@ -534,9 +549,8 @@ abstract class BuildTestBase extends TestCase {
    * Use this method to copy the current codebase, including any patched
    * changes, into the workspace.
    *
-   * By default, the copy will exclude sites/default/settings.php,
-   * sites/default/files, and vendor/. Use the $iterator parameter to override
-   * this behavior.
+   * By default, the copy will exclude site-specific and build-related files and
+   * directories. Use the $iterator parameter to override this behavior.
    *
    * @param \Iterator|null $iterator
    *   (optional) An iterator of all the files to copy. Default behavior is to
@@ -545,7 +559,7 @@ abstract class BuildTestBase extends TestCase {
    *   (optional) Relative path within the test workspace file system that will
    *   contain the copy of the codebase. Defaults to the workspace directory.
    */
-  public function copyCodebase(\Iterator $iterator = NULL, $working_dir = NULL) {
+  public function copyCodebase(?\Iterator $iterator = NULL, $working_dir = NULL) {
     $working_path = $this->getWorkingPath($working_dir);
 
     if ($iterator === NULL) {
@@ -554,7 +568,7 @@ abstract class BuildTestBase extends TestCase {
 
     $fs = new SymfonyFilesystem();
     $options = ['override' => TRUE, 'delete' => FALSE];
-    $fs->mirror($this->getDrupalRoot(), $working_path, $iterator, $options);
+    $fs->mirror($this->getComposerRoot(), $working_path, $iterator, $options);
   }
 
   /**
@@ -566,18 +580,24 @@ abstract class BuildTestBase extends TestCase {
    * - Call the method to get a default Finder object which can then be
    *   modified for other purposes.
    *
+   * Note that the vendor directory is deliberately not included in the
+   * directory exclusions here, so that packages are copied and composer does
+   * not attempt to download them from packagist/github during test runs.
+   *
    * @return \Symfony\Component\Finder\Finder
    *   A Finder object ready to iterate over core codebase.
    */
   public function getCodebaseFinder() {
+    $drupal_root = $this->getWorkingPathDrupalRoot() ?? '';
     $finder = new Finder();
     $finder->files()
+      ->followLinks()
       ->ignoreUnreadableDirs()
-      ->in($this->getDrupalRoot())
-      ->notPath('#^sites/default/files#')
-      ->notPath('#^sites/simpletest#')
-      ->notPath('#^vendor#')
-      ->notPath('#^sites/default/settings\..*php#')
+      ->in($this->getComposerRoot())
+      ->notPath("#^{$drupal_root}sites/default/files#")
+      ->notPath("#^{$drupal_root}sites/simpletest#")
+      ->notPath("#^{$drupal_root}core/node_modules#")
+      ->notPath("#^{$drupal_root}sites/default/settings\..*php#")
       ->ignoreDotFiles(FALSE)
       ->ignoreVCS(FALSE);
     return $finder;
@@ -589,8 +609,63 @@ abstract class BuildTestBase extends TestCase {
    * @return string
    *   The full path to the root of this Drupal codebase.
    */
-  protected function getDrupalRoot() {
-    return realpath(dirname(__DIR__, 5));
+  public function getDrupalRoot() {
+    return self::getDrupalRootStatic();
+  }
+
+  /**
+   * Get the root path of this Drupal codebase.
+   *
+   * @return string
+   *   The full path to the root of this Drupal codebase.
+   */
+  public static function getDrupalRootStatic() {
+    // Given this code is in the drupal/core package, $core cannot be NULL.
+    /** @var string $core */
+    $core = InstalledVersions::getInstallPath('drupal/core');
+    return realpath(dirname($core));
+  }
+
+  /**
+   * Gets the path to the Composer root directory.
+   *
+   * @return string
+   *   The absolute path to the Composer root directory.
+   */
+  public function getComposerRoot(): string {
+    $root = InstalledVersions::getRootPackage();
+    return realpath($root['install_path']);
+  }
+
+  /**
+   * Gets the path to Drupal root in the workspace directory.
+   *
+   * @return string
+   *   The absolute path to the Drupal root directory in the workspace.
+   */
+  public function getWorkspaceDrupalRoot(): string {
+    $dir = $this->getWorkspaceDirectory();
+    $drupal_root = $this->getWorkingPathDrupalRoot();
+    if ($drupal_root !== NULL) {
+      $dir = $dir . DIRECTORY_SEPARATOR . $drupal_root;
+    }
+    return $dir;
+  }
+
+  /**
+   * Gets the working path for Drupal core.
+   *
+   * @return string|null
+   *   The relative path to Drupal's root directory or NULL if it is the same
+   *   as the composer root directory.
+   */
+  public function getWorkingPathDrupalRoot(): ?string {
+    $composer_root = $this->getComposerRoot();
+    $drupal_root = $this->getDrupalRoot();
+    if ($composer_root === $drupal_root) {
+      return NULL;
+    }
+    return (new SymfonyFilesystem())->makePathRelative($drupal_root, $composer_root);
   }
 
 }

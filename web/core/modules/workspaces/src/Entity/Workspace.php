@@ -2,67 +2,78 @@
 
 namespace Drupal\workspaces\Entity;
 
+use Drupal\Core\Entity\Attribute\ContentEntityType;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Entity\Routing\AdminHtmlRouteProvider;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\user\EntityOwnerTrait;
+use Drupal\views\EntityViewsData;
+use Drupal\workspaces\Entity\Handler\IgnoredWorkspaceHandler;
+use Drupal\workspaces\Form\WorkspaceActivateForm;
+use Drupal\workspaces\Form\WorkspaceDeleteForm;
+use Drupal\workspaces\Form\WorkspaceForm;
+use Drupal\workspaces\WorkspaceAccessControlHandler;
 use Drupal\workspaces\WorkspaceInterface;
+use Drupal\workspaces\WorkspaceListBuilder;
+use Drupal\workspaces\WorkspaceViewBuilder;
 
 /**
  * The workspace entity class.
- *
- * @ContentEntityType(
- *   id = "workspace",
- *   label = @Translation("Workspace"),
- *   label_collection = @Translation("Workspaces"),
- *   label_singular = @Translation("workspace"),
- *   label_plural = @Translation("workspaces"),
- *   label_count = @PluralTranslation(
- *     singular = "@count workspace",
- *     plural = "@count workspaces"
- *   ),
- *   handlers = {
- *     "list_builder" = "\Drupal\workspaces\WorkspaceListBuilder",
- *     "access" = "Drupal\workspaces\WorkspaceAccessControlHandler",
- *     "route_provider" = {
- *       "html" = "\Drupal\Core\Entity\Routing\AdminHtmlRouteProvider",
- *     },
- *     "form" = {
- *       "default" = "\Drupal\workspaces\Form\WorkspaceForm",
- *       "add" = "\Drupal\workspaces\Form\WorkspaceForm",
- *       "edit" = "\Drupal\workspaces\Form\WorkspaceForm",
- *       "delete" = "\Drupal\workspaces\Form\WorkspaceDeleteForm",
- *       "activate" = "\Drupal\workspaces\Form\WorkspaceActivateForm",
- *       "deploy" = "\Drupal\workspaces\Form\WorkspaceDeployForm",
- *     },
- *   },
- *   admin_permission = "administer workspaces",
- *   base_table = "workspace",
- *   revision_table = "workspace_revision",
- *   data_table = "workspace_field_data",
- *   revision_data_table = "workspace_field_revision",
- *   field_ui_base_route = "entity.workspace.collection",
- *   entity_keys = {
- *     "id" = "id",
- *     "revision" = "revision_id",
- *     "uuid" = "uuid",
- *     "label" = "label",
- *     "uid" = "uid",
- *     "owner" = "uid",
- *   },
- *   links = {
- *     "add-form" = "/admin/config/workflow/workspaces/add",
- *     "edit-form" = "/admin/config/workflow/workspaces/manage/{workspace}/edit",
- *     "delete-form" = "/admin/config/workflow/workspaces/manage/{workspace}/delete",
- *     "activate-form" = "/admin/config/workflow/workspaces/manage/{workspace}/activate",
- *     "deploy-form" = "/admin/config/workflow/workspaces/manage/{workspace}/deploy",
- *     "collection" = "/admin/config/workflow/workspaces",
- *   },
- * )
  */
+#[ContentEntityType(
+  id: 'workspace',
+  label: new TranslatableMarkup('Workspace'),
+  label_collection: new TranslatableMarkup('Workspaces'),
+  label_singular: new TranslatableMarkup('workspace'),
+  label_plural: new TranslatableMarkup('workspaces'),
+  entity_keys: [
+    'id' => 'id',
+    'revision' => 'revision_id',
+    'uuid' => 'uuid',
+    'label' => 'label',
+    'uid' => 'uid',
+    'owner' => 'uid',
+  ],
+  handlers: [
+    'list_builder' => WorkspaceListBuilder::class,
+    'view_builder' => WorkspaceViewBuilder::class,
+    'access' => WorkspaceAccessControlHandler::class,
+    'views_data' => EntityViewsData::class,
+    'route_provider' => [
+      'html' => AdminHtmlRouteProvider::class,
+    ],
+    'form' => [
+      'default' => WorkspaceForm::class,
+      'add' => WorkspaceForm::class,
+      'edit' => WorkspaceForm::class,
+      'delete' => WorkspaceDeleteForm::class,
+      'activate' => WorkspaceActivateForm::class,
+    ],
+    'workspace' => IgnoredWorkspaceHandler::class,
+  ],
+  links: [
+    'canonical' => '/admin/config/workflow/workspaces/manage/{workspace}',
+    'add-form' => '/admin/config/workflow/workspaces/add',
+    'edit-form' => '/admin/config/workflow/workspaces/manage/{workspace}/edit',
+    'delete-form' => '/admin/config/workflow/workspaces/manage/{workspace}/delete',
+    'activate-form' => '/admin/config/workflow/workspaces/manage/{workspace}/activate',
+    'collection' => '/admin/config/workflow/workspaces',
+  ],
+  admin_permission: 'administer workspaces',
+  base_table: 'workspace',
+  data_table: 'workspace_field_data',
+  revision_table: 'workspace_revision',
+  revision_data_table: 'workspace_field_revision',
+  label_count: [
+    'singular' => '@count workspace',
+    'plural' => '@count workspaces',
+  ],
+  field_ui_base_route: 'entity.workspace.collection',
+)]
 class Workspace extends ContentEntityBase implements WorkspaceInterface {
 
   use EntityChangedTrait;
@@ -133,14 +144,6 @@ class Workspace extends ContentEntityBase implements WorkspaceInterface {
   /**
    * {@inheritdoc}
    */
-  public function isDefaultWorkspace() {
-    @trigger_error('WorkspaceInterface::isDefaultWorkspace() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use \Drupal\workspaces\WorkspaceManager::hasActiveWorkspace() instead. See https://www.drupal.org/node/3071527', E_USER_DEPRECATED);
-    return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getCreatedTime() {
     return $this->get('created')->value;
   }
@@ -181,30 +184,27 @@ class Workspace extends ContentEntityBase implements WorkspaceInterface {
   public static function postDelete(EntityStorageInterface $storage, array $entities) {
     parent::postDelete($storage, $entities);
 
-    // Add the IDs of the deleted workspaces to the list of workspaces that will
-    // be purged on cron.
-    $state = \Drupal::state();
-    $deleted_workspace_ids = $state->get('workspace.deleted', []);
-    $deleted_workspace_ids += array_combine(array_keys($entities), array_keys($entities));
-    $state->set('workspace.deleted', $deleted_workspace_ids);
+    /** @var \Drupal\workspaces\WorkspaceManagerInterface $workspace_manager */
+    $workspace_manager = \Drupal::service('workspaces.manager');
+    // Disable the currently active workspace if it has been deleted.
+    if ($workspace_manager->hasActiveWorkspace()
+      && in_array($workspace_manager->getActiveWorkspace()->id(), array_keys($entities), TRUE)) {
+      $workspace_manager->switchToLive();
+    }
 
-    // Trigger a batch purge to allow empty workspaces to be deleted
-    // immediately.
-    \Drupal::service('workspaces.manager')->purgeDeletedWorkspacesBatch();
-  }
+    // Ensure that workspace batch purging does not happen inside a workspace.
+    $workspace_manager->executeOutsideWorkspace(function () use ($workspace_manager, $entities) {
+      // Add the IDs of the deleted workspaces to the list of workspaces that
+      // will be purged on cron.
+      $state = \Drupal::state();
+      $deleted_workspace_ids = $state->get('workspace.deleted', []);
+      $deleted_workspace_ids += array_combine(array_keys($entities), array_keys($entities));
+      $state->set('workspace.deleted', $deleted_workspace_ids);
 
-  /**
-   * Default value callback for 'uid' base field definition.
-   *
-   * @deprecated The ::getCurrentUserId method is deprecated in 8.6.x and will
-   *   be removed before 9.0.0.
-   *
-   * @return int[]
-   *   An array containing the ID of the current user.
-   */
-  public static function getCurrentUserId() {
-    @trigger_error('The ::getCurrentUserId method is deprecated in 8.6.x and will be removed before 9.0.0.', E_USER_DEPRECATED);
-    return [\Drupal::currentUser()->id()];
+      // Trigger a batch purge to allow empty workspaces to be deleted
+      // immediately.
+      $workspace_manager->purgeDeletedWorkspacesBatch();
+    });
   }
 
 }

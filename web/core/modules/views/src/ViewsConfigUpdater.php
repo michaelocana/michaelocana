@@ -2,23 +2,17 @@
 
 namespace Drupal\views;
 
-use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Config\Schema\ArrayElement;
+use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\FieldableEntityInterface;
-use Drupal\Core\Entity\Sql\DefaultTableMapping;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides a BC layer for modules providing old configurations.
  *
  * @internal
- *   This class is only meant to fix outdated views configuration and its
- *   methods should not be invoked directly. It will be removed once all the
- *   public methods have been deprecated and removed.
  */
 class ViewsConfigUpdater implements ContainerInjectionInterface {
 
@@ -51,11 +45,25 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
   protected $viewsData;
 
   /**
-   * An array of helper data for the multivalue base field update.
+   * The formatter plugin manager service.
    *
-   * @var array
+   * @var \Drupal\Component\Plugin\PluginManagerInterface
    */
-  protected $multivalueBaseFieldsUpdateTableInfo;
+  protected $formatterPluginManager;
+
+  /**
+   * Flag determining whether deprecations should be triggered.
+   *
+   * @var bool
+   */
+  protected $deprecationsEnabled = TRUE;
+
+  /**
+   * Stores which deprecations were triggered.
+   *
+   * @var bool
+   */
+  protected $triggeredDeprecations = [];
 
   /**
    * ViewsConfigUpdater constructor.
@@ -68,17 +76,21 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
    *   The typed config manager.
    * @param \Drupal\views\ViewsData $views_data
    *   The views data service.
+   * @param \Drupal\Component\Plugin\PluginManagerInterface $formatter_plugin_manager
+   *   The formatter plugin manager service.
    */
   public function __construct(
     EntityTypeManagerInterface $entity_type_manager,
     EntityFieldManagerInterface $entity_field_manager,
     TypedConfigManagerInterface $typed_config_manager,
-    ViewsData $views_data
+    ViewsData $views_data,
+    PluginManagerInterface $formatter_plugin_manager,
   ) {
     $this->entityTypeManager = $entity_type_manager;
     $this->entityFieldManager = $entity_field_manager;
     $this->typedConfigManager = $typed_config_manager;
     $this->viewsData = $views_data;
+    $this->formatterPluginManager = $formatter_plugin_manager;
   }
 
   /**
@@ -89,8 +101,19 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
       $container->get('entity_type.manager'),
       $container->get('entity_field.manager'),
       $container->get('config.typed'),
-      $container->get('views.views_data')
+      $container->get('views.views_data'),
+      $container->get('plugin.manager.field.formatter')
     );
+  }
+
+  /**
+   * Sets the deprecations enabling status.
+   *
+   * @param bool $enabled
+   *   Whether deprecations should be enabled.
+   */
+  public function setDeprecationsEnabled($enabled) {
+    $this->deprecationsEnabled = $enabled;
   }
 
   /**
@@ -105,13 +128,13 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
   public function updateAll(ViewEntityInterface $view) {
     return $this->processDisplayHandlers($view, FALSE, function (&$handler, $handler_type, $key, $display_id) use ($view) {
       $changed = FALSE;
-      if ($this->processEntityLinkUrlHandler($handler, $handler_type)) {
+      if ($this->processEntityArgumentUpdate($view)) {
         $changed = TRUE;
       }
-      if ($this->processOperatorDefaultsHandler($handler, $handler_type)) {
+      if ($this->processRememberRolesUpdate($handler, $handler_type)) {
         $changed = TRUE;
       }
-      if ($this->processMultivalueBaseFieldHandler($handler, $handler_type, $key, $display_id, $view)) {
+      if ($this->processTableCssClassUpdate($view)) {
         $changed = TRUE;
       }
       return $changed;
@@ -134,14 +157,33 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
   protected function processDisplayHandlers(ViewEntityInterface $view, $return_on_changed, callable $handler_processor) {
     $changed = FALSE;
     $displays = $view->get('display');
-    $handler_types = ['field', 'argument', 'sort', 'relationship', 'filter'];
+    $handler_types = [
+      'field' => 'fields',
+      'argument' => 'arguments',
+      'sort' => 'sorts',
+      'relationship' => 'relationships',
+      'filter' => 'filters',
+      'pager' => 'pager',
+    ];
+
+    $compound_display_handlers = [
+      'pager',
+    ];
 
     foreach ($displays as $display_id => &$display) {
-      foreach ($handler_types as $handler_type) {
-        $handler_type_plural = $handler_type . 's';
-        if (!empty($display['display_options'][$handler_type_plural])) {
-          foreach ($display['display_options'][$handler_type_plural] as $key => &$handler) {
-            if ($handler_processor($handler, $handler_type, $key, $display_id)) {
+      foreach ($handler_types as $handler_type => $handler_type_lookup) {
+        if (!empty($display['display_options'][$handler_type_lookup])) {
+          if (in_array($handler_type_lookup, $compound_display_handlers)) {
+            if ($handler_processor($display['display_options'][$handler_type_lookup], $handler_type, NULL, $display_id)) {
+              $changed = TRUE;
+              if ($return_on_changed) {
+                return $changed;
+              }
+            }
+            continue;
+          }
+          foreach ($display['display_options'][$handler_type_lookup] as $key => &$handler) {
+            if (is_array($handler) && $handler_processor($handler, $handler_type, $key, $display_id)) {
               $changed = TRUE;
               if ($return_on_changed) {
                 return $changed;
@@ -160,22 +202,88 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
   }
 
   /**
-   * Add additional settings to the entity link field.
+   * Checks if 'numeric' arguments should be converted to 'entity_target_id'.
    *
    * @param \Drupal\views\ViewEntityInterface $view
-   *   The View to update.
+   *   The view entity.
    *
    * @return bool
-   *   Whether the view was updated.
+   *   TRUE if the view has any arguments that reference an entity reference
+   *   that need to be converted from 'numeric' to 'entity_target_id'.
    */
-  public function needsEntityLinkUrlUpdate(ViewEntityInterface $view) {
-    return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type) {
-      return $this->processEntityLinkUrlHandler($handler, $handler_type);
+  public function needsEntityArgumentUpdate(ViewEntityInterface $view): bool {
+    return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type) use ($view) {
+      return $this->processEntityArgumentUpdate($view);
     });
   }
 
   /**
-   * Processes entity link URL fields.
+   * Processes arguments and convert 'numeric' to 'entity_target_id' if needed.
+   *
+   * Note that since this update will trigger deprecations if called by
+   * views_view_presave(), we cannot rely on the usual handler-specific checking
+   * and processing. That would still hit views_view_presave(), even when
+   * invoked from post_update. We must directly update the view here, so that
+   * it's already correct by the time views_view_presave() sees it.
+   *
+   * @param \Drupal\views\ViewEntityInterface $view
+   *   The View being updated.
+   *
+   * @return bool
+   *   Whether the view was updated.
+   */
+  public function processEntityArgumentUpdate(ViewEntityInterface $view): bool {
+    $changed = FALSE;
+
+    $displays = $view->get('display');
+    foreach ($displays as &$display) {
+      if (isset($display['display_options']['arguments'])) {
+        foreach ($display['display_options']['arguments'] as $argument_id => $argument) {
+          $plugin_id = $argument['plugin_id'] ?? '';
+          if ($plugin_id === 'numeric') {
+            $argument_table_data = $this->viewsData->get($argument['table']);
+            $argument_definition = $argument_table_data[$argument['field']]['argument'] ?? [];
+            if (isset($argument_definition['id']) && $argument_definition['id'] === 'entity_target_id') {
+              $argument['plugin_id'] = 'entity_target_id';
+              $argument['target_entity_type_id'] = $argument_definition['target_entity_type_id'];
+              $display['display_options']['arguments'][$argument_id] = $argument;
+              $changed = TRUE;
+            }
+          }
+        }
+      }
+    }
+
+    if ($changed) {
+      $view->set('display', $displays);
+    }
+
+    $deprecations_triggered = &$this->triggeredDeprecations['2640994'][$view->id()];
+    if ($this->deprecationsEnabled && $changed && !$deprecations_triggered) {
+      $deprecations_triggered = TRUE;
+      @trigger_error(sprintf('The update to convert "numeric" arguments to "entity_target_id" for entity reference fields for view "%s" is deprecated in drupal:10.3.0 and is removed from drupal:12.0.0. Profile, module and theme provided configuration should be updated. See https://www.drupal.org/node/3441945', $view->id()), E_USER_DEPRECATED);
+    }
+
+    return $changed;
+  }
+
+  /**
+   * Checks if 'remember_roles' setting of an exposed filter has disabled roles.
+   *
+   * @param \Drupal\views\ViewEntityInterface $view
+   *   The view entity.
+   *
+   * @return bool
+   *   TRUE if the view has any disabled roles.
+   */
+  public function needsRememberRolesUpdate(ViewEntityInterface $view): bool {
+    return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type) {
+      return $this->processRememberRolesUpdate($handler, $handler_type);
+    });
+  }
+
+  /**
+   * Processes filters and removes disabled remember roles.
    *
    * @param array $handler
    *   A display handler.
@@ -185,232 +293,70 @@ class ViewsConfigUpdater implements ContainerInjectionInterface {
    * @return bool
    *   Whether the handler was updated.
    */
-  protected function processEntityLinkUrlHandler(array &$handler, $handler_type) {
-    $changed = FALSE;
-
-    if ($handler_type === 'field') {
-      if (isset($handler['plugin_id']) && $handler['plugin_id'] === 'entity_link') {
-        // Add any missing settings for entity_link.
-        if (!isset($handler['output_url_as_text'])) {
-          $handler['output_url_as_text'] = FALSE;
-          $changed = TRUE;
-        }
-        if (!isset($handler['absolute'])) {
-          $handler['absolute'] = FALSE;
-          $changed = TRUE;
-        }
+  public function processRememberRolesUpdate(array &$handler, string $handler_type): bool {
+    if ($handler_type === 'filter' && !empty($handler['expose']['remember_roles'])) {
+      $needsUpdate = FALSE;
+      foreach (array_keys($handler['expose']['remember_roles'], '0', TRUE) as $role_key) {
+        unset($handler['expose']['remember_roles'][$role_key]);
+        $needsUpdate = TRUE;
       }
-      elseif (isset($handler['plugin_id']) && $handler['plugin_id'] === 'node_path') {
-        // Convert the use of node_path to entity_link.
-        $handler['plugin_id'] = 'entity_link';
-        $handler['field'] = 'view_node';
-        $handler['output_url_as_text'] = TRUE;
-        $changed = TRUE;
-      }
-    }
-
-    return $changed;
-  }
-
-  /**
-   * Add additional settings to the entity link field.
-   *
-   * @param \Drupal\views\ViewEntityInterface $view
-   *   The View to update.
-   *
-   * @return bool
-   *   Whether the view was updated.
-   */
-  public function needsOperatorDefaultsUpdate(ViewEntityInterface $view) {
-    return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type) {
-      return $this->processOperatorDefaultsHandler($handler, $handler_type);
-    });
-  }
-
-  /**
-   * Processes operator defaults.
-   *
-   * @param array $handler
-   *   A display handler.
-   * @param string $handler_type
-   *   The handler type.
-   *
-   * @return bool
-   *   Whether the handler was updated.
-   */
-  protected function processOperatorDefaultsHandler(array &$handler, $handler_type) {
-    $changed = FALSE;
-
-    if ($handler_type === 'filter') {
-      if (!isset($handler['expose']['operator_limit_selection'])) {
-        $handler['expose']['operator_limit_selection'] = FALSE;
-        $changed = TRUE;
-      }
-      if (!isset($handler['expose']['operator_list'])) {
-        $handler['expose']['operator_list'] = [];
-        $changed = TRUE;
-      }
-    }
-
-    return $changed;
-  }
-
-  /**
-   * Update field names for multi-value base fields.
-   *
-   * @param \Drupal\views\ViewEntityInterface $view
-   *   The View to update.
-   *
-   * @return bool
-   *   Whether the view was updated.
-   */
-  public function needsMultivalueBaseFieldUpdate(ViewEntityInterface $view) {
-    if ($this->getMultivalueBaseFieldUpdateTableInfo()) {
-      return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type, $key, $display_id) use ($view) {
-        return $this->processMultivalueBaseFieldHandler($handler, $handler_type, $key, $display_id, $view);
-      });
+      return $needsUpdate;
     }
     return FALSE;
   }
 
   /**
-   * Returns the multivalue base fields update table info.
+   * Checks for table style views needing a default CSS table class value.
    *
-   * @return array
-   *   An array of multivalue base field info.
+   * @param \Drupal\views\ViewEntityInterface $view
+   *   The view entity.
+   *
+   * @return bool
+   *   TRUE if the view has any table styles that need to have
+   *   a default table CSS class added.
    */
-  protected function getMultivalueBaseFieldUpdateTableInfo() {
-    $table_info = &$this->multivalueBaseFieldsUpdateTableInfo;
-
-    if (!isset($table_info)) {
-      $table_info = [];
-
-      foreach ($this->entityTypeManager->getDefinitions() as $entity_type_id => $entity_type) {
-        if ($entity_type->hasHandlerClass('views_data') && $entity_type->entityClassImplements(FieldableEntityInterface::class)) {
-          $base_field_definitions = $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
-
-          $entity_storage = $this->entityTypeManager->getStorage($entity_type_id);
-          $table_mapping = $entity_storage->getTableMapping($base_field_definitions);
-          if (!$table_mapping instanceof DefaultTableMapping) {
-            continue;
-          }
-
-          foreach ($base_field_definitions as $field_name => $base_field_definition) {
-            $base_field_storage_definition = $base_field_definition->getFieldStorageDefinition();
-
-            // Skip single value and custom storage base fields.
-            if (!$base_field_storage_definition->isMultiple() || $base_field_storage_definition->hasCustomStorage()) {
-              continue;
-            }
-
-            // Get the actual table, as well as the column for the main property
-            // name, so we can perform an update on the views in
-            // ::updateFieldNamesForMultivalueBaseFields().
-            $table_name = $table_mapping->getFieldTableName($field_name);
-            $main_property_name = $base_field_storage_definition->getMainPropertyName();
-
-            $table_info[$table_name][$field_name] = $table_mapping->getFieldColumnName($base_field_storage_definition, $main_property_name);
-          }
-        }
-      }
-    }
-
-    return $table_info;
+  public function needsTableCssClassUpdate(ViewEntityInterface $view): bool {
+    return $this->processDisplayHandlers($view, TRUE, function (&$handler, $handler_type) use ($view) {
+      return $this->processTableCssClassUpdate($view);
+    });
   }
 
   /**
-   * Processes handlers affected by the multivalue base field update.
+   * Processes views and adds default CSS table class value if necessary.
    *
-   * @param array $handler
-   *   A display handler.
-   * @param string $handler_type
-   *   The handler type.
-   * @param string $key
-   *   The handler key.
-   * @param string $display_id
-   *   The handler display ID.
    * @param \Drupal\views\ViewEntityInterface $view
-   *   The view being updated.
+   *   The view entity.
    *
    * @return bool
-   *   Whether the handler was updated.
+   *   TRUE if the view was updated with a default table CSS class value.
    */
-  protected function processMultivalueBaseFieldHandler(array &$handler, $handler_type, $key, $display_id, ViewEntityInterface $view) {
+  public function processTableCssClassUpdate(ViewEntityInterface $view): bool {
     $changed = FALSE;
+    $displays = $view->get('display');
 
-    // If there are no multivalue base fields we have nothing to do.
-    $table_info = $this->getMultivalueBaseFieldUpdateTableInfo();
-    if (!$table_info) {
-      return $changed;
+    foreach ($displays as &$display) {
+      if (
+        isset($display['display_options']['style']) &&
+        $display['display_options']['style']['type'] === 'table' &&
+        isset($display['display_options']['style']['options']) &&
+        !isset($display['display_options']['style']['options']['class'])
+      ) {
+        $display['display_options']['style']['options']['class'] = '';
+        $changed = TRUE;
+      }
     }
 
-    // Only if the wrong field name is set do we process the field. It
-    // could already be using the correct field. Like "user__roles" vs
-    // "roles_target_id".
-    if (isset($handler['table']) && isset($table_info[$handler['table']]) && isset($table_info[$handler['table']][$handler['field']])) {
-      $changed = TRUE;
-      $original_field_name = $handler['field'];
-      $handler['field'] = $table_info[$handler['table']][$original_field_name];
-      $handler['plugin_id'] = $this->viewsData->get($handler['table'])[$table_info[$handler['table']][$original_field_name]][$handler_type]['id'];
+    if ($changed) {
+      $view->set('display', $displays);
+    }
 
-      // Retrieve type data information about the handler to clean it up
-      // reliably. We need to manually create a typed view rather than
-      // instantiating the current one, as the schema will be affected by the
-      // updated values.
-      $id = 'views.view.' . $view->id();
-      $path_to_handler = "display.$display_id.display_options.{$handler_type}s.$key";
-      $view_config = $view->toArray();
-      $keys = explode('.', $path_to_handler);
-      NestedArray::setValue($view_config, $keys, $handler);
-      /** @var \Drupal\Core\Config\Schema\TypedConfigInterface $typed_view */
-      $typed_view = $this->typedConfigManager->createFromNameAndData($id, $view_config);
-      /** @var \Drupal\Core\Config\Schema\ArrayElement $typed_handler */
-      $typed_handler = $typed_view->get($path_to_handler);
-
-      // Filter values we want to convert from a string to an array.
-      if ($handler_type === 'filter' && $typed_handler->get('value') instanceof ArrayElement && is_string($handler['value'])) {
-        // An empty string cast to an array is an array with one element.
-        if ($handler['value'] === '') {
-          $handler['value'] = [];
-        }
-        else {
-          $handler['value'] = (array) $handler['value'];
-        }
-        $handler['operator'] = $this->mapOperatorFromSingleToMultiple($handler['operator']);
-      }
-
-      // For all the other fields we try to determine the fields using config
-      // schema and remove everything not being defined in the new handler.
-      foreach (array_keys($handler) as $handler_key) {
-        if (!isset($typed_handler->getDataDefinition()['mapping'][$handler_key])) {
-          unset($handler[$handler_key]);
-        }
-      }
+    $deprecations_triggered = &$this->triggeredDeprecations['table_css_class'][$view->id()];
+    if ($this->deprecationsEnabled && $changed && !$deprecations_triggered) {
+      $deprecations_triggered = TRUE;
+      @trigger_error(sprintf('The update to add a default table CSS class for view "%s" is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Profile, module and theme provided configuration should be updated. See https://www.drupal.org/node/3499943', $view->id()), E_USER_DEPRECATED);
     }
 
     return $changed;
-  }
-
-  /**
-   * Maps a single operator to a multiple one, if possible.
-   *
-   * @param string $single_operator
-   *   A single operator.
-   *
-   * @return string
-   *   A multiple operator or the original one if no mapping was available.
-   */
-  protected function mapOperatorFromSingleToMultiple($single_operator) {
-    switch ($single_operator) {
-      case '=':
-        return 'or';
-
-      case '!=':
-        return 'not';
-
-      default:
-        return $single_operator;
-    }
   }
 
 }

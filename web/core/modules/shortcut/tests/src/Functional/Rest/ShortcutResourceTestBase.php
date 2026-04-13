@@ -1,20 +1,25 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\shortcut\Functional\Rest;
 
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\shortcut\Entity\Shortcut;
 use Drupal\shortcut\Entity\ShortcutSet;
 use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
 
 /**
- * ResourceTestBase for Shortcut entity.
+ * Resource test base for Shortcut entity.
  */
 abstract class ShortcutResourceTestBase extends EntityResourceTestBase {
+
+  use StringTranslationTrait;
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['comment', 'shortcut'];
+  protected static $modules = ['comment', 'shortcut'];
 
   /**
    * {@inheritdoc}
@@ -54,7 +59,7 @@ abstract class ShortcutResourceTestBase extends EntityResourceTestBase {
     // Create shortcut.
     $shortcut = Shortcut::create([
       'shortcut_set' => 'default',
-      'title' => t('Comments'),
+      'title' => $this->t('Comments'),
       'weight' => -20,
       'link' => [
         'uri' => 'internal:/admin/content/comment',
@@ -149,10 +154,6 @@ abstract class ShortcutResourceTestBase extends EntityResourceTestBase {
    * {@inheritdoc}
    */
   protected function getExpectedUnauthorizedAccessMessage($method) {
-    if ($this->config('rest.settings')->get('bc_entity_resource_permissions')) {
-      return parent::getExpectedUnauthorizedAccessMessage($method);
-    }
-
     switch ($method) {
       case 'GET':
       case 'POST':

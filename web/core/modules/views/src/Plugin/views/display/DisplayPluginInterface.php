@@ -13,9 +13,9 @@ use Drupal\Core\Session\AccountInterface;
  *
  * Display plugins are responsible for controlling where a view is rendered;
  * that is, how it is exposed to other parts of Drupal. 'Page' and 'block' are
- * the most commonly used display plugins. Each view also has a 'master' (or
- * 'default') display that includes information shared between all its
- * displays (see \Drupal\views\Plugin\views\display\DefaultDisplay).
+ * the most commonly used display plugins. Each view also has a 'default'
+ * display that includes information shared between all its displays
+ * (see \Drupal\views\Plugin\views\display\DefaultDisplay).
  *
  * Display plugins extend \Drupal\views\Plugin\views\display\DisplayPluginBase.
  * They must be annotated with \Drupal\views\Annotation\ViewsDisplay
@@ -42,7 +42,7 @@ interface DisplayPluginInterface {
    * @param array $options
    *   (optional) The options for the display plugin. Defaults to NULL.
    */
-  public function initDisplay(ViewExecutable $view, array &$display, array &$options = NULL);
+  public function initDisplay(ViewExecutable $view, array &$display, ?array &$options = NULL);
 
   /**
    * Destroys the display's components and the display itself.
@@ -74,6 +74,7 @@ interface DisplayPluginInterface {
    * Whether the display allows the use of AJAX or not.
    *
    * @return bool
+   *   TRUE if AJAX is allowed, FALSE otherwise.
    */
   public function usesAJAX();
 
@@ -81,6 +82,7 @@ interface DisplayPluginInterface {
    * Whether the display is actually using AJAX or not.
    *
    * @return bool
+   *   TRUE if AJAX is enabled, FALSE otherwise.
    */
   public function ajaxEnabled();
 
@@ -96,6 +98,7 @@ interface DisplayPluginInterface {
    * Whether the display allows the use of a pager or not.
    *
    * @return bool
+   *   TRUE if a pager is allowed, FALSE otherwise.
    */
   public function usesPager();
 
@@ -103,6 +106,7 @@ interface DisplayPluginInterface {
    * Whether the display is using a pager or not.
    *
    * @return bool
+   *   TRUE if a pager is in use, FALSE otherwise.
    */
   public function isPagerEnabled();
 
@@ -110,6 +114,7 @@ interface DisplayPluginInterface {
    * Whether the display allows the use of a 'more' link or not.
    *
    * @return bool
+   *   TRUE if a 'more' link is allowed, FALSE otherwise.
    */
   public function usesMore();
 
@@ -117,11 +122,12 @@ interface DisplayPluginInterface {
    * Whether the display is using the 'more' link or not.
    *
    * @return bool
+   *   TRUE if the 'more' link is in use, FALSE otherwise.
    */
   public function isMoreEnabled();
 
   /**
-   * Does the display have groupby enabled?
+   * Does the display have group by enabled?
    */
   public function useGroupBy();
 
@@ -139,6 +145,7 @@ interface DisplayPluginInterface {
    * Determines whether this display can use attachments.
    *
    * @return bool
+   *   TRUE if attachments can be used, FALSE otherwise.
    */
   public function acceptAttachments();
 
@@ -146,6 +153,7 @@ interface DisplayPluginInterface {
    * Returns whether the display can use attachments.
    *
    * @return bool
+   *   TRUE if attachments are supported, FALSE otherwise.
    */
   public function usesAttachments();
 
@@ -234,6 +242,7 @@ interface DisplayPluginInterface {
    * in both cases.
    *
    * @return \Drupal\views\Plugin\views\display\DisplayRouterInterface|null
+   *   The linked display or NULL if none exists.
    */
   public function getRoutedDisplay();
 
@@ -241,13 +250,14 @@ interface DisplayPluginInterface {
    * Returns a URL to $this display or its configured linked display.
    *
    * @return \Drupal\Core\Url|null
+   *   The URL to the display or NULL if none exists.
    */
   public function getUrl();
 
   /**
    * Determines if an option is set to use the default or current display.
    *
-   * @return
+   * @return bool
    *   TRUE for the default display.
    */
   public function isDefaulted($option);
@@ -261,6 +271,7 @@ interface DisplayPluginInterface {
    * Determines if the display's style uses fields.
    *
    * @return bool
+   *   TRUE if fields are used, FALSE otherwise.
    */
   public function usesFields();
 
@@ -271,6 +282,7 @@ interface DisplayPluginInterface {
    *   The type of the plugin.
    *
    * @return \Drupal\views\Plugin\views\ViewsPluginInterface
+   *   The plugin instance.
    */
   public function getPlugin($type);
 
@@ -283,6 +295,7 @@ interface DisplayPluginInterface {
    * Get a full array of handlers for $type. This caches them.
    *
    * @return \Drupal\views\Plugin\views\ViewsHandlerInterface[]
+   *   An array of handlers for the specified type.
    */
   public function getHandlers($type);
 
@@ -391,19 +404,24 @@ interface DisplayPluginInterface {
 
   /**
    * Renders this display.
+   *
+   * @return array
+   *   A render array.
    */
   public function render();
 
   /**
-   * #pre_render callback for view display rendering.
+   * Render API callback: Performs view display rendering.
    *
-   * @see self::render()
+   * This function is assigned as a #pre_render callback.
    *
    * @param array $element
-   *   The element to #pre_render
+   *   The element to #pre_render.
    *
    * @return array
    *   The processed element.
+   *
+   * @see self::render()
    */
   public function elementPreRender(array $element);
 
@@ -414,7 +432,7 @@ interface DisplayPluginInterface {
    *   Identifier of the specific area to render.
    * @param bool $empty
    *   (optional) Indicator whether or not the view result is empty. Defaults to
-   *   FALSE
+   *   FALSE.
    *
    * @return array
    *   A render array for the given area.
@@ -424,7 +442,7 @@ interface DisplayPluginInterface {
   /**
    * Determines if the user has access to this display of the view.
    */
-  public function access(AccountInterface $account = NULL);
+  public function access(?AccountInterface $account = NULL);
 
   /**
    * Sets up any variables on the view prior to execution.
@@ -495,6 +513,9 @@ interface DisplayPluginInterface {
    * Renders the display for the purposes of a live preview.
    *
    * Also might be used for some other AJAXy reason.
+   *
+   * @return array
+   *   The render array of live preview.
    */
   public function preview();
 
@@ -516,7 +537,7 @@ interface DisplayPluginInterface {
   /**
    * Make sure the display and all associated handlers are valid.
    *
-   * @return
+   * @return array
    *   Empty array if the display is valid; an array of error strings if it is
    *   not.
    */
@@ -550,8 +571,8 @@ interface DisplayPluginInterface {
   /**
    * Is the output of the view empty.
    *
-   * If a view has no result and neither the empty, nor the footer nor the header
-   * does show anything return FALSE.
+   * If a view has no result and neither the empty, nor the footer nor the
+   * header does show anything return FALSE.
    *
    * @return bool
    *   Returns TRUE if the output is empty, else FALSE.
@@ -566,8 +587,8 @@ interface DisplayPluginInterface {
   /**
    * Renders the exposed form as block.
    *
-   * @return string|null
-   *   The rendered exposed form as string or NULL otherwise.
+   * @return array|null
+   *   The renderable exposed form as array or NULL otherwise.
    */
   public function viewExposedFormBlocks();
 
@@ -582,7 +603,7 @@ interface DisplayPluginInterface {
    *     where you can configure what should be done if the argument does not
    *     exist.
    *   - description: A description about how arguments are passed
-   *     to the display. For example blocks can't get arguments from url.
+   *     to the display. For example blocks can't get arguments from URL.
    */
   public function getArgumentText();
 
@@ -608,6 +629,7 @@ interface DisplayPluginInterface {
    * Gets the display extenders.
    *
    * @return \Drupal\views\Plugin\views\display_extender\DisplayExtenderPluginBase[]
+   *   An array of display extender plugins.
    */
   public function getExtenders();
 

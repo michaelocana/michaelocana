@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\locale\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -19,7 +21,7 @@ class LocaleStringTest extends KernelTestBase {
   protected static $modules = [
     'language',
     'locale',
-   ];
+  ];
 
   /**
    * The locale storage.
@@ -31,7 +33,7 @@ class LocaleStringTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Add a default locale storage for all these tests.
@@ -48,9 +50,9 @@ class LocaleStringTest extends KernelTestBase {
   }
 
   /**
-   * Test CRUD API.
+   * Tests CRUD API.
    */
-  public function testStringCrudApi() {
+  public function testStringCrudApi(): void {
     // Create source string.
     $source = $this->buildSourceString()->save();
     $this->assertNotEmpty($source->lid);
@@ -74,7 +76,11 @@ class LocaleStringTest extends KernelTestBase {
     $this->assertEquals(LOCALE_NOT_CUSTOMIZED, $translation->customized);
     $string1 = $this->storage->findTranslation(['language' => $langcode, 'lid' => $source->lid]);
     $this->assertEquals($translation->translation, $string1->translation);
-    $string2 = $this->storage->findTranslation(['language' => $langcode, 'source' => $source->source, 'context' => $source->context]);
+    $string2 = $this->storage->findTranslation([
+      'language' => $langcode,
+      'source' => $source->source,
+      'context' => $source->context,
+    ]);
     $this->assertEquals($translation->translation, $string2->translation);
     $translation
       ->setCustomized()
@@ -119,9 +125,9 @@ class LocaleStringTest extends KernelTestBase {
   }
 
   /**
-   * Test Search API loading multiple objects.
+   * Tests Search API loading multiple objects.
    */
-  public function testStringSearchApi() {
+  public function testStringSearchApi(): void {
     $language_count = 3;
     // Strings 1 and 2 will have some common prefix.
     // Source 1 will have all translations, not customized.
@@ -146,12 +152,26 @@ class LocaleStringTest extends KernelTestBase {
     $this->createAllTranslations($source2, ['customized' => LOCALE_CUSTOMIZED]);
     // Try quick search function with different field combinations.
     $langcode = 'es';
-    $found = $this->storage->findTranslation(['language' => $langcode, 'source' => $source1->source, 'context' => $source1->context]);
-    $this->assertTrue($found && isset($found->language) && isset($found->translation) && !$found->isNew(), 'Translation not found searching by source and context.');
+    $found = $this->storage->findTranslation([
+      'language' => $langcode,
+      'source' => $source1->source,
+      'context' => $source1->context,
+    ]);
+    $this->assertNotNull($found, 'Translation not found searching by source and context.');
+    $this->assertNotNull($found->language);
+    $this->assertNotNull($found->translation);
+    $this->assertFalse($found->isNew());
     $this->assertEquals($translate1[$langcode]->translation, $found->translation);
     // Now try a translation not found.
-    $found = $this->storage->findTranslation(['language' => $langcode, 'source' => $source3->source, 'context' => $source3->context]);
-    $this->assertTrue($found && $found->lid == $source3->lid && !isset($found->translation) && $found->isNew());
+    $found = $this->storage->findTranslation([
+      'language' => $langcode,
+      'source' => $source3->source,
+      'context' => $source3->context,
+    ]);
+    $this->assertNotNull($found);
+    $this->assertSame($source3->lid, $found->lid);
+    $this->assertNull($found->translation);
+    $this->assertTrue($found->isNew());
 
     // Load all translations. For next queries we'll be loading only translated
     // strings.
@@ -163,7 +183,11 @@ class LocaleStringTest extends KernelTestBase {
     $this->assertCount($language_count, $translations);
 
     // Load all Spanish customized translations.
-    $translations = $this->storage->getTranslations(['language' => 'es', 'customized' => LOCALE_CUSTOMIZED, 'translated' => TRUE]);
+    $translations = $this->storage->getTranslations([
+      'language' => 'es',
+      'customized' => LOCALE_CUSTOMIZED,
+      'translated' => TRUE,
+    ]);
     $this->assertCount(1, $translations);
 
     // Load all source strings without translation (1).
@@ -203,9 +227,9 @@ class LocaleStringTest extends KernelTestBase {
    * @return array
    *   Translation list.
    */
-  protected function createAllTranslations(StringInterface $source, array $values = []) {
+  protected function createAllTranslations(StringInterface $source, array $values = []): array {
     $list = [];
-    /* @var $language_manager \Drupal\Core\Language\LanguageManagerInterface */
+    /** @var \Drupal\Core\Language\LanguageManagerInterface $language_manager */
     $language_manager = $this->container->get('language_manager');
     foreach ($language_manager->getLanguages() as $language) {
       $list[$language->getId()] = $this->createTranslation($source, $language->getId(), $values);
@@ -232,6 +256,29 @@ class LocaleStringTest extends KernelTestBase {
       'language' => $langcode,
       'translation' => $this->randomMachineName(100),
     ])->save();
+  }
+
+  /**
+   * Tests that strings are correctly deleted.
+   */
+  public function testDeleteStrings(): void {
+    $source = $this->storage->createString([
+      'source' => 'Revision ID',
+    ])->save();
+
+    $this->storage->createTranslation([
+      'lid' => $source->lid,
+      'language' => 'fr',
+      'translation' => 'Translated Revision ID',
+    ])->save();
+
+    // Confirm that the string has been created.
+    $this->assertNotEmpty($this->storage->findString(['lid' => $source->lid]));
+
+    $this->storage->deleteStrings(['lid' => $source->lid]);
+
+    // Confirm that the string has been deleted.
+    $this->assertEmpty($this->storage->findString(['lid' => $source->lid]));
   }
 
 }

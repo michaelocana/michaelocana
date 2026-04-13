@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Views;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -20,7 +22,7 @@ class HandlerArgumentUserUidTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'system',
     'user',
     'user_test_views',
@@ -35,10 +37,9 @@ class HandlerArgumentUserUidTest extends KernelTestBase {
   public static $testViews = ['test_user_uid_argument'];
 
   /**
-   * Tests the generated title of an user: uid argument.
+   * Tests the generated title of a user: uid argument.
    */
-  public function testArgumentTitle() {
-    $this->installSchema('system', ['sequences']);
+  public function testArgumentTitle(): void {
     $this->installEntitySchema('user');
     $this->installConfig(['user']);
     User::create(['uid' => 0, 'name' => ''])->save();

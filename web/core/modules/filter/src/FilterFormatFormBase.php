@@ -2,9 +2,12 @@
 
 namespace Drupal\filter;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\filter\Plugin\Filter\FilterNull;
+use Drupal\user\Entity\Role;
+use Drupal\user\RoleInterface;
 
 /**
  * Provides a base form for a filter format.
@@ -45,7 +48,7 @@ abstract class FilterFormatFormBase extends EntityForm {
     $form['roles'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Roles'),
-      '#options' => array_map('\Drupal\Component\Utility\Html::escape', user_role_names()),
+      '#options' => array_map(fn(RoleInterface $role) => Html::escape($role->label()), Role::loadMultiple()),
       '#disabled' => $is_fallback,
       '#weight' => -10,
     ];
@@ -58,7 +61,7 @@ abstract class FilterFormatFormBase extends EntityForm {
     }
 
     // Create filter plugin instances for all available filters, including both
-    // enabled/configured ones as well as new and not yet unconfigured ones.
+    // enabled/configured ones as well as new and not yet configured ones.
     $filters = $format->filters();
     foreach ($filters as $filter_id => $filter) {
       // When a filter is missing, it is replaced by the null filter. Remove it
@@ -88,9 +91,9 @@ abstract class FilterFormatFormBase extends EntityForm {
       '#title' => $this->t('Filter processing order'),
       '#tabledrag' => [
         [
-         'action' => 'order',
-         'relationship' => 'sibling',
-         'group' => 'filter-order-weight',
+          'action' => 'order',
+          'relationship' => 'sibling',
+          'group' => 'filter-order-weight',
         ],
       ],
       '#tree' => FALSE,
@@ -128,9 +131,23 @@ abstract class FilterFormatFormBase extends EntityForm {
         '#attributes' => ['class' => ['filter-order-weight']],
       ];
 
-      // Retrieve the settings form of the filter plugin. The plugin should not be
-      // aware of the text format. Therefore, it only receives a set of minimal
-      // base properties to allow advanced implementations to work.
+      // Ensure the resulting FilterFormat complies with `type: filter`.
+      // @see core.data_types.schema.yml
+      // @see \Drupal\filter\FilterFormatFormBase::submitForm()
+      $form['filters']['order'][$name]['id'] = [
+        '#type' => 'value',
+        '#value' => $filter->getPluginId(),
+        '#parents' => ['filters', $name, 'id'],
+      ];
+      $form['filters']['order'][$name]['provider'] = [
+        '#type' => 'value',
+        '#value' => $filter->provider,
+        '#parents' => ['filters', $name, 'provider'],
+      ];
+
+      // Retrieve the settings form of the filter plugin. The plugin should not
+      // be aware of the text format. Therefore, it only receives a set of
+      // minimal base properties to allow advanced implementations to work.
       $settings_form = [
         '#parents' => ['filters', $name, 'settings'],
         '#tree' => TRUE,
@@ -155,7 +172,7 @@ abstract class FilterFormatFormBase extends EntityForm {
    * Determines if the format already exists.
    *
    * @param string $format_id
-   *   The format ID
+   *   The format ID.
    *
    * @return bool
    *   TRUE if the format exists, FALSE otherwise.

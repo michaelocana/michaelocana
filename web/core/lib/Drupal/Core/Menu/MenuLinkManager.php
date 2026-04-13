@@ -17,46 +17,7 @@ use Drupal\Core\Plugin\Factory\ContainerFactory;
  */
 class MenuLinkManager implements MenuLinkManagerInterface {
 
-  /**
-   * Provides some default values for the definition of all menu link plugins.
-   *
-   * @todo Decide how to keep these field definitions in sync.
-   *   https://www.drupal.org/node/2302085
-   *
-   * @var array
-   */
-  protected $defaults = [
-    // (required) The name of the menu for this link.
-    'menu_name' => 'tools',
-    // (required) The name of the route this links to, unless it's external.
-    'route_name' => '',
-    // Parameters for route variables when generating a link.
-    'route_parameters' => [],
-    // The external URL if this link has one (required if route_name is empty).
-    'url' => '',
-    // The static title for the menu link. If this came from a YAML definition
-    // or other safe source this may be a TranslatableMarkup object.
-    'title' => '',
-    // The description. If this came from a YAML definition or other safe source
-    // this may be a TranslatableMarkup object.
-    'description' => '',
-    // The plugin ID of the parent link (or NULL for a top-level link).
-    'parent' => '',
-    // The weight of the link.
-    'weight' => 0,
-    // The default link options.
-    'options' => [],
-    'expanded' => 0,
-    'enabled' => 1,
-    // The name of the module providing this link.
-    'provider' => '',
-    'metadata' => [],
-    // Default class for local task implementations.
-    'class' => 'Drupal\Core\Menu\MenuLinkDefault',
-    'form_class' => 'Drupal\Core\Menu\Form\MenuLinkDefaultForm',
-    // The plugin ID. Set by the plugin system based on the top-level YAML key.
-    'id' => '',
-  ];
+  use MenuLinkFieldDefinitions;
 
   /**
    * The object that discovers plugins managed by this manager.
@@ -118,7 +79,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    *
    * @param array $definition
    *   The definition to be processed and modified by reference.
-   * @param $plugin_id
+   * @param string $plugin_id
    *   The ID of the plugin this definition is being used for.
    */
   protected function processDefinition(array &$definition, $plugin_id) {
@@ -133,6 +94,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    * Gets the plugin discovery.
    *
    * @return \Drupal\Component\Plugin\Discovery\DiscoveryInterface
+   *   The discovery service.
    */
   protected function getDiscovery() {
     if (!isset($this->discovery)) {
@@ -148,6 +110,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    * Gets the plugin factory.
    *
    * @return \Drupal\Component\Plugin\Factory\FactoryInterface
+   *   The plugin factory.
    */
   protected function getFactory() {
     if (!isset($this->factory)) {

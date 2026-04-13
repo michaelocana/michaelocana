@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @internal
  */
-class WorkspaceDeleteForm extends ContentEntityDeleteForm implements WorkspaceFormInterface {
+class WorkspaceDeleteForm extends ContentEntityDeleteForm {
 
   /**
    * The workspace entity.
@@ -67,7 +67,7 @@ class WorkspaceDeleteForm extends ContentEntityDeleteForm implements WorkspaceFo
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
    */
-  public function __construct(EntityRepositoryInterface $entity_repository, WorkspaceAssociationInterface $workspace_association, WorkspaceRepositoryInterface $workspace_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL, TimeInterface $time = NULL) {
+  public function __construct(EntityRepositoryInterface $entity_repository, WorkspaceAssociationInterface $workspace_association, WorkspaceRepositoryInterface $workspace_repository, ?EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL, ?TimeInterface $time = NULL) {
     parent::__construct($entity_repository, $entity_type_bundle_info, $time);
     $this->workspaceAssociation = $workspace_association;
     $this->workspaceRepository = $workspace_repository;
@@ -91,7 +91,7 @@ class WorkspaceDeleteForm extends ContentEntityDeleteForm implements WorkspaceFo
 
     $tracked_entities = $this->workspaceAssociation->getTrackedEntities($this->entity->id());
     $items = [];
-    foreach (array_keys($tracked_entities) as $entity_type_id => $entity_ids) {
+    foreach ($tracked_entities as $entity_type_id => $entity_ids) {
       $revision_ids = $this->workspaceAssociation->getAssociatedRevisions($this->entity->id(), $entity_type_id, $entity_ids);
       $label = $this->entityTypeManager->getDefinition($entity_type_id)->getLabel();
       $items[] = $this->formatPlural(count($revision_ids), '1 @label revision.', '@count @label revisions.', ['@label' => $label]);

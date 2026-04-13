@@ -4,7 +4,7 @@ dependencies:
   module:
     - user
 id: test_user_bulk_form
-label: ''
+label: test_user_bulk_form
 module: views
 description: ''
 tag: ''
@@ -14,11 +14,13 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: null
     display_options:
       style:
         type: table
+        options:
+          class: ''
       row:
         type: fields
       fields:

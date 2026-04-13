@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Config;
 
 use Drupal\Core\Config\ConfigImporter;
@@ -22,13 +24,14 @@ class ConfigImportRecreateTest extends KernelTestBase {
   protected $configImporter;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['system', 'field', 'text', 'user', 'node'];
+  protected static $modules = ['system', 'field', 'text', 'user', 'node'];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installEntitySchema('node');
@@ -51,12 +54,16 @@ class ConfigImportRecreateTest extends KernelTestBase {
       $this->container->get('module_installer'),
       $this->container->get('theme_handler'),
       $this->container->get('string_translation'),
-      $this->container->get('extension.list.module')
+      $this->container->get('extension.list.module'),
+      $this->container->get('extension.list.theme')
     );
   }
 
-  public function testRecreateEntity() {
-    $type_name = mb_strtolower($this->randomMachineName(16));
+  /**
+   * Tests re-creating a config entity with the same name but different UUID.
+   */
+  public function testRecreateEntity(): void {
+    $type_name = $this->randomMachineName(16);
     $content_type = NodeType::create([
       'type' => $type_name,
       'name' => 'Node type one',
@@ -98,7 +105,7 @@ class ConfigImportRecreateTest extends KernelTestBase {
     // Verify that there is nothing more to import.
     $this->assertFalse($this->configImporter->reset()->hasUnprocessedConfigurationChanges());
     $content_type = NodeType::load($type_name);
-    $this->assertEqual('Node type one', $content_type->label());
+    $this->assertEquals('Node type one', $content_type->label());
   }
 
 }

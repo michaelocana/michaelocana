@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\views_config_entity_test;
 
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -18,7 +20,7 @@ class ViewsConfigEntityTestViewsData implements EntityViewsDataInterface {
   }
 
   /**
-   * @inheritDoc
+   * {@inheritdoc}
    */
   public function getViewsTableForEntityType(EntityTypeInterface $entity_type) {
     return 'views_config_entity_test';

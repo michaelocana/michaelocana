@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
 use Drupal\Tests\BrowserTestBase;
@@ -20,9 +22,9 @@ class UpdatePathNewDependencyTest extends BrowserTestBase {
   protected $defaultTheme = 'stark';
 
   /**
-   * Test that a module can add services that depend on new modules.
+   * Tests that a module can add services that depend on new modules.
    */
-  public function testUpdateNewDependency() {
+  public function testUpdateNewDependency(): void {
     // The new_dependency_test before the update is just an empty info.yml file.
     // The code of the new_dependency_test module is after the update and
     // contains the dependency on the new_dependency_test_with_service module.
@@ -31,7 +33,7 @@ class UpdatePathNewDependencyTest extends BrowserTestBase {
       ->set('module.new_dependency_test', 0)
       ->set('module', module_config_sort($extension_config->get('module')))
       ->save(TRUE);
-    drupal_set_installed_schema_version('new_dependency_test', \Drupal::CORE_MINIMUM_SCHEMA_VERSION);
+    \Drupal::service('update.update_hook_registry')->setInstalledVersion('new_dependency_test', \Drupal::CORE_MINIMUM_SCHEMA_VERSION);
 
     // Rebuild the container and test that the service with the optional unmet
     // dependency is still available while the ones that fail are not.
@@ -40,7 +42,7 @@ class UpdatePathNewDependencyTest extends BrowserTestBase {
       $this->fail('The container has services with unmet dependencies and should have failed to rebuild.');
     }
     catch (ServiceNotFoundException $exception) {
-      $this->assertEquals('The service "new_dependency_test.dependent" has a dependency on a non-existent service "new_dependency_test_with_service.service".', $exception->getMessage());
+      $this->assertStringContainsString('The service "new_dependency_test.dependent" has a dependency on a non-existent service "new_dependency_test_with_service.service".', $exception->getMessage());
     }
 
     // Running the updates enables the dependency.

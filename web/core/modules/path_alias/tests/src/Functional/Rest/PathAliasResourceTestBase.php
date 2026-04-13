@@ -1,10 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\path_alias\Functional\Rest;
 
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\path_alias\Entity\PathAlias;
-use Drupal\Tests\rest\Functional\BcTimestampNormalizerUnixTestTrait;
 use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
 
 /**
@@ -12,12 +13,10 @@ use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
  */
 abstract class PathAliasResourceTestBase extends EntityResourceTestBase {
 
-  use BcTimestampNormalizerUnixTestTrait;
-
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['path_alias'];
+  protected static $modules = ['path', 'path_alias'];
 
   /**
    * {@inheritdoc}
@@ -117,13 +116,6 @@ abstract class PathAliasResourceTestBase extends EntityResourceTestBase {
         ],
       ],
     ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getExpectedCacheContexts() {
-    return ['user.permissions'];
   }
 
 }

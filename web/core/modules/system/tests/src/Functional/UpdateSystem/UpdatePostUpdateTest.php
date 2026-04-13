@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Database\Database;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\Tests\UpdatePathTestTrait;
+
+// cspell:ignore postupdate
 
 /**
  * Tests hook_post_update().
@@ -23,20 +26,12 @@ class UpdatePostUpdateTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $connection = Database::getConnection();
 
     // Set the schema version.
-    $connection->merge('key_value')
-      ->condition('collection', 'system.schema')
-      ->condition('name', 'update_test_postupdate')
-      ->fields([
-        'collection' => 'system.schema',
-        'name' => 'update_test_postupdate',
-        'value' => 'i:8000;',
-      ])
-      ->execute();
+    \Drupal::service('update.update_hook_registry')->setInstalledVersion('update_test_postupdate', 8000);
 
     // Update core.extension.
     $extensions = $connection->select('config')
@@ -72,28 +67,28 @@ class UpdatePostUpdateTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function doSelectionTest() {
+  protected function doSelectionTest(): void {
     // Ensure that normal and post_update updates are merged together on the
     // selection page.
-    $this->assertRaw('<ul><li>8001 -   Normal update_N() function. </li><li>First update.</li><li>Second update.</li><li>Test0 update.</li><li>Test1 update.</li><li>Testing batch processing in post updates update.</li></ul>');
+    $this->assertSession()->responseContains('<ul><li>8001 - Normal update_N() function.</li><li>First update.</li><li>Second update.</li><li>Test0 update.</li><li>Test1 update.</li><li>Testing batch processing in post updates update.</li></ul>');
   }
 
   /**
    * Tests hook_post_update_NAME().
    */
-  public function testPostUpdate() {
+  public function testPostUpdate(): void {
     $this->runUpdates();
 
-    $this->assertRaw('<h3>Update first</h3>');
-    $this->assertRaw('First update');
-    $this->assertRaw('<h3>Update second</h3>');
-    $this->assertRaw('Second update');
-    $this->assertRaw('<h3>Update test1</h3>');
-    $this->assertRaw('Test1 update');
-    $this->assertRaw('<h3>Update test0</h3>');
-    $this->assertRaw('Test0 update');
-    $this->assertRaw('<h3>Update test_batch</h3>');
-    $this->assertRaw('Test post update batches');
+    $this->assertSession()->responseContains('<h3>Update first</h3>');
+    $this->assertSession()->pageTextContains('First update');
+    $this->assertSession()->responseContains('<h3>Update second</h3>');
+    $this->assertSession()->pageTextContains('Second update');
+    $this->assertSession()->responseContains('<h3>Update test1</h3>');
+    $this->assertSession()->pageTextContains('Test1 update');
+    $this->assertSession()->responseContains('<h3>Update test0</h3>');
+    $this->assertSession()->pageTextContains('Test0 update');
+    $this->assertSession()->responseContains('<h3>Update test_batch</h3>');
+    $this->assertSession()->pageTextContains('Test post update batches');
 
     // Test state value set by each post update.
     $updates = [
@@ -105,7 +100,7 @@ class UpdatePostUpdateTest extends BrowserTestBase {
       'update_test_postupdate_post_update_test_batch-2',
       'update_test_postupdate_post_update_test_batch-3',
     ];
-    $this->assertIdentical($updates, \Drupal::state()->get('post_update_test_execution', []));
+    $this->assertSame($updates, \Drupal::state()->get('post_update_test_execution', []));
 
     // Test post_update key value stores contains a list of the update functions
     // that have run.
@@ -118,13 +113,13 @@ class UpdatePostUpdateTest extends BrowserTestBase {
       'update_test_postupdate_post_update_test_batch',
     ];
     foreach ($expected_updates as $expected_update) {
-      $this->assertEqual($existing_updates[$expected_update], 1, new FormattableMarkup("@expected_update exists in 'existing_updates' key and only appears once.", ['@expected_update' => $expected_update]));
+      $this->assertEquals(1, $existing_updates[$expected_update], "$expected_update exists in 'existing_updates' key and only appears once.");
     }
 
     $this->drupalGet('update.php/selection');
     $this->updateRequirementsProblem();
     $this->drupalGet('update.php/selection');
-    $this->assertText('No pending updates.');
+    $this->assertSession()->pageTextContains('No pending updates.');
   }
 
 }

@@ -2,6 +2,15 @@
 
 /**
  * @file
+ */
+
+use Drupal\Core\Field\FormatterInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Field\WidgetInterface;
+
+/**
+ * @file
  * Hooks provided by the Field UI module.
  */
 
@@ -29,7 +38,7 @@
  *
  * @see \Drupal\field_ui\Form\EntityViewDisplayEditForm::thirdPartySettingsForm()
  */
-function hook_field_formatter_third_party_settings_form(\Drupal\Core\Field\FormatterInterface $plugin, \Drupal\Core\Field\FieldDefinitionInterface $field_definition, $view_mode, array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
+function hook_field_formatter_third_party_settings_form(FormatterInterface $plugin, FieldDefinitionInterface $field_definition, $view_mode, array $form, FormStateInterface $form_state): array {
   $element = [];
   // Add a 'my_setting' checkbox to the settings form for 'foo_formatter' field
   // formatters.
@@ -62,7 +71,7 @@ function hook_field_formatter_third_party_settings_form(\Drupal\Core\Field\Forma
  *
  * @see \Drupal\field_ui\Form\EntityFormDisplayEditForm::thirdPartySettingsForm()
  */
-function hook_field_widget_third_party_settings_form(\Drupal\Core\Field\WidgetInterface $plugin, \Drupal\Core\Field\FieldDefinitionInterface $field_definition, $form_mode, array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
+function hook_field_widget_third_party_settings_form(WidgetInterface $plugin, FieldDefinitionInterface $field_definition, $form_mode, array $form, FormStateInterface $form_state): array {
   $element = [];
   // Add a 'my_setting' checkbox to the settings form for 'foo_widget' field
   // widgets.
@@ -91,7 +100,7 @@ function hook_field_widget_third_party_settings_form(\Drupal\Core\Field\WidgetIn
  */
 function hook_field_formatter_settings_summary_alter(array &$summary, array $context) {
   // Append a message to the summary when an instance of foo_formatter has
-  // mysetting set to TRUE for the current view mode.
+  // my_setting set to TRUE for the current view mode.
   if ($context['formatter']->getPluginId() == 'foo_formatter') {
     if ($context['formatter']->getThirdPartySetting('my_module', 'my_setting')) {
       $summary[] = t('My setting enabled.');
@@ -114,7 +123,7 @@ function hook_field_formatter_settings_summary_alter(array &$summary, array $con
  */
 function hook_field_widget_settings_summary_alter(array &$summary, array $context) {
   // Append a message to the summary when an instance of foo_widget has
-  // mysetting set to TRUE for the current view mode.
+  // my_setting set to TRUE for the current view mode.
   if ($context['widget']->getPluginId() == 'foo_widget') {
     if ($context['widget']->getThirdPartySetting('my_module', 'my_setting')) {
       $summary[] = t('My setting enabled.');

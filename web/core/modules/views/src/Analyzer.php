@@ -3,8 +3,11 @@
 namespace Drupal\views;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
+ * View analyzer plugin manager.
+ *
  * This tool is a small plugin manager to perform analysis on a view and
  * report results to the user. This tool is meant to let modules that
  * provide data to Views also help users properly use that data by
@@ -13,6 +16,8 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
  * by modules or as patches to Views itself.
  */
 class Analyzer {
+
+  use StringTranslationTrait;
 
   /**
    * A module handler that invokes the 'views_analyze' hook.
@@ -57,7 +62,7 @@ class Analyzer {
    */
   public function formatMessages(array $messages) {
     if (empty($messages)) {
-      $messages = [static::formatMessage(t('View analysis can find nothing to report.'), 'ok')];
+      $messages = [static::formatMessage($this->t('View analysis can find nothing to report.'), 'ok')];
     }
 
     $types = ['ok' => [], 'warning' => [], 'error' => []];
@@ -107,6 +112,7 @@ class Analyzer {
    * for items that are definitely broken are much more useful.
    *
    * @param string $message
+   *   The message.
    * @param string $type
    *   The type of message. This should be "ok", "warning" or "error". Other
    *   values can be used but how they are treated by the output routine

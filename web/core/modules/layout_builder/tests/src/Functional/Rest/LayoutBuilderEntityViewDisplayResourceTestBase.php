@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Functional\Rest;
 
 use Drupal\FunctionalTests\Rest\EntityViewDisplayResourceTestBase;
@@ -13,7 +15,7 @@ abstract class LayoutBuilderEntityViewDisplayResourceTestBase extends EntityView
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['layout_builder'];
+  protected static $modules = ['layout_builder'];
 
   /**
    * {@inheritdoc}

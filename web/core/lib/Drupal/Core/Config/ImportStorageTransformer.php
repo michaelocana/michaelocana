@@ -4,7 +4,7 @@ namespace Drupal\Core\Config;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Lock\LockBackendInterface;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * The import storage transformer helps to use the configuration management api.
@@ -26,7 +26,7 @@ final class ImportStorageTransformer {
   /**
    * The event dispatcher to get changes to the configuration.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   * @var \Symfony\Contracts\EventDispatcher\EventDispatcherInterface
    */
   protected $eventDispatcher;
 
@@ -47,16 +47,16 @@ final class ImportStorageTransformer {
   /**
    * The persistent lock which the config importer uses across requests.
    *
-   * @see \Drupal\Core\Config\ConfigImporter::alreadyImporting()
-   *
    * @var \Drupal\Core\Lock\LockBackendInterface
+   *
+   * @see \Drupal\Core\Config\ConfigImporter::alreadyImporting()
    */
   protected $persistentLock;
 
   /**
    * ImportStorageTransformer constructor.
    *
-   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   * @param \Symfony\Contracts\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   The event dispatcher.
    * @param \Drupal\Core\Database\Connection $connection
    *   The database connection.
@@ -114,10 +114,13 @@ final class ImportStorageTransformer {
     }
 
     // Copy the sync configuration to the created mutable storage.
+    // Wrapping the queries in a transaction for performance gain.
+    $transaction = $this->connection->startTransaction();
     self::replaceStorageContents($storage, $mutable);
+    unset($transaction);
 
     // Dispatch the event so that event listeners can alter the configuration.
-    $this->eventDispatcher->dispatch(ConfigEvents::STORAGE_TRANSFORM_IMPORT, new StorageTransformEvent($mutable));
+    $this->eventDispatcher->dispatch(new StorageTransformEvent($mutable), ConfigEvents::STORAGE_TRANSFORM_IMPORT);
 
     // Return the storage with the altered configuration.
     return $mutable;

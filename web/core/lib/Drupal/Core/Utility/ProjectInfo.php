@@ -36,8 +36,8 @@ class ProjectInfo {
    *   Boolean that controls what status (enabled or uninstalled) to process out
    *   of the $list and add to the $projects array.
    * @param array $additional_elements
-   *   (optional) Array of additional elements to be collected from the .info.yml
-   *   file. Defaults to array().
+   *   (optional) Array of additional elements to be collected from the
+   *   .info.yml file. Defaults to [].
    */
   public function processInfoList(array &$projects, array $list, $project_type, $status, array $additional_elements = []) {
     foreach ($list as $file) {
@@ -81,7 +81,7 @@ class ProjectInfo {
       // which is left alone by tar and correctly set to the time the .info.yml
       // file was unpacked.
       if (!isset($file->info['_info_file_ctime'])) {
-        $file->info['_info_file_ctime'] = $file->getCTime();
+        $file->info['_info_file_ctime'] = $file->getFileInfo()->getCTime();
       }
 
       if (!isset($file->info['datestamp'])) {
@@ -102,7 +102,7 @@ class ProjectInfo {
       }
       if (empty($status)) {
         // If we're processing uninstalled modules or themes, append a suffix.
-        $project_display_type .= '-disabled';
+        $project_display_type .= '-uninstalled';
       }
       if (!isset($projects[$project_name])) {
         // Only process this if we haven't done this project, since a single
@@ -130,7 +130,7 @@ class ProjectInfo {
       }
       elseif (empty($status)) {
         // If we have a project_name that matches, but the project_display_type
-        // does not, it means we're processing a uninstalled module or theme
+        // does not, it means we're processing an uninstalled module or theme
         // that belongs to a project that has some enabled code. In this case,
         // we add the uninstalled thing into a separate array for separate
         // display.
@@ -153,7 +153,7 @@ class ProjectInfo {
     if (isset($file->info['project'])) {
       $project_name = $file->info['project'];
     }
-    elseif (strpos($file->getPath(), 'core/modules') === 0) {
+    elseif (str_starts_with($file->getPath(), 'core/modules')) {
       $project_name = 'drupal';
     }
     return $project_name;
@@ -165,12 +165,12 @@ class ProjectInfo {
    * @param array $info
    *   Array of .info.yml file data as returned by
    *   \Drupal\Core\Extension\InfoParser.
-   * @param $additional_elements
-   *   (optional) Array of additional elements to be collected from the .info.yml
-   *   file. Defaults to array().
+   * @param array $additional_elements
+   *   (optional) Array of additional elements to be collected from the
+   *   .info.yml file. Defaults to [].
    *
-   * @return
-   *   Array of .info.yml file data we need for the update manager.
+   * @return array
+   *   Array of .info.yml file data we need for Update Status.
    *
    * @see \Drupal\Core\Utility\ProjectInfo::processInfoList()
    */

@@ -90,6 +90,7 @@ interface TableMappingInterface {
    * Gets the list of columns that can not be used as field type columns.
    *
    * @return array
+   *   A list of column names prohibited from being used as a field type column.
    */
   public function getReservedColumns();
 
@@ -102,8 +103,8 @@ interface TableMappingInterface {
    *   The name of the property.
    *
    * @return string
-   *   A string containing a generated column name for a field data table that is
-   *   unique among all other fields.
+   *   A string containing a generated column name for a field data table that
+   *   is unique among all other fields.
    */
   public function getFieldColumnName(FieldStorageDefinitionInterface $storage_definition, $property_name);
 
@@ -119,5 +120,27 @@ interface TableMappingInterface {
    * @throws \Drupal\Core\Entity\Sql\SqlContentEntityStorageException
    */
   public function getFieldTableName($field_name);
+
+  /**
+   * Gets all the table names in which an entity field is stored.
+   *
+   * The returned table names are ordered by the amount of data stored in each
+   * table. For example, a revisionable and translatable entity type which uses
+   * core's default table mapping strategy would return the table names for the
+   * entity ID field in the following order:
+   * - base table
+   * - data table
+   * - revision table
+   * - revision data table
+   *
+   * @param string $field_name
+   *   The name of the entity field to return the tables names for.
+   *
+   * @return string[]
+   *   An array of table names in which the given field is stored.
+   *
+   * @throws \Drupal\Core\Entity\Sql\SqlContentEntityStorageException
+   */
+  public function getAllFieldTableNames($field_name);
 
 }

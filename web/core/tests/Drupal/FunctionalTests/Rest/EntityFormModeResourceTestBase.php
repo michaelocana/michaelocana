@@ -1,18 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Rest;
 
-use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
+use Drupal\Tests\rest\Functional\EntityResource\ConfigEntityResourceTestBase;
 use Drupal\Core\Entity\Entity\EntityFormMode;
 
-abstract class EntityFormModeResourceTestBase extends EntityResourceTestBase {
+/**
+ * Resource test base for the entity_form_mode entity.
+ */
+abstract class EntityFormModeResourceTestBase extends ConfigEntityResourceTestBase {
 
   /**
    * {@inheritdoc}
    *
-   * @todo: Remove 'field_ui' when https://www.drupal.org/node/2867266.
+   * @todo Remove 'field_ui' when https://www.drupal.org/node/2867266.
    */
-  public static $modules = ['user', 'field_ui'];
+  protected static $modules = ['user', 'field_ui'];
 
   /**
    * {@inheritdoc}
@@ -38,6 +43,7 @@ abstract class EntityFormModeResourceTestBase extends EntityResourceTestBase {
     $entity_form_mode = EntityFormMode::create([
       'id' => 'user.test',
       'label' => 'Test',
+      'description' => NULL,
       'targetEntityType' => 'user',
     ]);
     $entity_form_mode->save();
@@ -57,6 +63,7 @@ abstract class EntityFormModeResourceTestBase extends EntityResourceTestBase {
       ],
       'id' => 'user.test',
       'label' => 'Test',
+      'description' => '',
       'langcode' => 'en',
       'status' => TRUE,
       'targetEntityType' => 'user',
@@ -69,6 +76,7 @@ abstract class EntityFormModeResourceTestBase extends EntityResourceTestBase {
    */
   protected function getNormalizedPostEntity() {
     // @todo Update in https://www.drupal.org/node/2300677.
+    return [];
   }
 
 }

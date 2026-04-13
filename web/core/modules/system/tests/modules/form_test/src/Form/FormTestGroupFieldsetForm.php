@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -36,6 +38,10 @@ class FormTestGroupFieldsetForm extends FormBase {
     $form['meta']['element'] = [
       '#type' => 'textfield',
       '#title' => 'Nest in container element',
+    ];
+    $form['fieldset_zero'] = [
+      '#type' => 'fieldset',
+      '#title' => 0,
     ];
     return $form;
   }

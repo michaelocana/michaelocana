@@ -13,7 +13,7 @@ use Drupal\Core\Theme\ThemeManagerInterface;
 /**
  * A CacheCollector implementation for building library extension info.
  */
-class LibraryDiscoveryCollector extends CacheCollector {
+class LibraryDiscoveryCollector extends CacheCollector implements LibraryDiscoveryInterface {
 
   /**
    * The library discovery parser.
@@ -96,7 +96,7 @@ class LibraryDiscoveryCollector extends CacheCollector {
         else {
           // Otherwise replace with existing library definition if it exists.
           // Throw an exception if it doesn't.
-          list($replacement_extension, $replacement_name) = explode('/', $definition['override']);
+          [$replacement_extension, $replacement_name] = explode('/', $definition['override']);
           $replacement_definition = $this->get($replacement_extension);
           if (isset($replacement_definition[$replacement_name])) {
             $libraries[$name] = $replacement_definition[$replacement_name];
@@ -124,7 +124,7 @@ class LibraryDiscoveryCollector extends CacheCollector {
    *   The name of the extension for which library definitions will be extended.
    * @param string $library_name
    *   The name of the library whose definitions is to be extended.
-   * @param $library_definition
+   * @param array $library_definition
    *   The library definition to be extended.
    *
    * @return array
@@ -136,11 +136,17 @@ class LibraryDiscoveryCollector extends CacheCollector {
     $libraries_extend = $this->themeManager->getActiveTheme()->getLibrariesExtend();
     if (!empty($libraries_extend["$extension/$library_name"])) {
       foreach ($libraries_extend["$extension/$library_name"] as $library_extend_name) {
+        if (isset($library_definition['deprecated'])) {
+          $extend_message = sprintf('Theme "%s" is extending a deprecated library.', $extension);
+          $library_deprecation = str_replace('%library_id%', "$extension/$library_name", $library_definition['deprecated']);
+          // phpcs:ignore Drupal.Semantics.FunctionTriggerError
+          @trigger_error("$extend_message $library_deprecation", E_USER_DEPRECATED);
+        }
         if (!is_string($library_extend_name)) {
           // Only string library names are allowed.
           throw new InvalidLibrariesExtendSpecificationException('The libraries-extend specification for each library must be a list of strings.');
         }
-        list($new_extension, $new_library_name) = explode('/', $library_extend_name, 2);
+        [$new_extension, $new_library_name] = explode('/', $library_extend_name, 2);
         $new_libraries = $this->get($new_extension);
         if (isset($new_libraries[$new_library_name])) {
           $library_definition = NestedArray::mergeDeep($library_definition, $new_libraries[$new_library_name]);
@@ -156,9 +162,43 @@ class LibraryDiscoveryCollector extends CacheCollector {
   /**
    * {@inheritdoc}
    */
+  public function getLibrariesByExtension($extension) {
+    return $this->get($extension);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getLibraryByName($extension, $name) {
+    $libraries = $this->getLibrariesByExtension($extension);
+    if (!isset($libraries[$name])) {
+      return FALSE;
+    }
+    if (isset($libraries[$name]['deprecated'])) {
+      // phpcs:ignore Drupal.Semantics.FunctionTriggerError
+      @trigger_error(str_replace('%library_id%', "$extension/$name", $libraries[$name]['deprecated']), E_USER_DEPRECATED);
+    }
+    return $libraries[$name];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function reset() {
     parent::reset();
     $this->cid = NULL;
+  }
+
+  /**
+   * Clears static and persistent cache.
+   *
+   * @deprecated in drupal:11.1.0 and is removed from drupal:12.0.0. Use
+   * LibraryDiscoveryCollector::clear() instead.
+   * @see https://www.drupal.org/node/3462970
+   */
+  public function clearCachedDefinitions() {
+    @trigger_error(__METHOD__ . 'is deprecated in drupal:11.0.0 and is removed from drupal:12.0.0. Use ::clear() instead. See https://www.drupal.org/node/3462970', E_USER_DEPRECATED);
+    $this->clear();
   }
 
 }

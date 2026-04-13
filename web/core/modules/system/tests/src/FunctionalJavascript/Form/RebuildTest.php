@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\FunctionalJavascript\Form;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
@@ -36,7 +38,7 @@ class RebuildTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
@@ -51,7 +53,7 @@ class RebuildTest extends WebDriverTestBase {
    * The 'action' attribute of a form should not change after an Ajax submission
    * followed by a non-Ajax submission, which triggers a validation error.
    */
-  public function testPreserveFormActionAfterAJAX() {
+  public function testPreserveFormActionAfterAJAX(): void {
     $page = $this->getSession()->getPage();
     // Create a multi-valued field for 'page' nodes to use for Ajax testing.
     $field_name = 'field_ajax_test';
@@ -98,7 +100,7 @@ class RebuildTest extends WebDriverTestBase {
     $this->drupalGet('node/add/page');
     $page->find('css', '[value="Add another item"]')->click();
     $this->assertSession()->assertWaitOnAjaxRequest();
-    $this->assertCount(2, $this->xpath('//div[contains(@class, "field--name-field-ajax-test")]//input[@type="text"]'), 'AJAX submission succeeded.');
+    $this->assertSession()->elementsCount('xpath', '//div[contains(@class, "field--name-field-ajax-test")]//input[@type="text"]', 2);
 
     // Submit the form with the non-Ajax "Save" button, leaving the file field
     // blank to trigger a validation error, and ensure that a validation error
@@ -108,12 +110,12 @@ class RebuildTest extends WebDriverTestBase {
     $edit = [
       'title[0][value]' => $this->randomString(),
     ];
-    $this->drupalPostForm(NULL, $edit, 'Save');
-    $this->assertSession()->pageTextContains('Test file field is required.', 'Non-AJAX submission correctly triggered a validation error.');
+    $this->submitForm($edit, 'Save');
+    $this->assertSession()->pageTextContains('Test file field is required.');
 
     // Ensure that the form contains two items in the multi-valued field, so we
     // know we're testing a form that was correctly retrieved from cache.
-    $this->assertCount(2, $this->xpath('//form[contains(@id, "node-page-form")]//div[contains(@class, "js-form-item-field-ajax-test")]//input[@type="text"]'), 'Form retained its state from cache.');
+    $this->assertSession()->elementsCount('xpath', '//form[contains(@id, "node-page-form")]//div[contains(@class, "js-form-item-field-ajax-test")]//input[@type="text"]', 2);
 
     // Ensure that the form's action is correct.
     $forms = $this->xpath('//form[contains(@class, "node-page-form")]');

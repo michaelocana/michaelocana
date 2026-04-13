@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\TestSite\Commands;
 
 use Drupal\Core\Database\Database;
@@ -30,20 +32,22 @@ class TestSiteTearDownCommand extends Command {
       ->addOption('db-url', NULL, InputOption::VALUE_OPTIONAL, 'URL for database. Defaults to the environment variable SIMPLETEST_DB.', getenv('SIMPLETEST_DB'))
       ->addOption('keep-lock', NULL, InputOption::VALUE_NONE, 'Keeps the database prefix lock. Useful for ensuring test isolation when running concurrent tests.')
       ->addUsage('test12345678')
-      ->addUsage('test12345678 --db-url "mysql://username:password@localhost/databasename#table_prefix"')
+      ->addUsage('test12345678 --db-url "mysql://username:password@localhost/database_name#table_prefix"')
       ->addUsage('test12345678 --keep-lock');
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function execute(InputInterface $input, OutputInterface $output): int {
+    $root = dirname(__DIR__, 5);
+    chdir($root);
     $db_prefix = $input->getArgument('db-prefix');
     // Validate the db_prefix argument.
     try {
       $test_database = new TestDatabase($db_prefix);
     }
-    catch (\InvalidArgumentException $e) {
+    catch (\InvalidArgumentException) {
       $io = new SymfonyStyle($input, $output);
       $io->getErrorStyle()->error("Invalid database prefix: $db_prefix\n\nValid database prefixes match the regular expression '/test(\d+)$/'. For example, 'test12345678'.");
       // Display the synopsis of the command like Composer does.
@@ -77,11 +81,11 @@ class TestSiteTearDownCommand extends Command {
    *
    * @see \Drupal\Tests\BrowserTestBase::cleanupEnvironment()
    */
-  protected function tearDown(TestDatabase $test_database, $db_url) {
+  protected function tearDown(TestDatabase $test_database, $db_url): void {
     // Connect to the test database.
-    $root = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
+    $root = dirname(__DIR__, 5);
     $database = Database::convertDbUrlToConnectionInfo($db_url, $root);
-    $database['prefix'] = ['default' => $test_database->getDatabasePrefix()];
+    $database['prefix'] = $test_database->getDatabasePrefix();
     Database::addConnectionInfo(__CLASS__, 'default', $database);
 
     // Remove all the tables.
@@ -100,7 +104,7 @@ class TestSiteTearDownCommand extends Command {
    * test site can be torn down even if something in the test site is broken.
    *
    * @param string $path
-   *   A string containing either an URI or a file or directory path.
+   *   A string containing either a URI or a file or directory path.
    * @param callable $callback
    *   (optional) Callback function to run on each file prior to deleting it and
    *   on each directory prior to traversing it. For example, can be used to
@@ -112,7 +116,7 @@ class TestSiteTearDownCommand extends Command {
    *
    * @see \Drupal\Core\File\FileSystemInterface::deleteRecursive()
    */
-  protected function fileUnmanagedDeleteRecursive($path, $callback = NULL) {
+  protected function fileUnmanagedDeleteRecursive($path, $callback = NULL): bool {
     if (isset($callback)) {
       call_user_func($callback, $path);
     }

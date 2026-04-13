@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Functional;
 
 use Drupal\node\Entity\Node;
@@ -19,7 +21,7 @@ class ModerationStateAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_moderation',
     'node',
   ];
@@ -32,12 +34,12 @@ class ModerationStateAccessTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $node_type = NodeType::create([
       'type' => 'test',
-      'label' => 'Test',
+      'name' => 'Test',
     ]);
     $node_type->save();
 
@@ -49,9 +51,9 @@ class ModerationStateAccessTest extends BrowserTestBase {
   }
 
   /**
-   * Test the view operation access handler with the view permission.
+   * Tests the view operation access handler with the view permission.
    */
-  public function testViewShowsCorrectStates() {
+  public function testViewShowsCorrectStates(): void {
     $permissions = [
       'access content',
       'view all revisions',

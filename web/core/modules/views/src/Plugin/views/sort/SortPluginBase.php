@@ -13,8 +13,8 @@ use Drupal\views\Plugin\views\HandlerBase;
  * Plugins that handle sorting for Views.
  *
  * Sort handlers extend \Drupal\views\Plugin\views\sort:SortPluginBase. They
- * must be annotated with \Drupal\views\Annotation\ViewsSort annotation, and
- * they must be in plugin directory Plugin\views\sort.
+ * must be attributed with the \Drupal\views\Attribute\ViewsSort attribute,
+ * and they must be in plugin directory Plugin\views\sort.
  *
  * @ingroup views_plugins
  * @see plugin_api
@@ -41,6 +41,9 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
     $this->query->addOrderBy($this->tableAlias, $this->realField, $this->options['order']);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -49,13 +52,14 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
     $options['expose'] = [
       'contains' => [
         'label' => ['default' => ''],
+        'field_identifier' => ['default' => ''],
       ],
     ];
     return $options;
   }
 
   /**
-   * Display whether or not the sort order is ascending or descending
+   * Display whether or not the sort order is ascending or descending.
    */
   public function adminSummary() {
     if (!empty($this->options['exposed'])) {
@@ -67,14 +71,14 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
       default:
         return $this->t('asc');
 
-      case 'DESC';
-      case 'desc';
+      case 'DESC':
+      case 'desc':
         return $this->t('desc');
     }
   }
 
   /**
-   * Basic options for all sort criteria
+   * Basic options for all sort criteria.
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
@@ -139,7 +143,7 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
   }
 
   /**
-   * Simple validate handler
+   * Simple validate handler.
    */
   public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     $this->sortValidate($form, $form_state);
@@ -150,7 +154,7 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
   }
 
   /**
-   * Simple submit handler
+   * Simple submit handler.
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {
     // Do not store this values.
@@ -177,12 +181,15 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
     }
   }
 
+  // phpcs:ignore Drupal.Commenting.FunctionComment.Missing
   protected function sortValidate(&$form, FormStateInterface $form_state) {}
 
+  // phpcs:ignore Drupal.Commenting.FunctionComment.Missing
   public function sortSubmit(&$form, FormStateInterface $form_state) {}
 
   /**
    * Provide a list of options for the default sort form.
+   *
    * Should be overridden by classes that don't override sort_form
    */
   protected function sortOptions() {
@@ -192,12 +199,15 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
     ];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function buildExposeForm(&$form, FormStateInterface $form_state) {
     // #flatten will move everything from $form['expose'][$key] to $form[$key]
     // prior to rendering. That's why the preRender for it needs to run first,
     // so that when the next preRender (the one for fieldsets) runs, it gets
     // the flattened data.
-    array_unshift($form['#pre_render'], [get_class($this), 'preRenderFlattenData']);
+    array_unshift($form['#pre_render'], [static::class, 'preRenderFlattenData']);
     $form['expose']['#flatten'] = TRUE;
 
     $form['expose']['label'] = [
@@ -207,7 +217,50 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
       '#required' => TRUE,
       '#size' => 40,
       '#weight' => -1,
-   ];
+    ];
+
+    $form['expose']['field_identifier'] = [
+      '#type' => 'textfield',
+      '#default_value' => $this->options['expose']['field_identifier'],
+      '#title' => $this->t('Sort field identifier'),
+      '#required' => TRUE,
+      '#size' => 40,
+      '#description' => $this->t("This will appear in the URL after the ?, as value of 'sort_by' parameter, to identify this sort field. Cannot be blank. Only letters, digits and the dot ('.'), hyphen ('-'), underscore ('_'), and tilde ('~') characters are allowed."),
+    ];
+  }
+
+  /**
+   * Validate the options form.
+   */
+  public function validateExposeForm($form, FormStateInterface $form_state) {
+    $field_identifier = $form_state->getValue([
+      'options',
+      'expose',
+      'field_identifier',
+    ]);
+    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_~.\-]*$/', $field_identifier)) {
+      $form_state->setErrorByName('expose][field_identifier', $this->t('This identifier has illegal characters.'));
+      return;
+    }
+
+    // Validate that the sort field identifier is unique within the sort
+    // handlers. Note that the sort field identifier is different that other
+    // identifiers because it is used as a query string value of the 'sort_by'
+    // parameter, while the others are used as query string parameter keys.
+    // Therefore we can have a sort field identifier be the same as an exposed
+    // filter identifier. This prevents us from using
+    // DisplayPluginInterface::isIdentifierUnique() to test for uniqueness.
+    // @see \Drupal\views\Plugin\views\display\DisplayPluginInterface::isIdentifierUnique()
+    foreach ($this->view->display_handler->getHandlers('sort') as $key => $handler) {
+      if ($handler->canExpose() && $handler->isExposed()) {
+        if ($form_state->get('id') !== $key && isset($handler->options['expose']['field_identifier']) && $field_identifier === $handler->options['expose']['field_identifier']) {
+          $form_state->setErrorByName('expose][field_identifier', $this->t('This identifier is already used by %label sort handler.', [
+            '%label' => $handler->adminLabel(TRUE),
+          ]));
+          return;
+        }
+      }
+    }
   }
 
   /**
@@ -225,6 +278,7 @@ abstract class SortPluginBase extends HandlerBase implements CacheableDependency
   public function defaultExposeOptions() {
     $this->options['expose'] = [
       'label' => $this->definition['title'],
+      'field_identifier' => $this->options['id'],
     ];
   }
 

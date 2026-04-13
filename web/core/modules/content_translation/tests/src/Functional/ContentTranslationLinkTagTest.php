@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_translation\Functional;
 
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Url;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\entity_test\Entity\EntityTestMul;
@@ -17,7 +21,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'entity_test',
     'content_translation',
     'content_translation_test',
@@ -39,7 +43,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Set up user.
@@ -67,7 +71,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
    * @return \Drupal\Core\Entity\EntityInterface
    *   An entity with translations.
    */
-  protected function createTranslatableEntity() {
+  protected function createTranslatableEntity(): EntityInterface {
     $entity = EntityTestMul::create(['label' => $this->randomString()]);
 
     // Create translations for non default languages.
@@ -82,7 +86,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
   /**
    * Tests alternate link tag found for entity types with canonical links.
    */
-  public function testCanonicalAlternateTags() {
+  public function testCanonicalAlternateTags(): void {
     /** @var \Drupal\Core\Language\LanguageManagerInterface $languageManager */
     $languageManager = $this->container->get('language_manager');
     /** @var \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager */
@@ -112,13 +116,26 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
 
     // Ensure link tags for all languages are found on each language variation
     // page of an entity.
-    foreach ($urls as $langcode => $url) {
+    foreach ($urls as $url) {
       $this->drupalGet($url);
       foreach ($urls as $langcode_alternate => $url_alternate) {
-        $args = [':href' => $url_alternate->toString(), ':hreflang' => $langcode_alternate];
-        $links = $this->xpath('head/link[@rel = "alternate" and @href = :href and @hreflang = :hreflang]', $args);
-        $message = sprintf('The "%s" translation has the correct alternate hreflang link for "%s": %s.', $langcode, $langcode_alternate, $url->toString());
-        $this->assertTrue(isset($links[0]), $message);
+        $this->assertSession()->elementAttributeContains('xpath', "head/link[@rel='alternate' and @hreflang='$langcode_alternate']", 'href', $url_alternate->toString());
+      }
+    }
+
+    // Configure entity path as a front page.
+    $entity_canonical = '/entity_test_mul/manage/' . $entity->id();
+    $this->config('system.site')->set('page.front', $entity_canonical)->save();
+
+    // Tests hreflang when using entities as a front page.
+    foreach ($urls as $url) {
+      $this->drupalGet($url);
+      foreach ($entity->getTranslationLanguages() as $language) {
+        $frontpage_path = Url::fromRoute('<front>', [], [
+          'absolute' => TRUE,
+          'language' => $language,
+        ])->toString();
+        $this->assertSession()->elementAttributeContains('xpath', "head/link[@rel='alternate' and @hreflang='{$language->getId()}']", 'href', $frontpage_path);
       }
     }
   }
@@ -126,7 +143,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
   /**
    * Tests alternate link tag missing for entity types without canonical links.
    */
-  public function testCanonicalAlternateTagsMissing() {
+  public function testCanonicalAlternateTagsMissing(): void {
     /** @var \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager */
     $entityTypeManager = $this->container->get('entity_type.manager');
 
@@ -140,8 +157,7 @@ class ContentTranslationLinkTagTest extends BrowserTestBase {
     $this->drupalGet($entity->toUrl('edit-form'));
 
     $this->assertSession()->statusCodeEquals(200);
-    $result = $this->xpath('//link[@rel="alternate" and @hreflang]');
-    $this->assertEmpty($result, 'No alternate link tag found.');
+    $this->assertSession()->elementNotExists('xpath', '//link[@rel="alternate" and @hreflang]');
   }
 
 }

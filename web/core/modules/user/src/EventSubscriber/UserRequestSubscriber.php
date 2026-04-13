@@ -2,24 +2,18 @@
 
 namespace Drupal\user\EventSubscriber;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpKernel\Event\PostResponseEvent;
+use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Updates the current user's last access time.
  */
 class UserRequestSubscriber implements EventSubscriberInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The current account.
@@ -42,8 +36,10 @@ class UserRequestSubscriber implements EventSubscriberInterface {
    *   The current user.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager service.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
    */
-  public function __construct(AccountInterface $account, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(AccountInterface $account, EntityTypeManagerInterface $entity_type_manager, protected TimeInterface $time) {
     $this->account = $account;
     $this->entityTypeManager = $entity_type_manager;
   }
@@ -51,25 +47,23 @@ class UserRequestSubscriber implements EventSubscriberInterface {
   /**
    * Updates the current user's last access time.
    *
-   * @param \Symfony\Component\HttpKernel\Event\PostResponseEvent $event
+   * @param \Symfony\Component\HttpKernel\Event\TerminateEvent $event
    *   The event to process.
    */
-  public function onKernelTerminate(PostResponseEvent $event) {
-    if ($this->account->isAuthenticated() && REQUEST_TIME - $this->account->getLastAccessedTime() > Settings::get('session_write_interval', 180)) {
+  public function onKernelTerminate(TerminateEvent $event) {
+    if ($this->account->isAuthenticated() && $this->time->getRequestTime() - $this->account->getLastAccessedTime() > Settings::get('session_write_interval', 180)) {
       // Do that no more than once per 180 seconds.
       /** @var \Drupal\user\UserStorageInterface $storage */
       $storage = $this->entityTypeManager->getStorage('user');
-      $storage->updateLastAccessTimestamp($this->account, REQUEST_TIME);
+      $storage->updateLastAccessTimestamp($this->account, $this->time->getRequestTime());
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
-    // Should go before other subscribers start to write their caches. Notably
-    // before \Drupal\Core\EventSubscriber\KernelDestructionSubscriber to
-    // prevent instantiation of destructed services.
+  public static function getSubscribedEvents(): array {
+    // Should go before other subscribers start to write their caches.
     $events[KernelEvents::TERMINATE][] = ['onKernelTerminate', 300];
     return $events;
   }

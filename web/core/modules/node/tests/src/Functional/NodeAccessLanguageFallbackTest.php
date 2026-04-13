@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -16,7 +18,7 @@ class NodeAccessLanguageFallbackTest extends NodeTestBase {
    *
    * @var array
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'node_access_test',
     'content_translation',
@@ -30,7 +32,7 @@ class NodeAccessLanguageFallbackTest extends NodeTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // After enabling a node access module, the {node_access} table has to be
@@ -49,7 +51,7 @@ class NodeAccessLanguageFallbackTest extends NodeTestBase {
   /**
    * Tests node access fallback handling with multiple node languages.
    */
-  public function testNodeAccessLanguageFallback() {
+  public function testNodeAccessLanguageFallback(): void {
     // The node_access_test module allows nodes to be marked private. We need to
     // ensure that system honors the fallback system of node access properly.
     // Note that node_access_test_language is language-sensitive and does not
@@ -118,10 +120,10 @@ class NodeAccessLanguageFallbackTest extends NodeTestBase {
    * @param int $count
    *   The number of rows expected by the query (equal to the translation
    *   count).
-   * @param $langcode
+   * @param string $langcode
    *   The expected language code set as the fallback property.
    */
-  public function checkRecords($count, $langcode = 'hu') {
+  public function checkRecords($count, $langcode = 'hu'): void {
     $select = \Drupal::database()
       ->select('node_access', 'na')
       ->fields('na', ['nid', 'fallback', 'langcode', 'grant_view'])
@@ -129,7 +131,7 @@ class NodeAccessLanguageFallbackTest extends NodeTestBase {
       ->condition('na.gid', 8888, '=');
     $records = $select->execute()->fetchAll();
     // Check that the expected record count is returned.
-    $this->assertEquals(count($records), $count);
+    $this->assertCount($count, $records);
     // The fallback value is 'hu' and should be set to 1. For other languages,
     // it should be set to 0. Casting to boolean lets us run that comparison.
     foreach ($records as $record) {

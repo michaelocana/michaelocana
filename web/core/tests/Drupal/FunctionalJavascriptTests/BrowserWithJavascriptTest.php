@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalJavascriptTests;
 
-use Behat\Mink\Driver\GoutteDriver;
 use PHPUnit\Framework\AssertionFailedError;
 
 /**
@@ -13,18 +14,16 @@ use PHPUnit\Framework\AssertionFailedError;
 class BrowserWithJavascriptTest extends WebDriverTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['test_page_test'];
+  protected static $modules = ['test_page_test'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  public function testJavascript() {
+  public function testJavascript(): void {
     $this->drupalGet('<front>');
     $session = $this->getSession();
 
@@ -38,12 +37,16 @@ class BrowserWithJavascriptTest extends WebDriverTestBase {
         x = w.innerWidth || e.clientWidth || g.clientWidth,
         y = w.innerHeight || e.clientHeight|| g.clientHeight;
         return x == 400 && y == 300;
-    }());
+    }())
 JS;
     $this->assertJsCondition($javascript);
+
+    // Ensure that \Drupal\Tests\UiHelperTrait::isTestUsingGuzzleClient() works
+    // as expected.
+    $this->assertFalse($this->isTestUsingGuzzleClient());
   }
 
-  public function testAssertJsCondition() {
+  public function testAssertJsCondition(): void {
     $this->drupalGet('<front>');
     $session = $this->getSession();
 
@@ -57,7 +60,7 @@ JS;
         x = w.innerWidth || e.clientWidth || g.clientWidth,
         y = w.innerHeight || e.clientHeight|| g.clientHeight;
         return x == 400 && y == 300;
-    }());
+    }())
 JS;
 
     // We expected the following assertion to fail because the window has been
@@ -69,7 +72,7 @@ JS;
   /**
    * Tests creating screenshots.
    */
-  public function testCreateScreenshot() {
+  public function testCreateScreenshot(): void {
     $this->drupalGet('<front>');
     $this->createScreenshot('public://screenshot.jpg');
     $this->assertFileExists('public://screenshot.jpg');
@@ -81,7 +84,7 @@ JS;
    * @see \Drupal\Tests\WebAssert::assertNoEscaped()
    * @see \Drupal\Tests\WebAssert::assertEscaped()
    */
-  public function testEscapingAssertions() {
+  public function testEscapingAssertions(): void {
     $assert = $this->assertSession();
 
     $this->drupalGet('test-escaped-characters');
@@ -107,7 +110,7 @@ JS;
    * @param string|\Drupal\Core\Url $path
    *   Drupal path or URL to load into Mink controlled browser.
    * @param array $options
-   *   (optional) Options to be forwarded to the url generator.
+   *   (optional) Options to be forwarded to the URL generator.
    * @param string[] $headers
    *   An array containing additional HTTP request headers, the array keys are
    *   the header names and the array values the header values. This is useful
@@ -136,8 +139,8 @@ JS;
     $session->visit($url);
 
     // There are 2 alerts to accept before we can get the content of the page.
-    $session->getDriver()->getWebdriverSession()->accept_alert();
-    $session->getDriver()->getWebdriverSession()->accept_alert();
+    $session->getDriver()->getWebdriverSession()->alert()->accept();
+    $session->getDriver()->getWebdriverSession()->alert()->accept();
 
     $out = $session->getPage()->getContent();
 
@@ -151,9 +154,9 @@ JS;
       $this->metaRefreshCount = 0;
     }
 
-    // Log only for JavascriptTestBase tests because for Goutte we log with
-    // ::getResponseLogHandler.
-    if ($this->htmlOutputEnabled && !($this->getSession()->getDriver() instanceof GoutteDriver)) {
+    // Log only for WebDriverTestBase tests because for DrupalTestBrowser we log
+    // with ::getResponseLogHandler.
+    if ($this->htmlOutputEnabled && !$this->isTestUsingGuzzleClient()) {
       $html_output = 'GET request to: ' . $url .
         '<hr />Ending URL: ' . $this->getSession()->getCurrentUrl();
       $html_output .= '<hr />' . $out;

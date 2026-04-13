@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalJavascriptTests\Core;
 
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
@@ -15,7 +17,7 @@ class JsMessageTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['js_message_test'];
+  protected static $modules = ['js_message_test'];
 
   /**
    * {@inheritdoc}
@@ -25,7 +27,7 @@ class JsMessageTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Enable the theme.
@@ -36,9 +38,9 @@ class JsMessageTest extends WebDriverTestBase {
   }
 
   /**
-   * Test click on links to show messages and remove messages.
+   * Tests click on links to show messages and remove messages.
    */
-  public function testAddRemoveMessages() {
+  public function testAddRemoveMessages(): void {
     $web_assert = $this->assertSession();
     $this->drupalGet('js_message_test_link');
 
@@ -108,8 +110,10 @@ class JsMessageTest extends WebDriverTestBase {
    *   Expected messages.
    * @param string $messagesSelector
    *   The css selector for the containing messages element.
+   *
+   * @internal
    */
-  protected function assertCurrentMessages(array $expected_messages, $messagesSelector) {
+  protected function assertCurrentMessages(array $expected_messages, string $messagesSelector): void {
     $expected_messages = array_values($expected_messages);
     $current_messages = [];
     if ($message_divs = $this->getSession()->getPage()->findAll('css', "$messagesSelector .messages")) {
@@ -118,7 +122,13 @@ class JsMessageTest extends WebDriverTestBase {
         $current_messages[] = $message_div->getText();
       }
     }
-    $this->assertEquals($expected_messages, $current_messages);
+    // Check that each message text contains the expected text.
+    if (count($expected_messages) !== count($current_messages)) {
+      $this->fail('The expected messages array contains a different number of values than the current messages array.');
+    }
+    for ($i = 0; $i < count($expected_messages); $i++) {
+      $this->assertStringContainsString($expected_messages[$i], $current_messages[$i]);
+    }
   }
 
 }

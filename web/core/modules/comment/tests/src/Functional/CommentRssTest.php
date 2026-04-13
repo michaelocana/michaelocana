@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Functional;
 
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
@@ -17,11 +19,9 @@ class CommentRssTest extends CommentTestBase {
   use AssertPageCacheContextsAndTagsTrait;
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['views'];
+  protected static $modules = ['views'];
 
   /**
    * {@inheritdoc}
@@ -31,7 +31,7 @@ class CommentRssTest extends CommentTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Setup the rss view display.
@@ -47,7 +47,7 @@ class CommentRssTest extends CommentTestBase {
   /**
    * Tests comments as part of an RSS feed.
    */
-  public function testCommentRss() {
+  public function testCommentRss(): void {
     // Find comment in RSS feed.
     $this->drupalLogin($this->webUser);
     $this->postComment($this->node, $this->randomMachineName(), $this->randomMachineName());
@@ -72,13 +72,13 @@ class CommentRssTest extends CommentTestBase {
     ]));
 
     $raw = '<comments>' . $this->node->toUrl('canonical', ['fragment' => 'comments', 'absolute' => TRUE])->toString() . '</comments>';
-    $this->assertRaw($raw, 'Comments as part of RSS feed.');
+    $this->assertSession()->responseContains($raw);
 
     // Hide comments from RSS feed and check presence.
     $this->node->set('comment', CommentItemInterface::HIDDEN);
     $this->node->save();
     $this->drupalGet('rss.xml');
-    $this->assertNoRaw($raw, 'Hidden comments is not a part of RSS feed.');
+    $this->assertSession()->responseNotContains($raw);
   }
 
 }

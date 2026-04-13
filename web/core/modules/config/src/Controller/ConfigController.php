@@ -15,11 +15,14 @@ use Drupal\Core\Url;
 use Drupal\system\FileDownloadController;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
  * Returns responses for config module routes.
  */
 class ConfigController implements ContainerInjectionInterface {
+
+  use StringTranslationTrait;
 
   /**
    * The target storage.
@@ -113,22 +116,14 @@ class ConfigController implements ContainerInjectionInterface {
    * @param \Drupal\Core\Config\ImportStorageTransformer $import_transformer
    *   The import transformer service.
    */
-  public function __construct(StorageInterface $target_storage, StorageInterface $sync_storage, ConfigManagerInterface $config_manager, FileDownloadController $file_download_controller, DiffFormatter $diff_formatter, FileSystemInterface $file_system, StorageInterface $export_storage = NULL, ImportStorageTransformer $import_transformer = NULL) {
+  public function __construct(StorageInterface $target_storage, StorageInterface $sync_storage, ConfigManagerInterface $config_manager, FileDownloadController $file_download_controller, DiffFormatter $diff_formatter, FileSystemInterface $file_system, StorageInterface $export_storage, ImportStorageTransformer $import_transformer) {
     $this->targetStorage = $target_storage;
     $this->syncStorage = $sync_storage;
     $this->configManager = $config_manager;
     $this->fileDownloadController = $file_download_controller;
     $this->diffFormatter = $diff_formatter;
     $this->fileSystem = $file_system;
-    if (is_null($export_storage)) {
-      @trigger_error('The config.storage.export service must be passed to ConfigController::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/3037022.', E_USER_DEPRECATED);
-      $export_storage = \Drupal::service('config.storage.export');
-    }
     $this->exportStorage = $export_storage;
-    if (is_null($import_transformer)) {
-      @trigger_error('The config.import_transformer service must be passed to ConfigController::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/3066005.', E_USER_DEPRECATED);
-      $import_transformer = \Drupal::service('config.import_transformer');
-    }
     $this->importTransformer = $import_transformer;
   }
 
@@ -139,7 +134,7 @@ class ConfigController implements ContainerInjectionInterface {
     try {
       $this->fileSystem->delete($this->fileSystem->getTempDirectory() . '/config.tar.gz');
     }
-    catch (FileException $e) {
+    catch (FileException) {
       // Ignore failed deletes.
     }
 
@@ -185,7 +180,7 @@ class ConfigController implements ContainerInjectionInterface {
 
     $build = [];
 
-    $build['#title'] = t('View changes of @config_file', ['@config_file' => $source_name]);
+    $build['#title'] = $this->t('View changes of @config_file', ['@config_file' => $source_name]);
     // Add the CSS for the inline diff.
     $build['#attached']['library'][] = 'system/diff';
 
@@ -195,8 +190,8 @@ class ConfigController implements ContainerInjectionInterface {
         'class' => ['diff'],
       ],
       '#header' => [
-        ['data' => t('Active'), 'colspan' => '2'],
-        ['data' => t('Staged'), 'colspan' => '2'],
+        ['data' => $this->t('Active'), 'colspan' => '2'],
+        ['data' => $this->t('Staged'), 'colspan' => '2'],
       ],
       '#rows' => $this->diffFormatter->format($diff),
     ];

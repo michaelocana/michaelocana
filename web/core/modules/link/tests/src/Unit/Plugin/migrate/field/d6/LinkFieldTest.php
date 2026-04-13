@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\link\Unit\Plugin\migrate\field\d6;
 
 use Drupal\migrate\Plugin\MigrationInterface;
@@ -14,11 +16,15 @@ use Prophecy\Argument;
 class LinkFieldTest extends UnitTestCase {
 
   /**
+   * The migrate field plugin.
+   *
    * @var \Drupal\migrate_drupal\Plugin\MigrateFieldInterface
    */
   protected $plugin;
 
   /**
+   * The migration.
+   *
    * @var \Drupal\migrate\Plugin\MigrationInterface
    */
   protected $migration;
@@ -26,7 +32,9 @@ class LinkFieldTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
+    parent::setUp();
+
     $this->plugin = new LinkField([], 'link', []);
 
     $migration = $this->prophesize(MigrationInterface::class);
@@ -46,12 +54,12 @@ class LinkFieldTest extends UnitTestCase {
   /**
    * @covers ::defineValueProcessPipeline
    */
-  public function testDefineValueProcessPipeline($method = 'defineValueProcessPipeline') {
-    $this->plugin->$method($this->migration, 'somefieldname', []);
+  public function testDefineValueProcessPipeline($method = 'defineValueProcessPipeline'): void {
+    $this->plugin->$method($this->migration, 'field_name', []);
 
     $expected = [
       'plugin' => 'field_link',
-      'source' => 'somefieldname',
+      'source' => 'field_name',
     ];
     $this->assertSame($expected, $this->migration->getProcess());
   }

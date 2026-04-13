@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\config\Unit\Menu;
 
 use Drupal\Tests\Core\Menu\LocalTaskIntegrationTestBase;
@@ -11,7 +13,10 @@ use Drupal\Tests\Core\Menu\LocalTaskIntegrationTestBase;
  */
 class ConfigLocalTasksTest extends LocalTaskIntegrationTestBase {
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     $this->directoryList = ['config' => 'core/modules/config'];
     parent::setUp();
   }
@@ -21,20 +26,40 @@ class ConfigLocalTasksTest extends LocalTaskIntegrationTestBase {
    *
    * @dataProvider getConfigAdminRoutes
    */
-  public function testConfigAdminLocalTasks($route, $expected) {
+  public function testConfigAdminLocalTasks($route, $expected): void {
     $this->assertLocalTasks($route, $expected);
   }
 
   /**
    * Provides a list of routes to test.
    */
-  public function getConfigAdminRoutes() {
+  public static function getConfigAdminRoutes() {
     return [
       ['config.sync', [['config.sync', 'config.import', 'config.export']]],
-      ['config.import_full', [['config.sync', 'config.import', 'config.export'], ['config.import_full', 'config.import_single']]],
-      ['config.import_single', [['config.sync', 'config.import', 'config.export'], ['config.import_full', 'config.import_single']]],
-      ['config.export_full', [['config.sync', 'config.import', 'config.export'], ['config.export_full', 'config.export_single']]],
-      ['config.export_single', [['config.sync', 'config.import', 'config.export'], ['config.export_full', 'config.export_single']]],
+      ['config.import_full',
+        [
+          ['config.sync', 'config.import', 'config.export'],
+          ['config.import_full', 'config.import_single'],
+        ],
+      ],
+      ['config.import_single',
+        [
+          ['config.sync', 'config.import', 'config.export'],
+          ['config.import_full', 'config.import_single'],
+        ],
+      ],
+      ['config.export_full',
+        [
+          ['config.sync', 'config.import', 'config.export'],
+          ['config.export_full', 'config.export_single'],
+        ],
+      ],
+      ['config.export_single',
+        [
+          ['config.sync', 'config.import', 'config.export'],
+          ['config.export_full', 'config.export_single'],
+        ],
+      ],
     ];
   }
 

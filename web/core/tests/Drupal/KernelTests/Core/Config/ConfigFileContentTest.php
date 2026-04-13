@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Config;
 
 use Drupal\Core\Config\FileStorage;
@@ -16,16 +18,16 @@ class ConfigFileContentTest extends KernelTestBase {
   /**
    * Exempt from strict schema checking.
    *
-   * @see \Drupal\Core\Config\Development\ConfigSchemaChecker
-   *
    * @var bool
+   *
+   * @see \Drupal\Core\Config\Development\ConfigSchemaChecker
    */
   protected $strictConfigSchema = FALSE;
 
   /**
    * Tests setting, writing, and reading of a configuration setting.
    */
-  public function testReadWriteConfig() {
+  public function testReadWriteConfig(): void {
     $storage = $this->container->get('config.storage');
 
     $name = 'foo.bar';
@@ -55,15 +57,15 @@ class ConfigFileContentTest extends KernelTestBase {
     $config = $this->config($name);
 
     // Verify a configuration object is returned.
-    $this->assertEqual($config->getName(), $name);
+    $this->assertEquals($name, $config->getName());
     $this->assertNotEmpty($config, 'Config object created.');
 
     // Verify the configuration object is empty.
-    $this->assertEqual($config->get(), [], 'New config object is empty.');
+    $this->assertEquals([], $config->get(), 'New config object is empty.');
 
     // Verify nothing was saved.
     $data = $storage->read($name);
-    $this->assertIdentical($data, FALSE);
+    $this->assertFalse($data);
 
     // Add a top level value.
     $config = $this->config($name);
@@ -97,18 +99,18 @@ class ConfigFileContentTest extends KernelTestBase {
 
     // Read top level value.
     $config = $this->config($name);
-    $this->assertEqual($config->getName(), $name);
+    $this->assertEquals($name, $config->getName());
     $this->assertNotEmpty($config, 'Config object created.');
-    $this->assertEqual($config->get($key), 'bar', 'Top level configuration value found.');
+    $this->assertEquals('bar', $config->get($key), 'Top level configuration value found.');
 
     // Read nested value.
-    $this->assertEqual($config->get($nested_key), $nested_value, 'Nested configuration value found.');
+    $this->assertEquals($nested_value, $config->get($nested_key), 'Nested configuration value found.');
 
     // Read array.
-    $this->assertEqual($config->get($array_key), $array_value, 'Top level array configuration value found.');
+    $this->assertEquals($array_value, $config->get($array_key), 'Top level array configuration value found.');
 
     // Read nested array.
-    $this->assertEqual($config->get($nested_array_key), $array_value, 'Nested array configuration value found.');
+    $this->assertEquals($array_value, $config->get($nested_array_key), 'Nested array configuration value found.');
 
     // Read a top level value that doesn't exist.
     $this->assertNull($config->get('i_do_not_exist'), 'Non-existent top level value returned NULL.');
@@ -123,10 +125,10 @@ class ConfigFileContentTest extends KernelTestBase {
     $this->assertTrue($config->get($true_key), "Boolean TRUE value returned the TRUE.");
 
     // Read null value.
-    $this->assertIdentical($config->get('null'), NULL);
+    $this->assertNull($config->get('null'));
 
     // Read false that had been nested in an array value.
-    $this->assertSame(FALSE, $config->get($casting_array_false_value_key), "Nested boolean FALSE value returned FALSE.");
+    $this->assertFalse($config->get($casting_array_false_value_key), "Nested boolean FALSE value returned FALSE.");
 
     // Unset a top level value.
     $config->clear($key);
@@ -154,7 +156,7 @@ class ConfigFileContentTest extends KernelTestBase {
 
     // Verify the database entry exists from a chained save.
     $data = $storage->read($chained_name);
-    $this->assertEqual($data, $config->get());
+    $this->assertEquals($config->get(), $data);
 
     // Get file listing for all files starting with 'foo'. Should return
     // two elements.
@@ -174,7 +176,7 @@ class ConfigFileContentTest extends KernelTestBase {
     // Get file listing for all files starting with 'bar'. Should return
     // an empty array.
     $files = $storage->listAll('bar');
-    $this->assertEqual($files, [], 'No files listed with the prefix \'bar\'.');
+    $this->assertEquals([], $files, 'No files listed with the prefix \'bar\'.');
 
     // Delete the configuration.
     $config = $this->config($name);
@@ -182,13 +184,13 @@ class ConfigFileContentTest extends KernelTestBase {
 
     // Verify the database entry no longer exists.
     $data = $storage->read($name);
-    $this->assertIdentical($data, FALSE);
+    $this->assertFalse($data);
   }
 
   /**
    * Tests serialization of configuration to file.
    */
-  public function testSerialization() {
+  public function testSerialization(): void {
     $name = $this->randomMachineName(10) . '.' . $this->randomMachineName(10);
     $config_data = [
       // Indexed arrays; the order of elements is essential.
@@ -198,17 +200,19 @@ class ConfigFileContentTest extends KernelTestBase {
         // HTML/XML in values.
         'HTML' => '<strong> <bold> <em> <blockquote>',
         // UTF-8 in values.
+        // cspell:disable-next-line
         'UTF-8' => 'FrançAIS is ÜBER-åwesome',
         // Unicode in keys and values.
+        // cSpell:disable-next-line
         'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ' => 'αβγδεζηθικλμνξοσὠ',
       ],
       'invalid xml' => '</title><script type="text/javascript">alert("Title XSS!");</script> & < > " \' ',
     ];
 
     // Encode and write, and reload and decode the configuration data.
-    $filestorage = new FileStorage(Settings::get('config_sync_directory'));
-    $filestorage->write($name, $config_data);
-    $config_parsed = $filestorage->read($name);
+    $file_storage = new FileStorage(Settings::get('config_sync_directory'));
+    $file_storage->write($name, $config_data);
+    $config_parsed = $file_storage->read($name);
 
     $key = 'numeric keys';
     $this->assertSame($config_data[$key], $config_parsed[$key]);
@@ -222,6 +226,7 @@ class ConfigFileContentTest extends KernelTestBase {
     $key = 'UTF-8';
     $this->assertSame($config_data['nested keys'][$key], $config_parsed['nested keys'][$key]);
 
+    // cSpell:disable-next-line
     $key = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ';
     $this->assertSame($config_data['nested keys'][$key], $config_parsed['nested keys'][$key]);
 

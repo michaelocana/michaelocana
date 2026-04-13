@@ -15,8 +15,4 @@ class DiffOpChange extends DiffOp {
     $this->closing = $closing;
   }
 
-  public function reverse() {
-    return new DiffOpChange($this->closing, $this->orig);
-  }
-
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\block_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -40,7 +42,7 @@ class TestForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    if (strpos($form_state->getValue('email'), '.com') === FALSE) {
+    if (!str_contains($form_state->getValue('email'), '.com')) {
       $form_state->setErrorByName('email', $this->t('This is not a .com email address.'));
     }
   }

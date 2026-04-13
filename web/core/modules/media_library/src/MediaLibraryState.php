@@ -3,6 +3,8 @@
 namespace Drupal\media_library;
 
 use Drupal\Component\Utility\Crypt;
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,7 +39,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *
  * @see \Drupal\media_library\MediaLibraryOpenerInterface
  */
-class MediaLibraryState extends ParameterBag {
+class MediaLibraryState extends ParameterBag implements CacheableDependencyInterface {
 
   /**
    * {@inheritdoc}
@@ -99,10 +101,10 @@ class MediaLibraryState extends ParameterBag {
     // all validation runs.
     $state = static::create(
       $query->get('media_library_opener_id'),
-      $query->get('media_library_allowed_types', []),
+      $query->all('media_library_allowed_types'),
       $query->get('media_library_selected_type'),
       $query->get('media_library_remaining'),
-      $query->get('media_library_opener_parameters', [])
+      $query->all('media_library_opener_parameters')
     );
 
     // The request parameters need to contain a valid hash to prevent a
@@ -111,6 +113,9 @@ class MediaLibraryState extends ParameterBag {
     if (!$state->isValidHash($query->get('hash'))) {
       throw new BadRequestHttpException("Invalid media library parameters specified.");
     }
+
+    // @todo Review parameters passed and remove irrelevant ones in
+    //   https://www.drupal.org/i/3396650
 
     // Once we have validated the required parameters, we restore the parameters
     // from the request since there might be additional values.
@@ -222,7 +227,7 @@ class MediaLibraryState extends ParameterBag {
    *   The media type IDs.
    */
   public function getAllowedTypeIds() {
-    return $this->get('media_library_allowed_types');
+    return $this->all('media_library_allowed_types');
   }
 
   /**
@@ -266,7 +271,28 @@ class MediaLibraryState extends ParameterBag {
    *   An associative array of all opener-specific parameter values.
    */
   public function getOpenerParameters() {
-    return $this->get('media_library_opener_parameters', []);
+    return $this->all('media_library_opener_parameters');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheContexts() {
+    return ['url.query_args'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheMaxAge() {
+    return Cache::PERMANENT;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheTags() {
+    return [];
   }
 
 }

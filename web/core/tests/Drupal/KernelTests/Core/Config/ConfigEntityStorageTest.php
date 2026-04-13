@@ -1,29 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Config;
 
 use Drupal\Core\Config\ConfigDuplicateUUIDException;
 use Drupal\KernelTests\KernelTestBase;
 
 /**
- * Tests sync and importing config entities with IDs and UUIDs that match
- * existing config.
+ * Tests configuration entity storage.
  *
  * @group config
  */
 class ConfigEntityStorageTest extends KernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['config_test'];
+  protected static $modules = ['config_test'];
 
   /**
    * Tests creating configuration entities with changed UUIDs.
    */
-  public function testUUIDConflict() {
+  public function testUUIDConflict(): void {
     $entity_type = 'config_test';
     $id = 'test_1';
     // Load the original configuration entity.
@@ -42,13 +41,13 @@ class ConfigEntityStorageTest extends KernelTestBase {
       $entity->save();
       $this->fail('Exception thrown when attempting to save a configuration entity with a UUID that does not match the existing UUID.');
     }
-    catch (ConfigDuplicateUUIDException $e) {
+    catch (ConfigDuplicateUUIDException) {
       // Expected exception; just continue testing.
     }
 
     // Ensure that the config entity was not corrupted.
     $entity = $storage->loadUnchanged($entity->id());
-    $this->assertIdentical($entity->toArray(), $original_properties);
+    $this->assertSame($original_properties, $entity->toArray());
   }
 
   /**
@@ -56,7 +55,7 @@ class ConfigEntityStorageTest extends KernelTestBase {
    *
    * @covers \Drupal\Core\Config\Entity\ConfigEntityStorage::hasData
    */
-  public function testHasData() {
+  public function testHasData(): void {
     $storage = \Drupal::entityTypeManager()->getStorage('config_test');
     $this->assertFalse($storage->hasData());
 

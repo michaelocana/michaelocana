@@ -16,7 +16,7 @@ display:
   default:
     display_plugin: default
     id: default
-    display_title: Master
+    display_title: Default
     position: 0
     display_options:
       access:
@@ -38,6 +38,11 @@ display:
         type: full
       style:
         type: table
+        options:
+          grouping: {  }
+          class: ''
+          row_class: ''
+          default_row_class: true
       row:
         type: fields
       fields:

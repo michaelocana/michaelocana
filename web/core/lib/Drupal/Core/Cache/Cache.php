@@ -3,7 +3,6 @@
 namespace Drupal\Core\Cache;
 
 use Drupal\Component\Assertion\Inspector;
-use Drupal\Core\Database\Query\SelectInterface;
 
 /**
  * Helper methods for cache.
@@ -18,47 +17,40 @@ class Cache {
   const PERMANENT = CacheBackendInterface::CACHE_PERMANENT;
 
   /**
-   * Merges arrays of cache contexts and removes duplicates.
+   * Merges lists of cache contexts and removes duplicates.
    *
-   * @param array $a
-   *   Cache contexts array to merge.
-   * @param array $b
-   *   Cache contexts array to merge.
+   * @param list<string> ...$cache_contexts
+   *   Cache contexts to merge.
    *
-   * @return string[]
-   *   The merged array of cache contexts.
+   * @return list<string>
+   *   The merged list of cache contexts.
    */
-  public static function mergeContexts(array $a = [], array $b = []) {
-    $cache_contexts = array_unique(array_merge($a, $b));
-    assert(\Drupal::service('cache_contexts_manager')->assertValidTokens($cache_contexts));
-    sort($cache_contexts);
+  public static function mergeContexts(array ...$cache_contexts) {
+    $cache_contexts = array_values(array_unique(array_merge(...$cache_contexts)));
+    assert(\Drupal::service('cache_contexts_manager')->assertValidTokens($cache_contexts), sprintf('Failed to assert that "%s" are valid cache contexts.', implode(', ', $cache_contexts)));
     return $cache_contexts;
   }
 
   /**
-   * Merges arrays of cache tags and removes duplicates.
+   * Merges lists of cache tags and removes duplicates.
    *
-   * The cache tags array is returned in a format that is valid for
+   * The cache tags list is returned in a format that is valid for
    * \Drupal\Core\Cache\CacheBackendInterface::set().
    *
    * When caching elements, it is necessary to collect all cache tags into a
-   * single array, from both the element itself and all child elements. This
+   * single list, from both the element itself and all child elements. This
    * allows items to be invalidated based on all tags attached to the content
    * they're constituted from.
    *
-   * @param array $a
-   *   Cache tags array to merge.
-   * @param array $b
-   *   Cache tags array to merge.
+   * @param list<string> ...$cache_tags
+   *   Cache tags to merge.
    *
-   * @return string[]
-   *   The merged array of cache tags.
+   * @return list<string>
+   *   The merged list of cache tags.
    */
-  public static function mergeTags(array $a = [], array $b = []) {
-    assert(Inspector::assertAllStrings($a) && Inspector::assertAllStrings($b), 'Cache tags must be valid strings');
-
-    $cache_tags = array_unique(array_merge($a, $b));
-    sort($cache_tags);
+  public static function mergeTags(array ...$cache_tags) {
+    $cache_tags = array_values(array_unique(array_merge(...$cache_tags)));
+    assert(Inspector::assertAllStrings($cache_tags), 'Cache tags must be valid strings');
     return $cache_tags;
   }
 
@@ -67,55 +59,25 @@ class Cache {
    *
    * Ensures infinite max-age (Cache::PERMANENT) is taken into account.
    *
-   * @param int $a
-   *   Max age value to merge.
-   * @param int $b
-   *   Max age value to merge.
+   * @param int ...$max_ages
+   *   Max age values to merge.
    *
    * @return int
    *   The minimum max-age value.
    */
-  public static function mergeMaxAges($a = Cache::PERMANENT, $b = Cache::PERMANENT) {
-    // If one of the values is Cache::PERMANENT, return the other value.
-    if ($a === Cache::PERMANENT) {
-      return $b;
-    }
-    if ($b === Cache::PERMANENT) {
-      return $a;
-    }
+  public static function mergeMaxAges(...$max_ages) {
+    // Remove Cache::PERMANENT values to return the correct minimum value.
+    $max_ages = array_filter($max_ages, function ($max_age) {
+      return $max_age !== Cache::PERMANENT;
+    });
 
-    // If none or the values are Cache::PERMANENT, return the minimum value.
-    return min($a, $b);
+    // If there are no max ages left return Cache::PERMANENT, otherwise return
+    // the minimum value.
+    return empty($max_ages) ? Cache::PERMANENT : min($max_ages);
   }
 
   /**
-   * Validates an array of cache tags.
-   *
-   * Can be called before using cache tags in operations, to ensure validity.
-   *
-   * @param string[] $tags
-   *   An array of cache tags.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   *   assert(\Drupal\Component\Assertion\Inspector::assertAllStrings($tags))
-   *   instead.
-   *
-   * @throws \LogicException
-   */
-  public static function validateTags(array $tags) {
-    @trigger_error(__NAMESPACE__ . '\Cache::validateTags() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use assert(\Drupal\Component\Assertion\Inspector::assertAllStrings($tags)) instead.', E_USER_DEPRECATED);
-    if (empty($tags)) {
-      return;
-    }
-    foreach ($tags as $value) {
-      if (!is_string($value)) {
-        throw new \LogicException('Cache tags must be strings, ' . gettype($value) . ' given.');
-      }
-    }
-  }
-
-  /**
-   * Build an array of cache tags from a given prefix and an array of suffixes.
+   * Build a list of cache tags from a given prefix and an array of suffixes.
    *
    * Each suffix will be converted to a cache tag by appending it to the prefix,
    * with a colon between them.
@@ -127,8 +89,8 @@ class Cache {
    * @param string $glue
    *   A string to be used as glue for concatenation. Defaults to a colon.
    *
-   * @return string[]
-   *   An array of cache tags.
+   * @return list<string>
+   *   A list of cache tags.
    */
   public static function buildTags($prefix, array $suffixes, $glue = ':') {
     $tags = [];
@@ -164,25 +126,18 @@ class Cache {
   }
 
   /**
-   * Generates a hash from a query object, to be used as part of the cache key.
+   * Gets all memory cache bin services.
    *
-   * This smart caching strategy saves Drupal from querying and rendering to
-   * HTML when the underlying query is unchanged.
-   *
-   * Expensive queries should use the query builder to create the query and then
-   * call this function. Executing the query and formatting results should
-   * happen in a #pre_render callback.
-   *
-   * @param \Drupal\Core\Database\Query\SelectInterface $query
-   *   A select query object.
-   *
-   * @return string
-   *   A hash of the query arguments.
+   * @return \Drupal\Core\Cache\CacheBackendInterface[]
+   *   An array of cache backend objects keyed by memory cache bins.
    */
-  public static function keyFromQuery(SelectInterface $query) {
-    $query->preExecute();
-    $keys = [(string) $query, $query->getArguments()];
-    return hash('sha256', serialize($keys));
+  public static function getMemoryBins(): array {
+    $bins = [];
+    $container = \Drupal::getContainer();
+    foreach ($container->getParameter('memory_cache_bins') as $service_id => $bin) {
+      $bins[$bin] = $container->get($service_id);
+    }
+    return $bins;
   }
 
 }

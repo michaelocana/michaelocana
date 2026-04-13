@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Composer\Plugin\Scaffold\Functional;
 
 use Composer\Util\Filesystem;
 use Drupal\Tests\Composer\Plugin\Scaffold\Fixtures;
 use Drupal\Tests\Composer\Plugin\Scaffold\AssertUtilsTrait;
-use Drupal\Tests\Composer\Plugin\Scaffold\ExecTrait;
-use Drupal\Tests\PhpunitCompatibilityTrait;
+use Drupal\Tests\Composer\Plugin\ExecTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,7 +22,6 @@ use PHPUnit\Framework\TestCase;
 class ManageGitIgnoreTest extends TestCase {
   use ExecTrait;
   use AssertUtilsTrait;
-  use PhpunitCompatibilityTrait;
 
   /**
    * The root of this project.
@@ -57,7 +57,7 @@ class ManageGitIgnoreTest extends TestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     $this->fileSystem = new Filesystem();
     $this->fixtures = new Fixtures();
     $this->fixtures->createIsolatedComposerCacheDir();
@@ -67,7 +67,7 @@ class ManageGitIgnoreTest extends TestCase {
   /**
    * {@inheritdoc}
    */
-  protected function tearDown() {
+  protected function tearDown(): void {
     // Remove any temporary directories et. al. that were created.
     $this->fixtures->tearDown();
   }
@@ -82,8 +82,8 @@ class ManageGitIgnoreTest extends TestCase {
    * @return string
    *   The path to the fixture directory.
    */
-  protected function createSutWithGit($fixture_name) {
-    $this->fixturesDir = $this->fixtures->tmpDir($this->getName());
+  protected function createSutWithGit($fixture_name): string {
+    $this->fixturesDir = $this->fixtures->tmpDir($this->name());
     $sut = $this->fixturesDir . '/' . $fixture_name;
     $replacements = ['SYMLINK' => 'false', 'PROJECT_ROOT' => $this->projectRoot];
     $this->fixtures->cloneFixtureProjects($this->fixturesDir, $replacements);
@@ -95,20 +95,20 @@ class ManageGitIgnoreTest extends TestCase {
     $this->mustExec('git add .', $sut);
     $this->mustExec('git commit -m "Initial commit."', $sut);
     // Run composer install, but suppress scaffolding.
-    $this->fixtures->runComposer("install --no-ansi --no-scripts", $sut);
+    $this->fixtures->runComposer("install --no-ansi --no-scripts --no-plugins", $sut);
     return $sut;
   }
 
   /**
    * Tests scaffold command correctly manages the .gitignore file.
    */
-  public function testManageGitIgnore() {
+  public function testManageGitIgnore(): void {
     // Note that the drupal-composer-drupal-project fixture does not
     // have any configuration settings related to .gitignore management.
     $sut = $this->createSutWithGit('drupal-composer-drupal-project');
-    $this->assertFileNotExists($sut . '/docroot/autoload.php');
-    $this->assertFileNotExists($sut . '/docroot/index.php');
-    $this->assertFileNotExists($sut . '/docroot/sites/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/docroot/autoload.php');
+    $this->assertFileDoesNotExist($sut . '/docroot/index.php');
+    $this->assertFileDoesNotExist($sut . '/docroot/sites/.gitignore');
     // Run the scaffold command.
     $this->fixtures->runScaffold($sut);
     $this->assertFileExists($sut . '/docroot/autoload.php');
@@ -125,7 +125,6 @@ class ManageGitIgnoreTest extends TestCase {
 /index.php
 /robots.txt
 /update.php
-/web.config
 EOT;
     // At this point we should have a .gitignore file, because although we did
     // not explicitly ask for .gitignore tracking, the vendor directory is not
@@ -147,32 +146,32 @@ EOT;
   /**
    * Tests scaffold command does not manage the .gitignore file when disabled.
    */
-  public function testUnmanagedGitIgnoreWhenDisabled() {
+  public function testUnmanagedGitIgnoreWhenDisabled(): void {
     // Note that the drupal-drupal fixture has a configuration setting
     // `"gitignore": false,` which disables .gitignore file handling.
     $sut = $this->createSutWithGit('drupal-drupal');
-    $this->assertFileNotExists($sut . '/docroot/autoload.php');
-    $this->assertFileNotExists($sut . '/docroot/index.php');
+    $this->assertFileDoesNotExist($sut . '/docroot/autoload.php');
+    $this->assertFileDoesNotExist($sut . '/docroot/index.php');
     // Run the scaffold command.
     $this->fixtures->runScaffold($sut);
     $this->assertFileExists($sut . '/autoload.php');
     $this->assertFileExists($sut . '/index.php');
-    $this->assertFileNotExists($sut . '/.gitignore');
-    $this->assertFileNotExists($sut . '/docroot/sites/default/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/docroot/sites/default/.gitignore');
   }
 
   /**
-   * Test appending to an unmanaged file, and confirm it is not .gitignored.
+   * Tests appending to an unmanaged file, and confirm it is not .gitignored.
    *
    * If we append to an unmanaged (not scaffolded) file, and we are managing
    * .gitignore files, then we expect that the unmanaged file should not be
    * added to the .gitignore file, because unmanaged files should be committed.
    */
-  public function testAppendToEmptySettingsIsUnmanaged() {
+  public function testAppendToEmptySettingsIsUnmanaged(): void {
     $sut = $this->createSutWithGit('drupal-drupal-append-settings');
-    $this->assertFileNotExists($sut . '/autoload.php');
-    $this->assertFileNotExists($sut . '/index.php');
-    $this->assertFileNotExists($sut . '/sites/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/autoload.php');
+    $this->assertFileDoesNotExist($sut . '/index.php');
+    $this->assertFileDoesNotExist($sut . '/sites/.gitignore');
     // Run the scaffold command.
     $this->fixtures->runScaffold($sut);
     $this->assertFileExists($sut . '/autoload.php');
@@ -188,13 +187,13 @@ EOT;
    * The scaffold operation should still succeed if there is no 'git'
    * executable.
    */
-  public function testUnmanagedGitIgnoreWhenGitNotAvailable() {
+  public function testUnmanagedGitIgnoreWhenGitNotAvailable(): void {
     // Note that the drupal-composer-drupal-project fixture does not have any
     // configuration settings related to .gitignore management.
     $sut = $this->createSutWithGit('drupal-composer-drupal-project');
-    $this->assertFileNotExists($sut . '/docroot/sites/default/.gitignore');
-    $this->assertFileNotExists($sut . '/docroot/index.php');
-    $this->assertFileNotExists($sut . '/docroot/sites/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/docroot/sites/default/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/docroot/index.php');
+    $this->assertFileDoesNotExist($sut . '/docroot/sites/.gitignore');
     // Confirm that 'git' is available (n.b. if it were not, createSutWithGit()
     // would fail).
     $output = [];
@@ -204,7 +203,14 @@ EOT;
     // executable script named 'git' that always exits with 127, as if git were
     // not found. Note that we run our tests using process isolation, so we do
     // not need to restore the PATH when we are done.
-    $unavailableGitPath = $this->fixtures->binFixtureDir('disable-git-bin');
+    $unavailableGitPath = $sut . '/bin';
+    mkdir($unavailableGitPath);
+    $bash = <<<SH
+#!/bin/bash
+exit 127
+
+SH;
+    file_put_contents($unavailableGitPath . '/git', $bash);
     chmod($unavailableGitPath . '/git', 0755);
     $oldPath = getenv('PATH');
     putenv('PATH=' . $unavailableGitPath . ':' . getenv('PATH'));
@@ -213,14 +219,11 @@ EOT;
     exec('git --help', $output, $status);
     $this->assertEquals(127, $status);
     // Run the scaffold command.
-    $output = [];
-    exec('composer drupal:scaffold', $output, $status);
+    $output = $this->mustExec('composer drupal:scaffold 2>&1', NULL);
 
     putenv('PATH=' . $oldPath . ':' . getenv('PATH'));
 
     $expected = <<<EOT
-0
-
 Scaffolding files for fixtures/drupal-assets-fixture:
   - Copy [web-root]/.csslintrc from assets/.csslintrc
   - Copy [web-root]/.editorconfig from assets/.editorconfig
@@ -236,16 +239,16 @@ Scaffolding files for fixtures/drupal-assets-fixture:
   - Copy [web-root]/index.php from assets/index.php
   - Skip [web-root]/robots.txt: overridden in fixtures/drupal-composer-drupal-project
   - Copy [web-root]/update.php from assets/update.php
-  - Copy [web-root]/web.config from assets/web.config
 Scaffolding files for fixtures/scaffold-override-fixture:
   - Copy [web-root]/sites/default/default.settings.php from assets/override-settings.php
 Scaffolding files for fixtures/drupal-composer-drupal-project:
   - Skip [web-root]/.htaccess: disabled
   - Copy [web-root]/robots.txt from assets/robots-default.txt
+
 EOT;
-    $this->assertEquals($expected, $status . "\n\n" . implode("\n", $output));
+    $this->assertStringContainsString($expected, $output);
     $this->assertFileExists($sut . '/docroot/index.php');
-    $this->assertFileNotExists($sut . '/docroot/sites/default/.gitignore');
+    $this->assertFileDoesNotExist($sut . '/docroot/sites/default/.gitignore');
   }
 
 }

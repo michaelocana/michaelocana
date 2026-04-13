@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\serialization\Kernel;
 
 use Drupal\entity_test\Entity\EntityTestMulRev;
@@ -17,7 +19,7 @@ class FieldItemSerializationTest extends NormalizerTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'serialization',
     'system',
     'field',
@@ -59,7 +61,7 @@ class FieldItemSerializationTest extends NormalizerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Auto-create a field for testing default field values.
@@ -122,7 +124,7 @@ class FieldItemSerializationTest extends NormalizerTestBase {
   /**
    * Tests normalizing and denormalizing an entity with field item normalizer.
    */
-  public function testFieldNormalizeDenormalize() {
+  public function testFieldNormalizeDenormalize(): void {
     $normalized = $this->serializer->normalize($this->entity, 'json');
 
     $expected_field_value = $this->entity->field_test_text[0]->getValue()['value'] . '::silly_suffix';
@@ -146,7 +148,7 @@ class FieldItemSerializationTest extends NormalizerTestBase {
   /**
    * Tests denormalizing using a scalar field value.
    */
-  public function testFieldDenormalizeWithScalarValue() {
+  public function testFieldDenormalizeWithScalarValue(): void {
     $this->expectException(UnexpectedValueException::class);
     $this->expectExceptionMessage('Field values for "uuid" must use an array structure');
 
@@ -168,19 +170,19 @@ class FieldItemSerializationTest extends NormalizerTestBase {
    *
    * @dataProvider providerTestCustomBooleanNormalization
    */
-  public function testCustomBooleanNormalization(array $test_modules, $format) {
+  public function testCustomBooleanNormalization(array $test_modules, $format): void {
     // Asserts the entity contains the value we set.
-    $this->assertSame(FALSE, $this->entity->field_test_boolean->value);
+    $this->assertFalse($this->entity->field_test_boolean->value);
 
     // Asserts normalizing the entity using core's 'serializer' service DOES
     // yield the value we set.
     $core_normalization = $this->container->get('serializer')->normalize($this->entity, $format);
-    $this->assertSame(FALSE, $core_normalization['field_test_boolean'][0]['value']);
+    $this->assertFalse($core_normalization['field_test_boolean'][0]['value']);
 
     $assert_denormalization = function (array $normalization) use ($format) {
       $denormalized_entity = $this->container->get('serializer')->denormalize($normalization, EntityTestMulRev::class, $format, []);
       $this->assertInstanceOf(EntityTestMulRev::class, $denormalized_entity);
-      $this->assertSame(TRUE, $denormalized_entity->field_test_boolean->value);
+      $this->assertTrue($denormalized_entity->field_test_boolean->value);
     };
 
     // Asserts denormalizing the entity DOES yield the value we set:
@@ -213,7 +215,7 @@ class FieldItemSerializationTest extends NormalizerTestBase {
    * @return array
    *   Test cases.
    */
-  public function providerTestCustomBooleanNormalization() {
+  public static function providerTestCustomBooleanNormalization() {
     return [
       'Format-agnostic @FieldType-level normalizers SHOULD be able to affect the format-agnostic normalization' => [
         ['test_fieldtype_boolean_emoji_normalizer'],
@@ -231,20 +233,8 @@ class FieldItemSerializationTest extends NormalizerTestBase {
         ['test_datatype_boolean_emoji_normalizer'],
         'json',
       ],
-      'Format-agnostic @FieldType-level normalizers SHOULD be able to affect the HAL+JSON normalization' => [
-        ['test_fieldtype_boolean_emoji_normalizer'],
-        'hal_json',
-      ],
-      'Format-agnostic @DataType-level normalizers SHOULD be able to affect the HAL+JSON normalization' => [
-        ['test_datatype_boolean_emoji_normalizer', 'hal'],
-        'hal_json',
-      ],
       'Format-agnostic @FieldType-level normalizers SHOULD be able to affect the XML normalization' => [
         ['test_fieldtype_boolean_emoji_normalizer'],
-        'xml',
-      ],
-      'Format-agnostic @DataType-level normalizers SHOULD be able to affect the XML normalization' => [
-        ['test_datatype_boolean_emoji_normalizer', 'hal'],
         'xml',
       ],
     ];

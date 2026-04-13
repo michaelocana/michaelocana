@@ -41,30 +41,30 @@
   background-color: #0066a1;
   background-image: linear-gradient(to bottom, #0066a1, #005b98);
 }
-/* Make the inactive icon grey. */
-.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item:before {
+/* Make the inactive icon gray. */
+.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item::before {
   background-image: url(../../../misc/icons/bebebe/pencil.svg);
 }
 /* Make the active icon white. */
-.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item.is-active:before {
+.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item.is-active::before {
   background-image: url(../../../misc/icons/ffffff/pencil.svg);
 }
-.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item:hover:before {
+.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item:hover::before {
   background-image: url(../../../misc/icons/ffffff/pencil.svg);
 }
-.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item:hover > .toolbar-icon-edit:before {
+.toolbar-tab > .toolbar-icon.toolbar-icon-edit.toolbar-item:hover > .toolbar-icon-edit::before {
   background-image: url(../../../misc/icons/ffffff/pencil.svg);
 }
-.toolbar-tab > .button.toolbar-icon.toolbar-icon.toolbar-icon-edit:before {
+.toolbar-tab > .button.toolbar-icon.toolbar-icon.toolbar-icon-edit::before {
   background-image: url(../../../misc/icons/ffffff/pencil.svg);
 }
 
 /* Style the editables while in edit mode. */
 .dialog-off-canvas-main-canvas.js-settings-tray-edit-mode .settings-tray-editable {
-  outline: 1px dashed rgba(0, 0, 0, 0.5);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+  outline: 1px dashed rgb(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgb(255, 255, 255, 0.7);
 }
 .dialog-off-canvas-main-canvas.js-settings-tray-edit-mode .settings-tray-editable:hover,
 .dialog-off-canvas-main-canvas.js-settings-tray-edit-mode .settings-tray-editable.settings-tray-active-editable {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgb(0, 0, 0, 0.2);
 }

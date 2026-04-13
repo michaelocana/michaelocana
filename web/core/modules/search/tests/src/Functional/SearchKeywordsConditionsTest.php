@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Functional;
 
 use Drupal\Component\Utility\Html;
@@ -38,7 +40,10 @@ class SearchKeywordsConditionsTest extends BrowserTestBase {
    */
   protected $searchingUser;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create searching user.
@@ -55,22 +60,22 @@ class SearchKeywordsConditionsTest extends BrowserTestBase {
   /**
    * Verify the keywords are captured and conditions respected.
    */
-  public function testSearchKeywordsConditions() {
+  public function testSearchKeywordsConditions(): void {
     // No keys, not conditions - no results.
     $this->drupalGet('search/dummy_path');
-    $this->assertNoText('Dummy search snippet to display');
+    $this->assertSession()->pageTextNotContains('Dummy search snippet to display');
     // With keys - get results.
     $keys = 'bike shed ' . $this->randomMachineName();
     $this->drupalGet("search/dummy_path", ['query' => ['keys' => $keys]]);
-    $this->assertText("Dummy search snippet to display. Keywords: {$keys}");
+    $this->assertSession()->pageTextContains("Dummy search snippet to display. Keywords: {$keys}");
     $keys = 'blue drop ' . $this->randomMachineName();
     $this->drupalGet("search/dummy_path", ['query' => ['keys' => $keys]]);
-    $this->assertText("Dummy search snippet to display. Keywords: {$keys}");
+    $this->assertSession()->pageTextContains("Dummy search snippet to display. Keywords: {$keys}");
     // Add some conditions and keys.
     $keys = 'moving drop ' . $this->randomMachineName();
     $this->drupalGet("search/dummy_path", ['query' => ['keys' => 'bike', 'search_conditions' => $keys]]);
-    $this->assertText("Dummy search snippet to display.");
-    $this->assertRaw(Html::escape(print_r(['keys' => 'bike', 'search_conditions' => $keys], TRUE)));
+    $this->assertSession()->pageTextContains("Dummy search snippet to display.");
+    $this->assertSession()->responseContains(Html::escape(print_r(['keys' => 'bike', 'search_conditions' => $keys], TRUE)));
   }
 
 }

@@ -15,6 +15,8 @@ use Drupal\Core\TypedData\Plugin\DataType\Timestamp;
  */
 class TimestampNormalizer extends DateTimeNormalizer {
 
+  use SchematicNormalizerTrait;
+
   /**
    * {@inheritdoc}
    */
@@ -27,11 +29,6 @@ class TimestampNormalizer extends DateTimeNormalizer {
   /**
    * {@inheritdoc}
    */
-  protected $supportedInterfaceOrClass = Timestamp::class;
-
-  /**
-   * {@inheritdoc}
-   */
   protected function getNormalizationTimezone() {
     return new \DateTimeZone('UTC');
   }
@@ -39,9 +36,18 @@ class TimestampNormalizer extends DateTimeNormalizer {
   /**
    * {@inheritdoc}
    */
-  public function denormalize($data, $class, $format = NULL, array $context = []) {
+  public function denormalize($data, $class, $format = NULL, array $context = []): mixed {
     $denormalized = parent::denormalize($data, $class, $format, $context);
     return $denormalized->getTimestamp();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [
+      Timestamp::class => TRUE,
+    ];
   }
 
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\editor\Functional;
 
 use Drupal\Component\Serialization\Json;
@@ -41,11 +43,9 @@ class EditorSecurityTest extends BrowserTestBase {
   protected static $sampleContentSecuredEmbedAllowed = '<p>Hello, Dumbo Octopus!</p>alert(0)<embed type="image/svg+xml" src="image.svg" />';
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['filter', 'editor', 'editor_test', 'node'];
+  protected static $modules = ['filter', 'editor', 'editor_test', 'node'];
 
   /**
    * User with access to Restricted HTML text format without text editor.
@@ -62,8 +62,7 @@ class EditorSecurityTest extends BrowserTestBase {
   protected $normalUser;
 
   /**
-   * User with access to Restricted HTML text format, dangerous tags allowed
-   * with text editor.
+   * User with access to Restricted HTML and tags considered dangerous.
    *
    * @var \Drupal\user\UserInterface
    */
@@ -76,15 +75,18 @@ class EditorSecurityTest extends BrowserTestBase {
    */
   protected $privilegedUser;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create 5 text formats, to cover all potential use cases:
-    //  1. restricted_without_editor (untrusted: anonymous)
-    //  2. restricted_with_editor (normal: authenticated)
-    //  3. restricted_plus_dangerous_tag_with_editor (privileged: trusted)
-    //  4. unrestricted_without_editor (privileged: admin)
-    //  5. unrestricted_with_editor (privileged: admin)
+    // 1. restricted_without_editor (untrusted: anonymous)
+    // 2. restricted_with_editor (normal: authenticated)
+    // 3. restricted_plus_dangerous_tag_with_editor (privileged: trusted)
+    // 4. unrestricted_without_editor (privileged: admin)
+    // 5. unrestricted_with_editor (privileged: admin)
     // With text formats 2, 3 and 5, we also associate a text editor that does
     // not guarantee XSS safety. "restricted" means the text format has XSS
     // filters on output, "unrestricted" means the opposite.
@@ -121,6 +123,9 @@ class EditorSecurityTest extends BrowserTestBase {
     $editor = Editor::create([
       'format' => 'restricted_with_editor',
       'editor' => 'unicorn',
+      'image_upload' => [
+        'status' => FALSE,
+      ],
     ]);
     $editor->save();
     $format = FilterFormat::create([
@@ -141,6 +146,9 @@ class EditorSecurityTest extends BrowserTestBase {
     $editor = Editor::create([
       'format' => 'restricted_plus_dangerous_tag_with_editor',
       'editor' => 'unicorn',
+      'image_upload' => [
+        'status' => FALSE,
+      ],
     ]);
     $editor->save();
     $format = FilterFormat::create([
@@ -160,6 +168,9 @@ class EditorSecurityTest extends BrowserTestBase {
     $editor = Editor::create([
       'format' => 'unrestricted_with_editor',
       'editor' => 'unicorn',
+      'image_upload' => [
+        'status' => FALSE,
+      ],
     ]);
     $editor->save();
 
@@ -170,12 +181,12 @@ class EditorSecurityTest extends BrowserTestBase {
     ]);
 
     // Create 4 users, each with access to different text formats/editors:
-    //   - "untrusted": restricted_without_editor
-    //   - "normal": restricted_with_editor,
-    //   - "trusted": restricted_plus_dangerous_tag_with_editor
-    //   - "privileged": restricted_without_editor, restricted_with_editor,
-    //     restricted_plus_dangerous_tag_with_editor,
-    //     unrestricted_without_editor and unrestricted_with_editor
+    // - "untrusted": restricted_without_editor
+    // - "normal": restricted_with_editor,
+    // - "trusted": restricted_plus_dangerous_tag_with_editor
+    // - "privileged": restricted_without_editor, restricted_with_editor,
+    //   restricted_plus_dangerous_tag_with_editor,
+    //   unrestricted_without_editor and unrestricted_with_editor
     $this->untrustedUser = $this->drupalCreateUser([
       'create article content',
       'edit any article content',
@@ -226,7 +237,7 @@ class EditorSecurityTest extends BrowserTestBase {
    *
    * Tests 8 scenarios. Tests only with a text editor that is not XSS-safe.
    */
-  public function testInitialSecurity() {
+  public function testInitialSecurity(): void {
     $expected = [
       [
         'node_id' => 1,
@@ -283,8 +294,8 @@ class EditorSecurityTest extends BrowserTestBase {
       foreach ($case['users'] as $account) {
         $this->drupalLogin($account);
         $this->drupalGet('node/' . $case['node_id'] . '/edit');
-        $dom_node = $this->xpath('//textarea[@id="edit-body-0-value"]');
-        $this->assertIdentical($case['value'], $dom_node[0]->getText(), 'The value was correctly filtered for XSS attack vectors.');
+        // Verify that the value is correctly filtered for XSS attack vectors.
+        $this->assertSession()->fieldValueEquals('edit-body-0-value', $case['value']);
       }
     }
   }
@@ -302,7 +313,7 @@ class EditorSecurityTest extends BrowserTestBase {
    * format and contains a <script> tag to the Full HTML text format, the
    * <script> tag would be executed. Unless we apply appropriate filtering.
    */
-  public function testSwitchingSecurity() {
+  public function testSwitchingSecurity(): void {
     $expected = [
       [
         'node_id' => 1,
@@ -387,8 +398,8 @@ class EditorSecurityTest extends BrowserTestBase {
     ];
 
     // Log in as the privileged user, and for every sample, do the following:
-    //  - switch to every other text format/editor
-    //  - assert the XSS-filtered values that we get from the server
+    // - switch to every other text format/editor
+    // - assert the XSS-filtered values that we get from the server
     $this->drupalLogin($this->privilegedUser);
     $cookies = $this->getSessionCookies();
 
@@ -396,9 +407,9 @@ class EditorSecurityTest extends BrowserTestBase {
       $this->drupalGet('node/' . $case['node_id'] . '/edit');
 
       // Verify data- attributes.
-      $dom_node = $this->xpath('//textarea[@id="edit-body-0-value"]');
-      $this->assertIdentical(self::$sampleContent, $dom_node[0]->getAttribute('data-editor-value-original'), 'The data-editor-value-original attribute is correctly set.');
-      $this->assertIdentical('false', (string) $dom_node[0]->getAttribute('data-editor-value-is-changed'), 'The data-editor-value-is-changed attribute is correctly set.');
+      $body = $this->assertSession()->fieldExists('edit-body-0-value');
+      $this->assertSame(self::$sampleContent, $body->getAttribute('data-editor-value-original'), 'The data-editor-value-original attribute is correctly set.');
+      $this->assertSame('false', (string) $body->getAttribute('data-editor-value-is-changed'), 'The data-editor-value-is-changed attribute is correctly set.');
 
       // Switch to every other text format/editor and verify the results.
       foreach ($case['switch_to'] as $format => $expected_filtered_value) {
@@ -420,7 +431,7 @@ class EditorSecurityTest extends BrowserTestBase {
         $this->assertEquals(200, $response->getStatusCode());
 
         $json = Json::decode($response->getBody());
-        $this->assertIdentical($json, $expected_filtered_value, 'The value was correctly filtered for XSS attack vectors.');
+        $this->assertSame($expected_filtered_value, $json, 'The value was correctly filtered for XSS attack vectors.');
       }
     }
   }
@@ -428,21 +439,19 @@ class EditorSecurityTest extends BrowserTestBase {
   /**
    * Tests the standard text editor XSS filter being overridden.
    */
-  public function testEditorXssFilterOverride() {
+  public function testEditorXssFilterOverride(): void {
     // First: the Standard text editor XSS filter.
     $this->drupalLogin($this->normalUser);
     $this->drupalGet('node/2/edit');
-    $dom_node = $this->xpath('//textarea[@id="edit-body-0-value"]');
-    $this->assertIdentical(self::$sampleContentSecured, $dom_node[0]->getText(), 'The value was filtered by the Standard text editor XSS filter.');
+    $this->assertSession()->fieldValueEquals('edit-body-0-value', self::$sampleContentSecured);
 
-    // Enable editor_test.module's hook_editor_xss_filter_alter() implementation
+    // Enable editor_test's hook_editor_xss_filter_alter() implementation
     // to alter the text editor XSS filter class being used.
-    \Drupal::state()->set('editor_test_editor_xss_filter_alter_enabled', TRUE);
+    \Drupal::keyValue('editor_test')->set('editor_xss_filter_alter_enabled', TRUE);
 
     // First: the Insecure text editor XSS filter.
     $this->drupalGet('node/2/edit');
-    $dom_node = $this->xpath('//textarea[@id="edit-body-0-value"]');
-    $this->assertIdentical(self::$sampleContent, $dom_node[0]->getText(), 'The value was filtered by the Insecure text editor XSS filter.');
+    $this->assertSession()->fieldValueEquals('edit-body-0-value', self::$sampleContent);
   }
 
 }

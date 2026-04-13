@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Functional\Rest;
 
 use Drupal\Tests\rest\Functional\BasicAuthResourceTestTrait;
@@ -15,7 +17,7 @@ class LayoutBuilderEntityViewDisplayJsonBasicAuthTest extends LayoutBuilderEntit
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['basic_auth'];
+  protected static $modules = ['basic_auth'];
 
   /**
    * {@inheritdoc}

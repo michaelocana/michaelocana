@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\datetime\Functional\EntityResource\EntityTest;
 
 use Drupal\Core\Url;
@@ -16,7 +18,7 @@ use GuzzleHttp\RequestOptions;
  *
  * @group datetime
  */
-class EntityTestDateonlyTest extends EntityTestResourceTestBase {
+class EntityTestDateOnlyTest extends EntityTestResourceTestBase {
 
   use AnonResourceTestTrait;
 
@@ -37,17 +39,17 @@ class EntityTestDateonlyTest extends EntityTestResourceTestBase {
    *
    * @var string
    */
-  protected static $fieldName = 'field_dateonly';
+  protected static $fieldName = 'field_date_only';
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['datetime', 'entity_test'];
+  protected static $modules = ['datetime', 'entity_test'];
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Add datetime field.
@@ -117,7 +119,7 @@ class EntityTestDateonlyTest extends EntityTestResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function assertNormalizationEdgeCases($method, Url $url, array $request_options) {
+  protected function assertNormalizationEdgeCases($method, Url $url, array $request_options): void {
     parent::assertNormalizationEdgeCases($method, $url, $request_options);
 
     if ($this->entity->getEntityType()->hasKey('bundle')) {

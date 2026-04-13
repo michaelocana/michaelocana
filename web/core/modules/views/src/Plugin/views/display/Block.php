@@ -2,12 +2,14 @@
 
 namespace Drupal\views\Plugin\views\display;
 
+use Drupal\Component\Utility\Unicode;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\Component\Plugin\Discovery\CachedDiscoveryInterface;
 use Drupal\Core\Block\BlockManagerInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Attribute\ViewsDisplay;
 use Drupal\views\Plugin\Block\ViewsBlock;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -16,27 +18,20 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @ingroup views_display_plugins
  *
- * @ViewsDisplay(
- *   id = "block",
- *   title = @Translation("Block"),
- *   help = @Translation("Display the view as a block."),
- *   theme = "views_view",
- *   register_theme = FALSE,
- *   uses_hook_block = TRUE,
- *   contextual_links_locations = {"block"},
- *   admin = @Translation("Block")
- * )
- *
  * @see \Drupal\views\Plugin\Block\ViewsBlock
  * @see \Drupal\views\Plugin\Derivative\ViewsBlock
  */
+#[ViewsDisplay(
+  id: "block",
+  title: new TranslatableMarkup("Block"),
+  help: new TranslatableMarkup("Display the view as a block."),
+  admin: new TranslatableMarkup("Block"),
+  theme: "views_view",
+  register_theme: FALSE,
+  uses_hook_block: TRUE,
+  contextual_links_locations: ["block"]
+)]
 class Block extends DisplayPluginBase {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * Whether the display allows attachments.
@@ -65,11 +60,11 @@ class Block extends DisplayPluginBase {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity manager.
+   *   The entity type manager.
    * @param \Drupal\Core\Block\BlockManagerInterface $block_manager
    *   The block manager.
    */
@@ -125,7 +120,7 @@ class Block extends DisplayPluginBase {
    * @see \Drupal\views\Plugin\Block\ViewsBlock::defaultConfiguration()
    */
   public function blockSettings(array $settings) {
-    $settings['items_per_page'] = 'none';
+    $settings['items_per_page'] = NULL;
     return $settings;
   }
 
@@ -169,12 +164,12 @@ class Block extends DisplayPluginBase {
     $options['block_description'] = [
       'category' => 'block',
       'title' => $this->t('Block name'),
-      'value' => views_ui_truncate($block_description, 24),
+      'value' => Unicode::truncate($block_description, 24, FALSE, TRUE),
     ];
     $options['block_category'] = [
       'category' => 'block',
       'title' => $this->t('Block category'),
-      'value' => views_ui_truncate($block_category, 24),
+      'value' => Unicode::truncate($block_category, 24, FALSE, TRUE),
     ];
 
     $filtered_allow = array_filter($this->getOption('allow'));
@@ -246,7 +241,7 @@ class Block extends DisplayPluginBase {
           'items_per_page' => $this->t('Items per page'),
         ];
 
-        $allow = array_filter($this->getOption('allow'));
+        $allow = array_keys(array_filter($this->getOption('allow')));
         $form['allow'] = [
           '#type' => 'checkboxes',
           '#default_value' => $allow,
@@ -258,6 +253,7 @@ class Block extends DisplayPluginBase {
 
   /**
    * Perform any necessary changes to the form values prior to storage.
+   *
    * There is no need for this function to actually store the data.
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {
@@ -319,7 +315,7 @@ class Block extends DisplayPluginBase {
               40 => 40,
               48 => 48,
             ],
-            '#default_value' => $block_configuration['items_per_page'],
+            '#default_value' => $block_configuration['items_per_page'] ?? 'none',
           ];
           break;
       }
@@ -357,7 +353,7 @@ class Block extends DisplayPluginBase {
    */
   public function blockSubmit(ViewsBlock $block, $form, FormStateInterface $form_state) {
     if ($items_per_page = $form_state->getValue(['override', 'items_per_page'])) {
-      $block->setConfigurationValue('items_per_page', $items_per_page);
+      $block->setConfigurationValue('items_per_page', $items_per_page === 'none' ? NULL : intval($items_per_page));
     }
     $form_state->unsetValue(['override', 'items_per_page']);
   }
@@ -370,19 +366,17 @@ class Block extends DisplayPluginBase {
    */
   public function preBlockBuild(ViewsBlock $block) {
     $config = $block->getConfiguration();
-    if ($config['items_per_page'] !== 'none') {
-      $this->view->setItemsPerPage($config['items_per_page']);
+    if (is_numeric($config['items_per_page']) && $config['items_per_page'] > 0) {
+      // @todo Delete the intval() in https://www.drupal.org/project/drupal/issues/3521221
+      $this->view->setItemsPerPage(intval($config['items_per_page']));
     }
   }
 
   /**
-   * Block views use exposed widgets only if AJAX is set.
+   * {@inheritdoc}
    */
-  public function usesExposed() {
-    if ($this->ajaxEnabled()) {
-      return parent::usesExposed();
-    }
-    return FALSE;
+  public function usesExposedFormInBlock() {
+    return TRUE;
   }
 
   /**

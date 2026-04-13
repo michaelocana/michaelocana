@@ -28,13 +28,20 @@ class SearchPlugin extends Plugin {
   /**
    * The title for the search page tab.
    *
+   * @var \Drupal\Core\Annotation\Translation
+   *
    * @todo This will potentially be translated twice or cached with the wrong
    *   translation until the search tabs are converted to local task plugins.
    *
    * @ingroup plugin_translatable
-   *
-   * @var \Drupal\Core\Annotation\Translation
    */
   public $title;
+
+  /**
+   * Whether or not search results should be displayed in admin theme.
+   *
+   * @var bool
+   */
+  public $use_admin_theme = FALSE;
 
 }

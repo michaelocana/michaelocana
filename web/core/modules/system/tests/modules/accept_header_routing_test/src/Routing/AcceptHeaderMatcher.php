@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\accept_header_routing_test\Routing;
 
 use Drupal\Core\Routing\FilterInterface;
@@ -24,7 +26,7 @@ class AcceptHeaderMatcher implements FilterInterface {
 
     foreach ($collection as $name => $route) {
       // _format could be a |-delimited list of supported formats.
-      $supported_formats = array_filter(explode('|', $route->getRequirement('_format')));
+      $supported_formats = array_filter(explode('|', $route->getRequirement('_format') ?? ''));
 
       if (empty($supported_formats)) {
         // No format restriction on the route, so it always matches. Move it to

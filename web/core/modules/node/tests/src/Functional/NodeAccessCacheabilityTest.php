@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\Core\Url;
@@ -17,11 +19,9 @@ class NodeAccessCacheabilityTest extends NodeTestBase {
   use AssertPageCacheContextsAndTagsTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node_access_test',
     'node_access_test_auto_bubbling',
   ];
@@ -34,7 +34,7 @@ class NodeAccessCacheabilityTest extends NodeTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     node_access_rebuild();
@@ -51,16 +51,14 @@ class NodeAccessCacheabilityTest extends NodeTestBase {
    *
    * @see node_query_node_access_alter()
    */
-  public function testNodeAccessCacheabilitySafeguard() {
-    $this->dumpHeaders = TRUE;
-
+  public function testNodeAccessCacheabilitySafeguard(): void {
     // The node grants cache context should be added automatically.
     $this->drupalGet(new Url('node_access_test_auto_bubbling'));
     $this->assertCacheContext('user.node_grants:view');
 
-    // The root user has the 'bypass node access' permission, which means the
+    // The user has the 'bypass node access' permission, which means the
     // node grants cache context is not necessary.
-    $this->drupalLogin($this->rootUser);
+    $this->drupalLogin($this->drupalCreateUser(['bypass node access']));
     $this->drupalGet(new Url('node_access_test_auto_bubbling'));
     $this->assertNoCacheContext('user.node_grants:view');
     $this->drupalLogout();
@@ -78,7 +76,7 @@ class NodeAccessCacheabilityTest extends NodeTestBase {
   /**
    * Tests that the user cache contexts are correctly set.
    */
-  public function testNodeAccessCacheContext() {
+  public function testNodeAccessCacheContext(): void {
     // Create a user, with edit/delete own content permission.
     $test_user1 = $this->drupalCreateUser([
       'access content',

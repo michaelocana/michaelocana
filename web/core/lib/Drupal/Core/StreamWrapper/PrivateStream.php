@@ -3,6 +3,7 @@
 namespace Drupal\Core\StreamWrapper;
 
 use Drupal\Core\Site\Settings;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 
 /**
@@ -12,6 +13,8 @@ use Drupal\Core\Url;
  * interface.
  */
 class PrivateStream extends LocalStream {
+
+  use StringTranslationTrait;
 
   /**
    * {@inheritdoc}
@@ -24,14 +27,14 @@ class PrivateStream extends LocalStream {
    * {@inheritdoc}
    */
   public function getName() {
-    return t('Private files');
+    return $this->t('Private files');
   }
 
   /**
    * {@inheritdoc}
    */
   public function getDescription() {
-    return t('Private local files served by Drupal.');
+    return $this->t('Private local files served by Drupal.');
   }
 
   /**
@@ -46,7 +49,11 @@ class PrivateStream extends LocalStream {
    */
   public function getExternalUrl() {
     $path = str_replace('\\', '/', $this->getTarget());
-    return Url::fromRoute('system.private_file_download', ['filepath' => $path], ['absolute' => TRUE, 'path_processing' => FALSE])->toString();
+    return Url::fromRoute(
+      'system.private_file_download',
+      ['filepath' => $path],
+      ['absolute' => TRUE, 'path_processing' => FALSE]
+    )->toString();
   }
 
   /**
@@ -56,8 +63,9 @@ class PrivateStream extends LocalStream {
    * so you should alter that form or substitute a different form if you change
    * the class providing the stream_wrapper.private service.
    *
-   * @return string
-   *   The base path for private://.
+   * @return string|null
+   *   The base path for private://. NULL means the private directory is not
+   *   set.
    */
   public static function basePath() {
     return Settings::get('file_private_path');

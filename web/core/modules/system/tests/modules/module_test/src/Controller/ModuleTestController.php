@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\module_test\Controller;
 
 use Drupal\module_autoload_test\SomeClass;
@@ -10,7 +12,7 @@ use Drupal\module_autoload_test\SomeClass;
 class ModuleTestController {
 
   /**
-   * Returns dynamically invoked hook results for the 'module_test' module
+   * Returns dynamically invoked hook results for the 'module_test' module.
    *
    * @return array
    *   Renderable array.

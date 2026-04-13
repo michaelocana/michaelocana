@@ -5,21 +5,22 @@ namespace Drupal\views\Plugin\views\argument_default;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Path\AliasManagerInterface as CoreAliasManagerInterface;
 use Drupal\Core\Path\CurrentPathStack;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\path_alias\AliasManagerInterface;
+use Drupal\views\Attribute\ViewsArgumentDefault;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Default argument plugin to use the raw value from the URL.
  *
  * @ingroup views_argument_default_plugins
- *
- * @ViewsArgumentDefault(
- *   id = "raw",
- *   title = @Translation("Raw value from URL")
- * )
  */
+#[ViewsArgumentDefault(
+  id: 'raw',
+  title: new TranslatableMarkup('Raw value from URL'),
+)]
+
 class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterface {
 
   /**
@@ -42,7 +43,7 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\path_alias\AliasManagerInterface $alias_manager
@@ -50,14 +51,8 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
    * @param \Drupal\Core\Path\CurrentPathStack $current_path
    *   The current path.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, $alias_manager, CurrentPathStack $current_path) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, AliasManagerInterface $alias_manager, CurrentPathStack $current_path) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-
-    if (!$alias_manager instanceof AliasManagerInterface) {
-      @trigger_error('Calling \\' . __METHOD__ . ' with \\' . CoreAliasManagerInterface::class . ' instead of \\' . AliasManagerInterface::class . ' is deprecated in drupal:8.8.0. The new service will be required in drupal:9.0.0. See https://www.drupal.org/node/3092086', E_USER_DEPRECATED);
-      $alias_manager = \Drupal::service('path_alias.manager');
-    }
-
     $this->aliasManager = $alias_manager;
     $this->currentPath = $current_path;
   }

@@ -12,19 +12,19 @@
 namespace Symfony\Component\Validator\Constraints;
 
 /**
- * @Annotation
- * @Target({"PROPERTY", "METHOD", "ANNOTATION"})
+ * Validates that a value is less than another value.
  *
  * @author Daniel Holmes <daniel@danielholmes.org>
  * @author Bernhard Schussek <bschussek@gmail.com>
  */
+#[\Attribute(\Attribute::TARGET_PROPERTY | \Attribute::TARGET_METHOD | \Attribute::IS_REPEATABLE)]
 class LessThan extends AbstractComparison
 {
-    const TOO_HIGH_ERROR = '079d7420-2d13-460c-8756-de810eeb37d2';
+    public const TOO_HIGH_ERROR = '079d7420-2d13-460c-8756-de810eeb37d2';
 
-    protected static $errorNames = [
+    protected const ERROR_NAMES = [
         self::TOO_HIGH_ERROR => 'TOO_HIGH_ERROR',
     ];
 
-    public $message = 'This value should be less than {{ compared_value }}.';
+    public string $message = 'This value should be less than {{ compared_value }}.';
 }

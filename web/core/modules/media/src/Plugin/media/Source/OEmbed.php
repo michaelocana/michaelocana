@@ -2,6 +2,7 @@
 
 namespace Drupal\media\Plugin\media\Source;
 
+use Drupal\Component\Render\PlainTextOutput;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
@@ -10,22 +11,28 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldTypePluginManagerInterface;
 use Drupal\Core\File\Exception\FileException;
+use Drupal\Core\File\FileExists;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
+use Drupal\Core\Utility\Token;
+use Drupal\media\Attribute\OEmbedMediaSource;
 use Drupal\media\IFrameUrlHelper;
+use Drupal\media\MediaInterface;
+use Drupal\media\MediaSourceBase;
+use Drupal\media\MediaTypeInterface;
 use Drupal\media\OEmbed\Resource;
 use Drupal\media\OEmbed\ResourceException;
-use Drupal\media\MediaSourceBase;
-use Drupal\media\MediaInterface;
-use Drupal\media\MediaTypeInterface;
 use Drupal\media\OEmbed\ResourceFetcherInterface;
 use Drupal\media\OEmbed\UrlResolverInterface;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\RequestException;
+use Psr\Http\Client\ClientExceptionInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Mime\MimeTypes;
 
 /**
  * Provides a media source plugin for oEmbed resources.
@@ -45,8 +52,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * function example_media_source_info_alter(array &$sources) {
  *   $sources['artwork'] = [
  *     'id' => 'artwork',
- *     'label' => t('Artwork'),
- *     'description' => t('Use artwork from Flickr and DeviantArt.'),
+ *     'label' => $this->t('Artwork'),
+ *     'description' => $this->t('Use artwork from Flickr and DeviantArt.'),
  *     'allowed_field_types' => ['string'],
  *     'default_thumbnail_filename' => 'no-thumbnail.png',
  *     'providers' => ['Deviantart.com', 'Flickr'],
@@ -61,17 +68,15 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * define a new class which extends it. With the code above, you will able to
  * create media types which use the "Artwork" source plugin, and use those media
  * types to link to assets on Deviantart and Flickr.
- *
- * @MediaSource(
- *   id = "oembed",
- *   label = @Translation("oEmbed source"),
- *   description = @Translation("Use oEmbed URL for reusable media."),
- *   allowed_field_types = {"string"},
- *   default_thumbnail_filename = "no-thumbnail.png",
- *   deriver = "Drupal\media\Plugin\media\Source\OEmbedDeriver",
- *   providers = {},
- * )
  */
+#[OEmbedMediaSource(
+  id: "oembed",
+  label: new TranslatableMarkup("oEmbed source"),
+  description: new TranslatableMarkup("Use oEmbed URL for reusable media."),
+  allowed_field_types: ["string"],
+  default_thumbnail_filename: "no-thumbnail.png",
+  deriver: OEmbedDeriver::class,
+)]
 class OEmbed extends MediaSourceBase implements OEmbedInterface {
 
   /**
@@ -124,12 +129,19 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
   protected $fileSystem;
 
   /**
+   * The token replacement service.
+   *
+   * @var \Drupal\Core\Utility\Token
+   */
+  protected $token;
+
+  /**
    * Constructs a new OEmbed instance.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
@@ -154,8 +166,10 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
    *   The iFrame URL helper service.
    * @param \Drupal\Core\File\FileSystemInterface $file_system
    *   The file system.
+   * @param \Drupal\Core\Utility\Token $token
+   *   The token replacement service.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager, ConfigFactoryInterface $config_factory, FieldTypePluginManagerInterface $field_type_manager, LoggerInterface $logger, MessengerInterface $messenger, ClientInterface $http_client, ResourceFetcherInterface $resource_fetcher, UrlResolverInterface $url_resolver, IFrameUrlHelper $iframe_url_helper, FileSystemInterface $file_system = NULL) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager, ConfigFactoryInterface $config_factory, FieldTypePluginManagerInterface $field_type_manager, LoggerInterface $logger, MessengerInterface $messenger, ClientInterface $http_client, ResourceFetcherInterface $resource_fetcher, UrlResolverInterface $url_resolver, IFrameUrlHelper $iframe_url_helper, FileSystemInterface $file_system, Token $token) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $entity_field_manager, $field_type_manager, $config_factory);
     $this->logger = $logger;
     $this->messenger = $messenger;
@@ -163,11 +177,8 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
     $this->resourceFetcher = $resource_fetcher;
     $this->urlResolver = $url_resolver;
     $this->iFrameUrlHelper = $iframe_url_helper;
-    if (!$file_system) {
-      @trigger_error('The file_system service must be passed to OEmbed::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/3006851.', E_USER_DEPRECATED);
-      $file_system = \Drupal::service('file_system');
-    }
     $this->fileSystem = $file_system;
+    $this->token = $token;
   }
 
   /**
@@ -188,7 +199,8 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
       $container->get('media.oembed.resource_fetcher'),
       $container->get('media.oembed.url_resolver'),
       $container->get('media.oembed.iframe_url_helper'),
-      $container->get('file_system')
+      $container->get('file_system'),
+      $container->get('token')
     );
   }
 
@@ -199,19 +211,19 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
     return [
       'type' => $this->t('Resource type'),
       'title' => $this->t('Resource title'),
-      'author_name' => $this->t('The name of the author/owner'),
-      'author_url' => $this->t('The URL of the author/owner'),
-      'provider_name' => $this->t("The name of the provider"),
-      'provider_url' => $this->t('The URL of the provider'),
+      'author_name' => $this->t('Author/owner name'),
+      'author_url' => $this->t('Author/owner URL'),
+      'provider_name' => $this->t('Provider name'),
+      'provider_url' => $this->t('Provider URL'),
       'cache_age' => $this->t('Suggested cache lifetime'),
-      'default_name' => $this->t('Default name of the media item'),
-      'thumbnail_uri' => $this->t('Local URI of the thumbnail'),
+      'default_name' => $this->t('Media item default name'),
+      'thumbnail_uri' => $this->t('Thumbnail local URI'),
       'thumbnail_width' => $this->t('Thumbnail width'),
       'thumbnail_height' => $this->t('Thumbnail height'),
-      'url' => $this->t('The source URL of the resource'),
-      'width' => $this->t('The width of the resource'),
-      'height' => $this->t('The height of the resource'),
-      'html' => $this->t('The HTML representation of the resource'),
+      'url' => $this->t('Resource source URL'),
+      'width' => $this->t('Resource width'),
+      'height' => $this->t('Resource height'),
+      'html' => $this->t('Resource HTML representation'),
     ];
   }
 
@@ -246,7 +258,7 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
         return parent::getMetadata($media, 'default_name');
 
       case 'thumbnail_uri':
-        return $this->getLocalThumbnailUri($resource) ?: parent::getMetadata($media, 'thumbnail_uri');
+        return $this->getLocalThumbnailUri($resource, $media) ?: parent::getMetadata($media, 'thumbnail_uri');
 
       case 'type':
         return $resource->getType();
@@ -305,7 +317,7 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
     $domain = $this->configFactory->get('media.settings')->get('iframe_domain');
     if (!$this->iFrameUrlHelper->isSecure($domain)) {
       array_unshift($form, [
-        '#markup' => '<p>' . $this->t('It is potentially insecure to display oEmbed content in a frame that is served from the same domain as your main Drupal site, as this may allow execution of third-party code. <a href=":url" target="_blank">You can specify a different domain for serving oEmbed content here</a> (opens in a new window).', [
+        '#markup' => '<p>' . $this->t('It is potentially insecure to display oEmbed content in a frame that is served from the same domain as your main Drupal site, as this may allow execution of third-party code. <a href=":url">You can specify a different domain for serving oEmbed content in the Media settings</a>.', [
           ':url' => Url::fromRoute('media.settings')->setAbsolute()->toString(),
         ]) . '</p>',
       ]);
@@ -362,10 +374,10 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
-      'thumbnails_directory' => 'public://oembed_thumbnails',
+    return parent::defaultConfiguration() + [
+      'thumbnails_directory' => 'public://oembed_thumbnails/[date:custom:Y-m]',
       'providers' => [],
-    ] + parent::defaultConfiguration();
+    ];
   }
 
   /**
@@ -376,6 +388,8 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
    *
    * @param \Drupal\media\OEmbed\Resource $resource
    *   The oEmbed resource.
+   * @param \Drupal\media\MediaInterface $media
+   *   The media entity that contains the resource.
    *
    * @return string|null
    *   The local thumbnail URI, or NULL if it could not be downloaded, or if the
@@ -386,27 +400,26 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
    * toggle-able. See https://www.drupal.org/project/drupal/issues/2962751 for
    * more information.
    */
-  protected function getLocalThumbnailUri(Resource $resource) {
+  protected function getLocalThumbnailUri(Resource $resource, MediaInterface $media) {
+    $token_data = ['date' => $media->getCreatedTime()];
+
     // If there is no remote thumbnail, there's nothing for us to fetch here.
     $remote_thumbnail_url = $resource->getThumbnailUrl();
     if (!$remote_thumbnail_url) {
       return NULL;
     }
-    $remote_thumbnail_url = $remote_thumbnail_url->toString();
 
-    // Remove the query string, since we do not want to include it in the local
-    // thumbnail URI.
-    $local_thumbnail_url = parse_url($remote_thumbnail_url, PHP_URL_PATH);
-
-    // Compute the local thumbnail URI, regardless of whether or not it exists.
+    // Use the configured directory to store thumbnails. The directory can
+    // contain basic (i.e., global) tokens. If any of the replaced tokens
+    // contain HTML, the tags will be removed and XML entities will be decoded.
     $configuration = $this->getConfiguration();
     $directory = $configuration['thumbnails_directory'];
-    $local_thumbnail_uri = "$directory/" . Crypt::hashBase64($local_thumbnail_url) . '.' . pathinfo($local_thumbnail_url, PATHINFO_EXTENSION);
-
-    // If the local thumbnail already exists, return its URI.
-    if (file_exists($local_thumbnail_uri)) {
-      return $local_thumbnail_uri;
-    }
+    // The thumbnail directory might contain a date token, so we pass in the
+    // creation date of the media entity so that the token won't rely on the
+    // current request time, making the current request have a max-age of 0.
+    // @see system_tokens() for $type == 'date'.
+    $directory = $this->token->replace($directory, $token_data);
+    $directory = PlainTextOutput::renderFromHtml($directory);
 
     // The local thumbnail doesn't exist yet, so try to download it. First,
     // ensure that the destination directory is writable, and if it's not,
@@ -418,21 +431,72 @@ class OEmbed extends MediaSourceBase implements OEmbedInterface {
       return NULL;
     }
 
+    // The local filename of the thumbnail is always a hash of its remote URL.
+    // If a file with that name already exists in the thumbnails directory,
+    // regardless of its extension, return its URI.
+    $remote_thumbnail_url = $remote_thumbnail_url->toString();
+    $hash = Crypt::hashBase64($remote_thumbnail_url);
+    $files = $this->fileSystem->scanDirectory($directory, "/^$hash\..*/");
+    if (count($files) > 0) {
+      return reset($files)->uri;
+    }
+
+    // The local thumbnail doesn't exist yet, so we need to download it.
     try {
-      $response = $this->httpClient->get($remote_thumbnail_url);
+      $response = $this->httpClient->request('GET', $remote_thumbnail_url);
       if ($response->getStatusCode() === 200) {
-        $this->fileSystem->saveData((string) $response->getBody(), $local_thumbnail_uri, FileSystemInterface::EXISTS_REPLACE);
+        $local_thumbnail_uri = $directory . DIRECTORY_SEPARATOR . $hash . '.' . $this->getThumbnailFileExtensionFromUrl($remote_thumbnail_url, $response);
+        $this->fileSystem->saveData((string) $response->getBody(), $local_thumbnail_uri, FileExists::Replace);
         return $local_thumbnail_uri;
       }
     }
-    catch (RequestException $e) {
-      $this->logger->warning($e->getMessage());
+    catch (ClientExceptionInterface $e) {
+      $this->logger->warning('Failed to download remote thumbnail file due to "%error".', [
+        '%error' => $e->getMessage(),
+      ]);
     }
-    catch (FileException $e) {
+    catch (FileException) {
       $this->logger->warning('Could not download remote thumbnail from {url}.', [
         'url' => $remote_thumbnail_url,
       ]);
     }
+    return NULL;
+  }
+
+  /**
+   * Tries to determine the file extension of a thumbnail.
+   *
+   * @param string $thumbnail_url
+   *   The remote URL of the thumbnail.
+   * @param \Psr\Http\Message\ResponseInterface $response
+   *   The response for the downloaded thumbnail.
+   *
+   * @return string|null
+   *   The file extension, or NULL if it could not be determined.
+   */
+  protected function getThumbnailFileExtensionFromUrl(string $thumbnail_url, ResponseInterface $response): ?string {
+    // First, try to glean the extension from the URL path.
+    $path = parse_url($thumbnail_url, PHP_URL_PATH);
+    if ($path) {
+      $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+      if ($extension) {
+        return $extension;
+      }
+    }
+
+    // If the URL didn't give us any clues about the file extension, see if the
+    // response headers will give us a MIME type.
+    $content_type = $response->getHeader('Content-Type');
+    // If there was no Content-Type header, there's nothing else we can do.
+    if (empty($content_type)) {
+      return NULL;
+    }
+    $extensions = MimeTypes::getDefault()->getExtensions(reset($content_type));
+    if ($extensions) {
+      return reset($extensions);
+    }
+    // If no file extension could be determined from the Content-Type header,
+    // we're stumped.
     return NULL;
   }
 

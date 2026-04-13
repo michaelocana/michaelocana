@@ -23,6 +23,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var bool
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $static_cache = TRUE;
 
   /**
@@ -30,6 +31,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var bool
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $render_cache = TRUE;
 
   /**
@@ -37,6 +39,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var bool
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $persistent_cache = TRUE;
 
   /**
@@ -44,6 +47,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var array
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $entity_keys = [];
 
   /**
@@ -74,7 +78,16 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $admin_permission;
+
+  /**
+   * The name of the collection permission.
+   *
+   * @var string
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  protected $collection_permission;
 
   /**
    * The permission granularity level.
@@ -83,6 +96,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $permission_granularity = 'entity_type';
   /**
    * Link templates using the URI template syntax.
@@ -92,22 +106,11 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
   protected $links = [];
 
   /**
-   * The name of a callback that returns the label of the entity.
-   *
-   * @var callable|null
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the
-   *   EntityInterface::label() method instead for dynamic labels.
-   *
-   * @see \Drupal\Core\Entity\EntityInterface::label()
-   */
-  protected $label_callback = NULL;
-
-  /**
    * The name of the entity type which provides bundles.
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $bundle_entity_type = NULL;
 
   /**
@@ -115,6 +118,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $bundle_of = NULL;
 
   /**
@@ -122,6 +126,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $bundle_label = NULL;
 
   /**
@@ -129,6 +134,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $base_table = NULL;
 
   /**
@@ -136,6 +142,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $revision_data_table = NULL;
 
   /**
@@ -143,6 +150,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $revision_table = NULL;
 
   /**
@@ -150,6 +158,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $data_table = NULL;
 
   /**
@@ -171,6 +180,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var bool
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $show_revision_ui = FALSE;
 
   /**
@@ -189,6 +199,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @see \Drupal\Core\Entity\EntityTypeInterface::getCollectionLabel()
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $label_collection = '';
 
   /**
@@ -198,6 +209,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @see \Drupal\Core\Entity\EntityTypeInterface::getSingularLabel()
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $label_singular = '';
 
   /**
@@ -207,17 +219,26 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @see \Drupal\Core\Entity\EntityTypeInterface::getPluralLabel()
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $label_plural = '';
 
   /**
    * A definite singular/plural name of the type.
    *
-   * Needed keys: "singular" and "plural".
+   * @var string[]
    *
-   * @var string|\Drupal\Core\StringTranslation\TranslatableMarkup
+   * Needed keys: "singular" and "plural". Can also have key: "context".
+   * @code
+   * [
+   *    'singular' => '@count entity',
+   *    'plural' => '@count entities',
+   *    'context' => 'Entity context',
+   * ]
+   * @endcode
    *
    * @see \Drupal\Core\Entity\EntityTypeInterface::getCountLabel()
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $label_count = [];
 
   /**
@@ -225,12 +246,15 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var callable|null
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $uri_callback = NULL;
 
   /**
    * The machine name of the entity type group.
    *
    * @var string
+   *
+   * @see self::getGroup()
    */
   protected $group;
 
@@ -241,6 +265,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @see \Drupal\Core\Entity\EntityTypeInterface::getGroupLabel()
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $group_label;
 
   /**
@@ -248,6 +273,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $field_ui_base_route;
 
   /**
@@ -258,6 +284,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var bool
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $common_reference_target = FALSE;
 
   /**
@@ -265,6 +292,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string[]
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $list_cache_contexts = [];
 
   /**
@@ -272,6 +300,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    *
    * @var string[]
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $list_cache_tags = [];
 
   /**
@@ -344,10 +373,10 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    */
   public function get($property) {
     if (property_exists($this, $property)) {
-      $value = isset($this->{$property}) ? $this->{$property} : NULL;
+      $value = $this->{$property} ?? NULL;
     }
     else {
-      $value = isset($this->additional[$property]) ? $this->additional[$property] : NULL;
+      $value = $this->additional[$property] ?? NULL;
     }
     return $value;
   }
@@ -405,7 +434,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    */
   public function getKey($key) {
     $keys = $this->getKeys();
-    return isset($keys[$key]) ? $keys[$key] : FALSE;
+    return $keys[$key] ?? FALSE;
   }
 
   /**
@@ -441,14 +470,6 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    */
   public function entityClassImplements($interface) {
     return is_subclass_of($this->getClass(), $interface);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isSubclassOf($class) {
-    @trigger_error(__METHOD__ . '() is deprecated in drupal:8.3.0 and is removed from drupal:10.0.0. Use Drupal\Core\Entity\EntityTypeInterface::entityClassImplements() instead. See https://www.drupal.org/node/2842808', E_USER_DEPRECATED);
-    return $this->entityClassImplements($class);
   }
 
   /**
@@ -623,6 +644,13 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
   /**
    * {@inheritdoc}
    */
+  public function getCollectionPermission(): ?string {
+    return $this->collection_permission;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getPermissionGranularity() {
     return $this->permission_granularity;
   }
@@ -639,7 +667,7 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    */
   public function getLinkTemplate($key) {
     $links = $this->getLinkTemplates();
-    return isset($links[$key]) ? $links[$key] : FALSE;
+    return $links[$key] ?? FALSE;
   }
 
   /**
@@ -660,31 +688,6 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
 
     $this->links[$key] = $path;
     return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getLabelCallback() {
-    @trigger_error('EntityType::getLabelCallback() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the EntityInterface::label() method instead for dynamic labels. See https://www.drupal.org/node/3050794', E_USER_DEPRECATED);
-    return $this->label_callback;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setLabelCallback($callback) {
-    @trigger_error('EntityType::setLabelCallback() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the EntityInterface::label() method instead for dynamic labels. See https://www.drupal.org/node/3050794', E_USER_DEPRECATED);
-    $this->label_callback = $callback;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasLabelCallback() {
-    @trigger_error('EntityType::hasabelCallback() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the EntityInterface::label() method instead for dynamic labels. See https://www.drupal.org/node/3050794', E_USER_DEPRECATED);
-    return isset($this->label_callback);
   }
 
   /**
@@ -776,14 +779,6 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
   /**
    * {@inheritdoc}
    */
-  public function getLowercaseLabel() {
-    @trigger_error('EntityType::getLowercaseLabel() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Instead, you should call getSingularLabel(). See https://www.drupal.org/node/3075567', E_USER_DEPRECATED);
-    return mb_strtolower($this->getLabel());
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getCollectionLabel() {
     if (empty($this->label_collection)) {
       $label = $this->getLabel();
@@ -869,6 +864,13 @@ class EntityType extends PluginDefinition implements EntityTypeInterface {
    */
   public function getListCacheTags() {
     return $this->list_cache_tags;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getBundleListCacheTags(string $bundle): array {
+    return [$this->id() . '_list:' . $bundle];
   }
 
   /**

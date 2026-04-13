@@ -2,17 +2,21 @@
 
 namespace Drupal\system;
 
-use Drupal\Core\Menu\MenuActiveTrailInterface;
-use Drupal\Core\Menu\MenuLinkTreeInterface;
-use Drupal\Core\Menu\MenuLinkInterface;
-use Drupal\Core\Menu\MenuTreeParameters;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Extension\Requirement\RequirementSeverity;
+use Drupal\Core\Menu\MenuActiveTrailInterface;
+use Drupal\Core\Menu\MenuLinkInterface;
+use Drupal\Core\Menu\MenuLinkTreeInterface;
+use Drupal\Core\Menu\MenuTreeParameters;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * System Manager Service.
  */
 class SystemManager {
+
+  use StringTranslationTrait;
 
   /**
    * Module handler service.
@@ -51,16 +55,31 @@ class SystemManager {
 
   /**
    * Requirement severity -- Requirement successfully met.
+   *
+   * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use
+   *    \Drupal\Core\Extension\Requirement\RequirementSeverity::OK instead.
+   *
+   * @see https://www.drupal.org/node/3410939
    */
   const REQUIREMENT_OK = 0;
 
   /**
    * Requirement severity -- Warning condition; proceed but flag warning.
+   *
+   * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use
+   *   \Drupal\Core\Extension\Requirement\RequirementSeverity::Warning instead.
+   *
+   * @see https://www.drupal.org/node/3410939
    */
   const REQUIREMENT_WARNING = 1;
 
   /**
    * Requirement severity -- Error condition; abort installation.
+   *
+   * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use
+   *  \Drupal\Core\Extension\Requirement\RequirementSeverity::Error instead.
+   *
+   * @see https://www.drupal.org/node/3410939
    */
   const REQUIREMENT_ERROR = 2;
 
@@ -69,8 +88,6 @@ class SystemManager {
    *
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
-   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
-   *   The entity manager.
    * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
    *   The request stack.
    * @param \Drupal\Core\Menu\MenuLinkTreeInterface $menu_tree
@@ -78,7 +95,7 @@ class SystemManager {
    * @param \Drupal\Core\Menu\MenuActiveTrailInterface $menu_active_trail
    *   The active menu trail service.
    */
-  public function __construct(ModuleHandlerInterface $module_handler, $entity_manager, RequestStack $request_stack, MenuLinkTreeInterface $menu_tree, MenuActiveTrailInterface $menu_active_trail) {
+  public function __construct(ModuleHandlerInterface $module_handler, RequestStack $request_stack, MenuLinkTreeInterface $menu_tree, MenuActiveTrailInterface $menu_active_trail) {
     $this->moduleHandler = $module_handler;
     $this->requestStack = $request_stack;
     $this->menuTree = $menu_tree;
@@ -93,7 +110,7 @@ class SystemManager {
    */
   public function checkRequirements() {
     $requirements = $this->listRequirements();
-    return $this->getMaxSeverity($requirements) == static::REQUIREMENT_ERROR;
+    return RequirementSeverity::maxSeverityFromRequirements($requirements) === RequirementSeverity::Error;
   }
 
   /**
@@ -109,6 +126,10 @@ class SystemManager {
 
     // Check run-time requirements and status information.
     $requirements = $this->moduleHandler->invokeAll('requirements', ['runtime']);
+    $runtime_requirements = $this->moduleHandler->invokeAll('runtime_requirements');
+    $requirements = array_merge($requirements, $runtime_requirements);
+    $this->moduleHandler->alter('requirements', $requirements);
+    $this->moduleHandler->alter('runtime_requirements', $requirements);
     uasort($requirements, function ($a, $b) {
       if (!isset($a['weight'])) {
         if (!isset($b['weight'])) {
@@ -125,21 +146,22 @@ class SystemManager {
   /**
    * Extracts the highest severity from the requirements array.
    *
-   * @param $requirements
+   * @param array $requirements
    *   An array of requirements, in the same format as is returned by
    *   hook_requirements().
    *
-   * @return
+   * @return int
    *   The highest severity in the array.
+   *
+   * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use
+   *   \Drupal\Core\Extension\Requirement\RequirementSeverity::getMaxSeverity()
+   *   instead.
+   *
+   * @see https://www.drupal.org/node/3410939
    */
   public function getMaxSeverity(&$requirements) {
-    $severity = static::REQUIREMENT_OK;
-    foreach ($requirements as $requirement) {
-      if (isset($requirement['severity'])) {
-        $severity = max($severity, $requirement['severity']);
-      }
-    }
-    return $severity;
+    @trigger_error(__METHOD__ . '() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use ' . RequirementSeverity::class . '::maxSeverityFromRequirements() instead. See https://www.drupal.org/node/3410939', \E_USER_DEPRECATED);
+    return RequirementSeverity::maxSeverityFromRequirements($requirements)->value;
   }
 
   /**
@@ -166,7 +188,7 @@ class SystemManager {
     }
     else {
       $output = [
-        '#markup' => t('You do not have any administrative items.'),
+        '#markup' => $this->t('You do not have any administrative items.'),
       ];
     }
     return $output;
@@ -202,7 +224,7 @@ class SystemManager {
         continue;
       }
 
-      /** @var $link \Drupal\Core\Menu\MenuLinkInterface */
+      /** @var \Drupal\Core\Menu\MenuLinkInterface $link */
       $link = $element->link;
       $content[$key]['title'] = $link->getTitle();
       $content[$key]['options'] = $link->getOptions();

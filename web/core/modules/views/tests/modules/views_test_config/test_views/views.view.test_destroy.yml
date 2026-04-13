@@ -6,7 +6,7 @@ dependencies:
     - node
     - user
 id: test_destroy
-label: ''
+label: test_destroy
 module: views
 description: ''
 tag: ''
@@ -77,10 +77,11 @@ display:
           entity_type: node
           entity_field: nid
         path:
-          field: path
+          field: view_node
           id: path
           table: node
-          plugin_id: node_path
+          output_url_as_text: true
+          plugin_id: entity_link
           entity_type: node
       filters:
         nid:
@@ -203,7 +204,7 @@ display:
         type: fields
       display_extenders: {  }
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   attachment_1:

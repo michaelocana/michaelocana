@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional;
 
-use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\node\NodeInterface;
+use Drupal\Tests\language\Traits\LanguageTestTrait;
 use Drupal\Tests\Traits\Core\CronRunTrait;
 
 /**
@@ -14,13 +16,12 @@ use Drupal\Tests\Traits\Core\CronRunTrait;
 class SearchMultilingualTest extends ViewTestBase {
 
   use CronRunTrait;
+  use LanguageTestTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'search',
     'language',
@@ -42,35 +43,13 @@ class SearchMultilingualTest extends ViewTestBase {
   /**
    * Tests search with multilingual nodes.
    */
-  public function testMultilingualSearchFilter() {
-    // Create a user with admin for languages, content, and content types, plus
-    // the ability to access content and searches.
-    $user = $this->drupalCreateUser([
-      'administer nodes',
-      'administer content types',
-      'administer languages',
-      'administer content translation',
-      'access content',
-      'search content',
-    ]);
-    $this->drupalLogin($user);
-
+  public function testMultilingualSearchFilter(): void {
     // Add Spanish language programmatically.
-    ConfigurableLanguage::createFromLangcode('es')->save();
+    static::createLanguageFromLangcode('es');
 
     // Create a content type and make it translatable.
     $type = $this->drupalCreateContentType();
-    $edit = [
-      'language_configuration[language_alterable]' => TRUE,
-    ];
-    $this->drupalPostForm('admin/structure/types/manage/' . $type->id(), $edit, t('Save content type'));
-    $edit = [
-      'entity_types[node]' => TRUE,
-      'settings[node][' . $type->id() . '][translatable]' => TRUE,
-      'settings[node][' . $type->id() . '][fields][title]' => TRUE,
-      'settings[node][' . $type->id() . '][fields][body]' => TRUE,
-    ];
-    $this->drupalPostForm('admin/config/regional/content-language', $edit, t('Save configuration'));
+    static::enableBundleTranslation('node', $type->id());
 
     // Add a node in English, with title "sandwich".
     $values = [

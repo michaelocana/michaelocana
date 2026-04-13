@@ -2,6 +2,8 @@
 
 namespace Drupal\Core\FileTransfer;
 
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+
 /**
  * Defines the base FileTransfer class.
  *
@@ -10,8 +12,23 @@ namespace Drupal\Core\FileTransfer;
  * to the server using some backend (for example FTP or SSH). To keep security,
  * the password should always be asked from the user and never stored. For
  * safety, all methods operate only inside a "jail", by default the Drupal root.
+ *
+ * The following properties are managed by magic methods:
+ *
+ * @property string|false|null $chroot
+ *   Path to connection chroot.
+ * @property object|false|null $connection
+ *   The instantiated connection object.
+ *
+ * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no
+ *   replacement. Use composer to manage the code for your site.
+ *
+ * @see https://www.drupal.org/node/3512364
  */
+#[\AllowDynamicProperties]
 abstract class FileTransfer {
+
+  use StringTranslationTrait;
 
   /**
    * The username for this file transfer.
@@ -42,14 +59,23 @@ abstract class FileTransfer {
   protected $port;
 
   /**
+   * Full path to directory where file-transfer is restricted to.
+   *
+   * @var string
+   */
+  protected $jail;
+
+  /**
    * Constructs a Drupal\Core\FileTransfer\FileTransfer object.
    *
-   * @param $jail
+   * @param string $jail
    *   The full path where all file operations performed by this object will
    *   be restricted to. This prevents the FileTransfer classes from being
    *   able to touch other parts of the filesystem.
    */
   public function __construct($jail) {
+    @trigger_error(__CLASS__ . ' is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. Use composer to manage the code for your site. See https://www.drupal.org/node/3512364', E_USER_DEPRECATED);
+
     $this->jail = $jail;
   }
 
@@ -68,6 +94,7 @@ abstract class FileTransfer {
    *   getSettingsForm() method uses any nested settings, the same structure
    *   will be assumed here.
    *
+   * phpcs:ignore Drupal.Commenting.FunctionComment.InvalidNoReturn
    * @return object
    *   New instance of the appropriate FileTransfer subclass.
    *
@@ -99,6 +126,43 @@ abstract class FileTransfer {
     if ($name == 'chroot') {
       $this->setChroot();
       return $this->chroot;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __set(string $name, $value): void {
+    if ($name == 'connection') {
+      $this->connection = $value;
+    }
+    elseif ($name == 'chroot') {
+      $this->chroot = $value;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __isset(string $name): bool {
+    if ($name == 'connection') {
+      return isset($this->connection);
+    }
+    if ($name == 'chroot') {
+      return isset($this->chroot);
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __unset(string $name): void {
+    if ($name == 'connection') {
+      unset($this->connection);
+    }
+    elseif ($name == 'chroot') {
+      unset($this->chroot);
     }
   }
 
@@ -211,7 +275,10 @@ abstract class FileTransfer {
       ->realpath(substr($this->chroot . $path, 0, strlen($full_jail)));
     $full_path = $this->fixRemotePath($full_path, FALSE);
     if ($full_jail !== $full_path) {
-      throw new FileTransferException('@directory is outside of the @jail', NULL, ['@directory' => $path, '@jail' => $this->jail]);
+      throw new FileTransferException('@directory is outside of the @jail', 0, [
+        '@directory' => $path,
+        '@jail' => $this->jail,
+      ]);
     }
   }
 
@@ -232,10 +299,10 @@ abstract class FileTransfer {
    */
   final protected function fixRemotePath($path, $strip_chroot = TRUE) {
     $path = $this->sanitizePath($path);
-    // Strip out windows driveletter if its there.
+    // Strip out windows drive letter if its there.
     $path = preg_replace('|^([a-z]{1}):|i', '', $path);
     if ($strip_chroot) {
-      if ($this->chroot && strpos($path, $this->chroot) === 0) {
+      if ($this->chroot && str_starts_with($path, $this->chroot)) {
         $path = ($path == $this->chroot) ? '' : substr($path, strlen($this->chroot));
       }
     }
@@ -254,7 +321,7 @@ abstract class FileTransfer {
   public function sanitizePath($path) {
     // Windows path sanitization.
     $path = str_replace('\\', '/', $path);
-    if (substr($path, -1) == '/') {
+    if (str_ends_with($path, '/')) {
       $path = substr($path, 0, -1);
     }
     return $path;
@@ -324,7 +391,7 @@ abstract class FileTransfer {
    * Checks if a particular path is a directory.
    *
    * @param string $path
-   *   The path to check
+   *   The path to check.
    *
    * @return bool
    *   TRUE if the specified path is a directory, FALSE otherwise.
@@ -393,26 +460,26 @@ abstract class FileTransfer {
   public function getSettingsForm() {
     $form['username'] = [
       '#type' => 'textfield',
-      '#title' => t('Username'),
+      '#title' => $this->t('Username'),
     ];
     $form['password'] = [
       '#type' => 'password',
-      '#title' => t('Password'),
-      '#description' => t('Your password is not saved in the database and is only used to establish a connection.'),
+      '#title' => $this->t('Password'),
+      '#description' => $this->t('Your password is not saved in the database and is only used to establish a connection.'),
     ];
     $form['advanced'] = [
       '#type' => 'details',
-      '#title' => t('Advanced settings'),
+      '#title' => $this->t('Advanced settings'),
     ];
     $form['advanced']['hostname'] = [
       '#type' => 'textfield',
-      '#title' => t('Host'),
+      '#title' => $this->t('Host'),
       '#default_value' => 'localhost',
-      '#description' => t('The connection will be created between your web server and the machine hosting the web server files. In the vast majority of cases, this will be the same machine, and "localhost" is correct.'),
+      '#description' => $this->t('The connection will be created between your web server and the machine hosting the web server files. In the vast majority of cases, this will be the same machine, and "localhost" is correct.'),
     ];
     $form['advanced']['port'] = [
       '#type' => 'textfield',
-      '#title' => t('Port'),
+      '#title' => $this->t('Port'),
       '#default_value' => NULL,
     ];
     return $form;

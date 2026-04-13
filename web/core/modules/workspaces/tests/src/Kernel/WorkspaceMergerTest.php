@@ -1,11 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workspaces\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\Tests\node\Traits\ContentTypeCreationTrait;
 use Drupal\Tests\node\Traits\NodeCreationTrait;
 use Drupal\Tests\user\Traits\UserCreationTrait;
+
+// cspell:ignore differring
 
 /**
  * Tests workspace merging.
@@ -45,13 +49,12 @@ class WorkspaceMergerTest extends KernelTestBase {
     'text',
     'user',
     'system',
-    'path_alias',
   ];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeManager = \Drupal::entityTypeManager();
@@ -61,7 +64,6 @@ class WorkspaceMergerTest extends KernelTestBase {
 
     $this->installConfig(['filter', 'node', 'system']);
 
-    $this->installSchema('system', ['key_value_expire', 'sequences']);
     $this->installSchema('node', ['node_access']);
 
     $this->createContentType(['type' => 'article']);
@@ -78,7 +80,7 @@ class WorkspaceMergerTest extends KernelTestBase {
    * @covers ::getDifferringRevisionIdsOnSource
    * @covers ::getDifferringRevisionIdsOnTarget
    */
-  public function testWorkspaceMerger() {
+  public function testWorkspaceMerger(): void {
     $this->initializeWorkspacesModule();
     $this->createWorkspaceHierarchy();
 

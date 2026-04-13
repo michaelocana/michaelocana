@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel\Views;
 
 use Drupal\comment\CommentManagerInterface;
@@ -19,11 +21,9 @@ use Drupal\views\Views;
 class CommentLinksTest extends CommentViewsKernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['entity_test'];
+  protected static $modules = ['entity_test'];
 
   /**
    * Views used by this test.
@@ -35,16 +35,16 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
 
     $this->installEntitySchema('entity_test');
   }
 
   /**
-   * Test the comment approve link.
+   * Tests the comment approve link.
    */
-  public function testLinkApprove() {
+  public function testLinkApprove(): void {
     $host = EntityTest::create(['name' => $this->randomString()]);
     $host->save();
 
@@ -72,7 +72,7 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
     ]);
     $view->save();
 
-    /* @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
+    /** @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
     $account_switcher = \Drupal::service('account_switcher');
     $account_switcher->switchTo($this->adminUser);
 
@@ -82,7 +82,7 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
     $approve_comment = $view->style_plugin->getField(0, 'approve_comment');
     $options = ['query' => ['destination' => '/']];
     $url = Url::fromRoute('comment.approve', ['comment' => $comment->id()], $options);
-    $this->assertEqual(Link::fromTextAndUrl('Approve', $url)->toString(), (string) $approve_comment, 'Found a comment approve link for an unapproved comment.');
+    $this->assertSame((string) $approve_comment, (string) Link::fromTextAndUrl('Approve', $url)->toString(), 'Found a comment approve link for an unapproved comment.');
 
     // Approve the comment.
     $comment->setPublished();
@@ -108,9 +108,9 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
   }
 
   /**
-   * Test the comment reply link.
+   * Tests the comment reply link.
    */
-  public function testLinkReply() {
+  public function testLinkReply(): void {
     $this->enableModules(['field']);
     $this->installSchema('comment', ['comment_entity_statistics']);
     $this->installConfig(['field']);
@@ -159,7 +159,7 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
     ]);
     $view->save();
 
-    /* @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
+    /** @var \Drupal\Core\Session\AccountSwitcherInterface $account_switcher */
     $account_switcher = \Drupal::service('account_switcher');
     $account_switcher->switchTo($this->adminUser);
     $view->preview();
@@ -182,7 +182,7 @@ class CommentLinksTest extends CommentViewsKernelTestBase {
       'field_name' => 'comment',
       'pid' => $comment->id(),
     ]);
-    $this->assertEqual(Link::fromTextAndUrl('Reply', $url)->toString(), (string) $replyto_comment, 'Found the comment reply link as an admin user.');
+    $this->assertSame((string) $replyto_comment, (string) Link::fromTextAndUrl('Reply', $url)->toString(), 'Found the comment reply link as an admin user.');
 
     // Check if I can see the reply link as an anonymous user.
     $account_switcher->switchTo(new AnonymousUserSession());

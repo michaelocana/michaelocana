@@ -21,14 +21,14 @@ interface StaticMenuLinkOverridesInterface {
    * @param string $id
    *   A menu link plugin ID.
    *
-   * @return array|null
+   * @return array
    *   An override with following supported keys:
    *     - parent
    *     - weight
    *     - menu_name
    *     - expanded
    *     - enabled
-   *   or NULL if there is no override for the given ID.
+   *   or an empty array if there is no override for the given ID.
    */
   public function loadOverride($id);
 
@@ -68,11 +68,11 @@ interface StaticMenuLinkOverridesInterface {
    *   A menu link plugin ID.
    * @param array $definition
    *   The definition values to override. Supported keys:
-   *   - menu_name
-   *   - parent
-   *   - weight
-   *   - expanded
-   *   - enabled
+   *   - "menu_name".
+   *   - "parent".
+   *   - "weight".
+   *   - "expanded".
+   *   - "enabled".
    *
    * @return array
    *   A list of properties which got saved.

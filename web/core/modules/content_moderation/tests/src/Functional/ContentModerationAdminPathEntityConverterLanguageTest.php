@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Functional;
 
 use Drupal\Tests\language\Functional\AdminPathEntityConverterLanguageTest;
@@ -14,7 +16,11 @@ class ContentModerationAdminPathEntityConverterLanguageTest extends AdminPathEnt
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['language', 'language_test', 'content_moderation'];
+  protected static $modules = [
+    'language',
+    'language_test',
+    'content_moderation',
+  ];
 
   /**
    * {@inheritdoc}

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Kernel;
 
 /**
@@ -10,7 +12,7 @@ class TestFilterIterator extends \FilterIterator {
   /**
    * {@inheritdoc}
    */
-  public function accept() {
+  public function accept(): bool {
     return TRUE;
   }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional\Entity;
 
 use Drupal\block_content\Entity\BlockContent;
@@ -20,7 +22,7 @@ class EntityQueryAccessTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'media_test_source',
     'views_test_query_access',
   ];
@@ -33,7 +35,7 @@ class EntityQueryAccessTest extends ViewTestBase {
   /**
    * Tests that the 'media_access' query tag is respected by Views.
    */
-  public function testMediaEntityQueryAccess() {
+  public function testMediaEntityQueryAccess(): void {
     $this->container->get('module_installer')->install(['media']);
 
     $media_type = $this->createMediaType('test');
@@ -47,14 +49,14 @@ class EntityQueryAccessTest extends ViewTestBase {
       // view.
       // @see views_test_access_query_media_access_alter()
       'uuid' => 'hidden-media',
-      'name' => $this->randomString(),
+      'name' => 'Test hidden media title',
       $source_field => $this->randomString(),
     ]);
     $hidden_media->save();
 
     $accessible_media = Media::create([
       'bundle' => $media_type->id(),
-      'name' => $this->randomString(),
+      'name' => 'Test accessible media title',
       $source_field => $this->randomString(),
     ]);
     $accessible_media->save();
@@ -75,7 +77,7 @@ class EntityQueryAccessTest extends ViewTestBase {
   /**
    * Tests that the 'block_content_access' query tag is respected by Views.
    */
-  public function testBlockContentEntityQueryAccess() {
+  public function testBlockContentEntityQueryAccess(): void {
     $this->container->get('module_installer')->install(['block_content']);
 
     BlockContentType::create([
@@ -99,11 +101,11 @@ class EntityQueryAccessTest extends ViewTestBase {
     $accessible_block->save();
 
     $account = $this->drupalCreateUser([
-      'administer blocks',
+      'access block library',
     ]);
     $this->drupalLogin($account);
 
-    $this->drupalGet('/admin/structure/block/block-content');
+    $this->drupalGet('/admin/content/block');
     $assert_session = $this->assertSession();
     $assert_session->statusCodeEquals(200);
     $assert_session->pageTextContains($accessible_block->label());

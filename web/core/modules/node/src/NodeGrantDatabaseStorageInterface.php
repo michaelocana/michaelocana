@@ -30,12 +30,12 @@ interface NodeGrantDatabaseStorageInterface {
    *   Query that is being altered.
    * @param array $tables
    *   A list of tables that need to be part of the alter.
-   * @param string $op
+   * @param string $operation
    *   The operation to be performed on the node. Possible values are:
-   *   - "view"
-   *   - "update"
-   *   - "delete"
-   *   - "create"
+   *   - "view".
+   *   - "update".
+   *   - "delete".
+   *   - "create".
    * @param \Drupal\Core\Session\AccountInterface $account
    *   A user object representing the user for whom the operation is to be
    *   performed.
@@ -45,7 +45,7 @@ interface NodeGrantDatabaseStorageInterface {
    * @return int
    *   Status of the access check.
    */
-  public function alterQuery($query, array $tables, $op, AccountInterface $account, $base_table);
+  public function alterQuery($query, array $tables, $operation, AccountInterface $account, $base_table);
 
   /**
    * Writes a list of grants to the database, deleting previously saved ones.
@@ -67,12 +67,12 @@ interface NodeGrantDatabaseStorageInterface {
    *   is a module-defined id to define grant privileges. each grant_* field
    *   is a boolean value.
    * @param string $realm
-   *   (optional) If provided, read/write grants for that realm only. Defaults to
-   *   NULL.
+   *   (optional) If provided, read/write grants for that realm only. Defaults
+   *   to NULL.
    * @param bool $delete
-   *   (optional) If false, does not delete records. This is only for optimization
-   *   purposes, and assumes the caller has already performed a mass delete of
-   *   some form. Defaults to TRUE.
+   *   (optional) If false, does not delete records. This is only for
+   *   optimization purposes, and assumes the caller has already performed a
+   *   mass delete of some form. Defaults to TRUE.
    */
   public function write(NodeInterface $node, array $grants, $realm = NULL, $delete = TRUE);
 
@@ -83,6 +83,12 @@ interface NodeGrantDatabaseStorageInterface {
 
   /**
    * Creates the default node access grant entry.
+   *
+   * The default node access grant is a special grant added to the node_access
+   * table when no modules implement hook_node_grants. It grants view access
+   * to any published node.
+   *
+   * @see self::access()
    */
   public function writeDefault();
 

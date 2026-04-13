@@ -15,7 +15,7 @@ class DbCommandBase extends Command {
   /**
    * {@inheritdoc}
    */
-  protected function configure() {
+  protected function configure(): void {
     $this->addOption('database', NULL, InputOption::VALUE_OPTIONAL, 'The database connection name to use.', 'default')
       ->addOption('database-url', 'db-url', InputOption::VALUE_OPTIONAL, 'A database url to parse and use as the database connection.')
       ->addOption('prefix', NULL, InputOption::VALUE_OPTIONAL, 'Override or set the table prefix used in the database connection.');
@@ -28,9 +28,10 @@ class DbCommandBase extends Command {
    *   Input object.
    *
    * @return \Drupal\Core\Database\Connection
+   *   The database connection.
    */
   protected function getDatabaseConnection(InputInterface $input) {
-    // Load connection from a url.
+    // Load connection from a URL.
     if ($input->getOption('database-url')) {
       // @todo this could probably be refactored to not use a global connection.
       // Ensure database connection isn't set.
@@ -49,7 +50,7 @@ class DbCommandBase extends Command {
     $prefix = $input->getOption('prefix');
     if ($prefix) {
       $info = Database::getConnectionInfo($key)['default'];
-      $info['prefix']['default'] = $prefix;
+      $info['prefix'] = $prefix;
 
       Database::removeConnection($key);
       Database::addConnectionInfo($key, 'default', $info);

@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workflows\Unit;
 
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Routing\RouteMatch;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Tests\UnitTestCase;
-use Drupal\workflows\WorkflowDeleteAccessCheck;
 use Drupal\workflows\WorkflowStateTransitionOperationsAccessCheck;
 use Drupal\workflows\WorkflowInterface;
 use Prophecy\Argument;
@@ -19,12 +20,12 @@ use Symfony\Component\Routing\Route;
 class WorkflowStateTransitionOperationsAccessCheckTest extends UnitTestCase {
 
   /**
-   * Test the access method correctly proxies to the entity access system.
+   * Tests the access method correctly proxies to the entity access system.
    *
    * @covers ::access
    * @dataProvider accessTestCases
    */
-  public function testAccess($route_requirement, $resulting_entity_access_check, $route_parameters = []) {
+  public function testAccess($route_requirement, $resulting_entity_access_check, $route_parameters = []): void {
     $workflow_entity_access_result = AccessResult::allowed();
     $workflow = $this->prophesize(WorkflowInterface::class);
     $workflow->access($resulting_entity_access_check, Argument::type(AccountInterface::class), TRUE)
@@ -49,7 +50,7 @@ class WorkflowStateTransitionOperationsAccessCheckTest extends UnitTestCase {
   /**
    * Test cases for ::testAccess.
    */
-  public function accessTestCases() {
+  public static function accessTestCases() {
     return [
       'Transition add' => [
         'add-transition',
@@ -93,7 +94,7 @@ class WorkflowStateTransitionOperationsAccessCheckTest extends UnitTestCase {
   /**
    * @covers ::access
    */
-  public function testMissingRouteParams() {
+  public function testMissingRouteParams(): void {
     $workflow = $this->prophesize(WorkflowInterface::class);
     $workflow->access()->shouldNotBeCalled();
 
@@ -125,7 +126,7 @@ class WorkflowStateTransitionOperationsAccessCheckTest extends UnitTestCase {
    * @covers ::access
    * @dataProvider invalidOperationNameTestCases
    */
-  public function testInvalidOperationName($operation_name) {
+  public function testInvalidOperationName($operation_name): void {
     $this->expectException(\Exception::class);
     $this->expectExceptionMessage("Invalid _workflow_access operation '$operation_name' specified for route 'Foo Route'.");
     $route = new Route('', [], [
@@ -139,41 +140,12 @@ class WorkflowStateTransitionOperationsAccessCheckTest extends UnitTestCase {
   /**
    * Test cases for ::testInvalidOperationName.
    */
-  public function invalidOperationNameTestCases() {
+  public static function invalidOperationNameTestCases() {
     return [
       ['invalid-op'],
       ['foo-add-transition'],
       ['add-transition-bar'],
     ];
-  }
-
-  /**
-   * @covers \Drupal\workflows\WorkflowDeleteAccessCheck::access
-   * @expectedDeprecation Using the _workflow_state_delete_access check is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0, use _workflow_access instead. As an internal API _workflow_state_delete_access may also be removed in a minor release.
-   * @group legacy
-   */
-  public function testLegacyWorkflowStateDeleteAccessCheck() {
-    $workflow_entity_access_result = AccessResult::allowed();
-
-    // When using the legacy access check, passing a route with a state called
-    // 'foo-state' will result in an entity access check of
-    // 'delete-state:foo-state'.
-    $workflow = $this->prophesize(WorkflowInterface::class);
-    $workflow->access('delete-state:foo-state', Argument::type(AccountInterface::class), TRUE)
-      ->shouldBeCalled()
-      ->willReturn($workflow_entity_access_result);
-
-    $route = new Route('', [
-      'workflow' => NULL,
-      'workflow_state' => NULL,
-    ], ['_workflow_state_delete_access' => 'true']);
-    $route_match = new RouteMatch(NULL, $route, [
-      'workflow' => $workflow->reveal(),
-      'workflow_state' => 'foo-state',
-    ]);
-
-    $access_check = new WorkflowDeleteAccessCheck();
-    $this->assertEquals($workflow_entity_access_result, $access_check->access($route_match, $this->prophesize(AccountInterface::class)->reveal()));
   }
 
 }

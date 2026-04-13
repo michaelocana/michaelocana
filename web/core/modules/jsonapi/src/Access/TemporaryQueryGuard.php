@@ -119,7 +119,7 @@ class TemporaryQueryGuard {
    * @see \Drupal\Core\Database\Query\AlterableInterface::addMetaData()
    * @see \Drupal\Core\Database\Query\ConditionInterface
    */
-  protected static function secureQuery(QueryInterface $query, $entity_type_id, array $tree, CacheableMetadata $cacheability, $field_prefix = NULL, FieldStorageDefinitionInterface $field_storage_definition = NULL) {
+  protected static function secureQuery(QueryInterface $query, $entity_type_id, array $tree, CacheableMetadata $cacheability, $field_prefix = NULL, ?FieldStorageDefinitionInterface $field_storage_definition = NULL) {
     $entity_type = \Drupal::entityTypeManager()->getDefinition($entity_type_id);
     // Config entity types are not fieldable, therefore they do not have field
     // access restrictions, nor entity references to other entity types.
@@ -150,7 +150,7 @@ class TemporaryQueryGuard {
         // portion. JSON:API will have already validated that the property
         // exists.
         $split_specifier = explode(':', $specifier, 2);
-        list($property_name, $target_entity_type_id) = array_merge($split_specifier, count($split_specifier) === 2 ? [] : [NULL]);
+        [$property_name, $target_entity_type_id] = array_merge($split_specifier, count($split_specifier) === 2 ? [] : [NULL]);
         // The specifier is either a field property or a delta. If it is a data
         // reference or a delta, then it needs to be traversed to the next
         // specifier. However, if the specific is a simple field property, i.e.
@@ -267,10 +267,10 @@ class TemporaryQueryGuard {
       case 'entity_test':
         // This case is only necessary for testing comment access controls.
         // @see \Drupal\jsonapi\Tests\Functional\CommentTest::testCollectionFilterAccess()
-        $blacklist = \Drupal::state()->get('jsonapi__entity_test_filter_access_blacklist', []);
-        $cacheability->addCacheTags(['state:jsonapi__entity_test_filter_access_blacklist']);
+        $deny_list = \Drupal::state()->get('jsonapi__entity_test_filter_access_deny_list', []);
+        $cacheability->addCacheTags(['state:jsonapi__entity_test_filter_access_deny_list']);
         $specific_conditions = [];
-        foreach ($blacklist as $id) {
+        foreach ($deny_list as $id) {
           $specific_conditions[] = new EntityCondition('id', $id, '<>');
         }
         if ($specific_conditions) {
@@ -294,7 +294,8 @@ class TemporaryQueryGuard {
         // user's currently displayed shortcut set.
         // @see \Drupal\shortcut\ShortcutAccessControlHandler::checkAccess()
         if (!$current_user->hasPermission('administer shortcuts')) {
-          $specific_condition = new EntityCondition('shortcut_set', shortcut_current_displayed_set()->id());
+          $shortcut_set_storage = \Drupal::entityTypeManager()->getStorage('shortcut_set');
+          $specific_condition = new EntityCondition('shortcut_set', $shortcut_set_storage->getDisplayedToUser($current_user)->id());
           $cacheability->addCacheContexts(['user']);
           $cacheability->addCacheTags($entity_type->getListCacheTags());
         }
@@ -430,7 +431,7 @@ class TemporaryQueryGuard {
    *   hook_jsonapi_entity_filter_access() for details.
    */
   protected static function getAccessResultsFromEntityFilterHook(EntityTypeInterface $entity_type, AccountInterface $account) {
-    /* @var \Drupal\Core\Access\AccessResultInterface[] $combined_access_results */
+    /** @var \Drupal\Core\Access\AccessResultInterface[] $combined_access_results */
     $combined_access_results = [
       JSONAPI_FILTER_AMONG_ALL => AccessResult::neutral(),
       JSONAPI_FILTER_AMONG_PUBLISHED => AccessResult::neutral(),
@@ -442,14 +443,17 @@ class TemporaryQueryGuard {
     // hook_jsonapi_ENTITY_TYPE_filter_access() for each module and merge its
     // results with the combined results.
     foreach (['jsonapi_entity_filter_access', 'jsonapi_' . $entity_type->id() . '_filter_access'] as $hook) {
-      foreach (static::$moduleHandler->getImplementations($hook) as $module) {
-        $module_access_results = static::$moduleHandler->invoke($module, $hook, [$entity_type, $account]);
-        if ($module_access_results) {
-          foreach ($module_access_results as $subset => $access_result) {
-            $combined_access_results[$subset] = $combined_access_results[$subset]->orIf($access_result);
+      static::$moduleHandler->invokeAllWith(
+        $hook,
+        function (callable $hook, string $module) use (&$combined_access_results, $entity_type, $account) {
+          $module_access_results = $hook($entity_type, $account);
+          if ($module_access_results) {
+            foreach ($module_access_results as $subset => $access_result) {
+              $combined_access_results[$subset] = $combined_access_results[$subset]->orIf($access_result);
+            }
           }
         }
-      }
+      );
     }
 
     return $combined_access_results;
@@ -588,7 +592,7 @@ class TemporaryQueryGuard {
       // This complex expression is needed to handle the string, "0", which
       // would be evaluated as FALSE.
       if (!is_null(($field_name = array_shift($parts)))) {
-        $previous = isset($merged[$field_name]) ? $merged[$field_name] : [];
+        $previous = $merged[$field_name] ?? [];
         $merged[$field_name] = array_merge($previous, [$parts]);
       }
     }

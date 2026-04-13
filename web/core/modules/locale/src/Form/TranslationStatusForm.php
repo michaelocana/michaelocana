@@ -2,6 +2,7 @@
 
 namespace Drupal\locale\Form;
 
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -17,40 +18,31 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class TranslationStatusForm extends FormBase {
 
   /**
-   * The module handler service.
-   *
-   * @var \Drupal\Core\Extension\ModuleHandlerInterface
-   */
-  protected $moduleHandler;
-
-  /**
-   * The Drupal state storage service.
-   *
-   * @var \Drupal\Core\State\StateInterface
-   */
-  protected $state;
-
-  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('module_handler'),
-      $container->get('state')
+      $container->get('state'),
+      $container->get('datetime.time'),
     );
   }
 
   /**
    * Constructs a TranslationStatusForm object.
    *
-   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
    *   A module handler.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state service.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
    */
-  public function __construct(ModuleHandlerInterface $module_handler, StateInterface $state) {
-    $this->moduleHandler = $module_handler;
-    $this->state = $state;
+  public function __construct(
+    protected ModuleHandlerInterface $moduleHandler,
+    protected StateInterface $state,
+    protected TimeInterface $time,
+  ) {
   }
 
   /**
@@ -195,7 +187,7 @@ class TranslationStatusForm extends FormBase {
     $this->moduleHandler->loadInclude('locale', 'compare.inc');
     $project_data = locale_translation_build_projects();
 
-    foreach ($status as $project_id => $project) {
+    foreach ($status as $project) {
       foreach ($project as $langcode => $project_info) {
         // No translation file found for this project-language combination.
         if (empty($project_info->type)) {
@@ -207,8 +199,8 @@ class TranslationStatusForm extends FormBase {
         }
         // Translation update found for this project-language combination.
         elseif ($project_info->type == LOCALE_TRANSLATION_LOCAL || $project_info->type == LOCALE_TRANSLATION_REMOTE) {
-          $local = isset($project_info->files[LOCALE_TRANSLATION_LOCAL]) ? $project_info->files[LOCALE_TRANSLATION_LOCAL] : NULL;
-          $remote = isset($project_info->files[LOCALE_TRANSLATION_REMOTE]) ? $project_info->files[LOCALE_TRANSLATION_REMOTE] : NULL;
+          $local = $project_info->files[LOCALE_TRANSLATION_LOCAL] ?? NULL;
+          $remote = $project_info->files[LOCALE_TRANSLATION_REMOTE] ?? NULL;
           $recent = _locale_translation_source_compare($local, $remote) == LOCALE_TRANSLATION_SOURCE_COMPARE_LT ? $remote : $local;
           $updates[$langcode]['updates'][] = [
             'name' => $project_info->name == 'drupal' ? $this->t('Drupal core') : $project_data[$project_info->name]->info['name'],
@@ -237,8 +229,8 @@ class TranslationStatusForm extends FormBase {
    *   The string which contains debug information.
    */
   protected function createInfoString($project_info) {
-    $remote_path = isset($project_info->files['remote']->uri) ? $project_info->files['remote']->uri : FALSE;
-    $local_path = isset($project_info->files['local']->uri) ? $project_info->files['local']->uri : FALSE;
+    $remote_path = $project_info->files['remote']->uri ?? FALSE;
+    $local_path = $project_info->files['local']->uri ?? FALSE;
 
     if (locale_translation_use_remote_source() && $remote_path && $local_path) {
       return $this->t('File not found at %remote_path nor at %local_path', [
@@ -277,10 +269,10 @@ class TranslationStatusForm extends FormBase {
     $options = _locale_translation_default_update_options();
 
     // If the status was updated recently we can immediately start fetching the
-    // translation updates. If the status is expired we clear it an run a batch to
-    // update the status and then fetch the translation updates.
+    // translation updates. If the status is expired we clear it and run a batch
+    // to update the status and then fetch the translation updates.
     $last_checked = $this->state->get('locale.translation_last_checked');
-    if ($last_checked < REQUEST_TIME - LOCALE_TRANSLATION_STATUS_TTL) {
+    if ($last_checked < $this->time->getRequestTime() - LOCALE_TRANSLATION_STATUS_TTL) {
       locale_translation_clear_status();
       $batch = locale_translation_batch_update_build([], $langcodes, $options);
       batch_set($batch);

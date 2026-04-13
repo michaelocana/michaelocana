@@ -39,7 +39,11 @@ class UnroutedUrlAssembler implements UnroutedUrlAssemblerInterface {
    * @param string[] $filter_protocols
    *   (optional) An array of protocols allowed for URL generation.
    */
-  public function __construct(RequestStack $request_stack, OutboundPathProcessorInterface $path_processor, array $filter_protocols = ['http', 'https']) {
+  public function __construct(
+    RequestStack $request_stack,
+    OutboundPathProcessorInterface $path_processor,
+    array $filter_protocols = ['http', 'https'],
+  ) {
     UrlHelper::setAllowedProtocols($filter_protocols);
     $this->requestStack = $request_stack;
     $this->pathProcessor = $path_processor;
@@ -162,7 +166,7 @@ class UnroutedUrlAssembler implements UnroutedUrlAssemblerInterface {
   }
 
   /**
-   * Merges in default defaults
+   * Merges in default defaults.
    *
    * @param array $options
    *   The options to merge in the defaults.
@@ -178,7 +182,7 @@ class UnroutedUrlAssembler implements UnroutedUrlAssemblerInterface {
     // is added, to allow simple string concatenation with other parts.
     if (!empty($base_path_with_script)) {
       $script_name = $request->getScriptName();
-      if (strpos($base_path_with_script, $script_name) !== FALSE) {
+      if (str_contains($base_path_with_script, $script_name)) {
         $current_script_path = ltrim(substr($script_name, strlen($current_base_path)), '/') . '/';
       }
     }

@@ -5,7 +5,7 @@ namespace Drupal\Component\Gettext;
 /**
  * PoItem handles one translation.
  *
- * @todo: This class contains some really old legacy code.
+ * @todo This class contains some really old legacy code.
  * @see https://www.drupal.org/node/1637662
  */
 class PoItem {
@@ -67,7 +67,8 @@ class PoItem {
   /**
    * Gets the language code of the currently used language.
    *
-   * @return string with langcode
+   * @return string
+   *   The language code for this item.
    */
   public function getLangcode() {
     return $this->langcode;
@@ -77,6 +78,7 @@ class PoItem {
    * Set the language code of the current language.
    *
    * @param string $langcode
+   *   The language code of the current language.
    */
   public function setLangcode($langcode) {
     $this->langcode = $langcode;
@@ -85,7 +87,8 @@ class PoItem {
   /**
    * Gets the context this translation belongs to.
    *
-   * @return string $context
+   * @return string
+   *   The context for this translation.
    */
   public function getContext() {
     return $this->context;
@@ -95,46 +98,48 @@ class PoItem {
    * Set the context this translation belongs to.
    *
    * @param string $context
+   *   The context this translation belongs to.
    */
   public function setContext($context) {
     $this->context = $context;
   }
 
   /**
-   * Gets the source string or the array of strings if the translation has
-   * plurals.
+   * Gets the source string(s) if the translation has plurals.
    *
-   * @return string or array $translation
+   * @return string|array
+   *   The source string or array of strings if it has plurals.
    */
   public function getSource() {
     return $this->source;
   }
 
   /**
-   * Set the source string or the array of strings if the translation has
-   * plurals.
+   * Sets the source string(s) if the translation has plurals.
    *
    * @param string|array $source
+   *   The source string or the array of strings if the translation has plurals.
    */
   public function setSource($source) {
     $this->source = $source;
   }
 
   /**
-   * Gets the translation string or the array of strings if the translation has
-   * plurals.
+   * Gets the translation string(s) if the translation has plurals.
    *
-   * @return string or array $translation
+   * @return string|array
+   *   The translation string or array of strings if it has plurals.
    */
   public function getTranslation() {
     return $this->translation;
   }
 
   /**
-   * Set the translation string or the array of strings if the translation has
-   * plurals.
+   * Sets the translation string(s) if the translation has plurals.
    *
    * @param string|array $translation
+   *   The translation string or the array of strings if the translation has
+   *   plurals.
    */
   public function setTranslation($translation) {
     $this->translation = $translation;
@@ -144,6 +149,7 @@ class PoItem {
    * Set if the translation has plural values.
    *
    * @param bool $plural
+   *   TRUE, if the translation has plural values. FALSE otherwise.
    */
   public function setPlural($plural) {
     $this->plural = $plural;
@@ -153,6 +159,7 @@ class PoItem {
    * Get if the translation has plural values.
    *
    * @return bool
+   *   TRUE if the translation has plurals, otherwise FALSE.
    */
   public function isPlural() {
     return $this->plural;
@@ -161,7 +168,8 @@ class PoItem {
   /**
    * Gets the comment of this translation.
    *
-   * @return String $comment
+   * @return string
+   *   The comment of this translation.
    */
   public function getComment() {
     return $this->comment;
@@ -171,6 +179,7 @@ class PoItem {
    * Set the comment of this translation.
    *
    * @param string $comment
+   *   The comment of this translation.
    */
   public function setComment($comment) {
     $this->comment = $comment;
@@ -180,6 +189,7 @@ class PoItem {
    * Create the PoItem from a structured array.
    *
    * @param array $values
+   *   A structured array to create the PoItem from.
    */
   public function setFromArray(array $values = []) {
     if (isset($values['context'])) {
@@ -194,10 +204,9 @@ class PoItem {
     if (isset($values['comment'])) {
       $this->setComment($values['comment']);
     }
-    if (isset($this->source) &&
-        strpos($this->source, self::DELIMITER) !== FALSE) {
+    if (isset($this->source) && str_contains($this->source, self::DELIMITER)) {
       $this->setSource(explode(self::DELIMITER, $this->source));
-      $this->setTranslation(explode(self::DELIMITER, $this->translation));
+      $this->setTranslation(explode(self::DELIMITER, $this->translation ?? ''));
       $this->setPlural(count($this->source) > 1);
     }
   }

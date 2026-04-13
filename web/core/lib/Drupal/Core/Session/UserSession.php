@@ -5,8 +5,9 @@ namespace Drupal\Core\Session;
 /**
  * An implementation of the user account interface for the global user.
  *
- * @todo: Change all properties to protected.
+ * @todo Change all properties to protected.
  */
+#[\AllowDynamicProperties]
 class UserSession implements AccountInterface {
 
   /**
@@ -44,6 +45,7 @@ class UserSession implements AccountInterface {
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $preferred_langcode;
 
   /**
@@ -51,6 +53,7 @@ class UserSession implements AccountInterface {
    *
    * @var string
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $preferred_admin_langcode;
 
   /**
@@ -100,15 +103,26 @@ class UserSession implements AccountInterface {
   }
 
   /**
+   * Whether a user has a certain role.
+   *
+   * @param string $rid
+   *   The role ID to check.
+   *
+   * @return bool
+   *   Returns TRUE if the user has the role, otherwise FALSE.
+   *
+   * @todo in Drupal 11, add method to Drupal\Core\Session\AccountInterface.
+   * @see https://www.drupal.org/node/3228209
+   */
+  public function hasRole(string $rid): bool {
+    return in_array($rid, $this->getRoles(), TRUE);
+  }
+
+  /**
    * {@inheritdoc}
    */
-  public function hasPermission($permission) {
-    // User #1 has all privileges.
-    if ((int) $this->id() === 1) {
-      return TRUE;
-    }
-
-    return $this->getRoleStorage()->isPermissionInRoles($permission, $this->getRoles());
+  public function hasPermission(string $permission) {
+    return \Drupal::service('permission_checker')->hasPermission($permission, $this);
   }
 
   /**
@@ -149,14 +163,6 @@ class UserSession implements AccountInterface {
     else {
       return $fallback_to_default ? \Drupal::languageManager()->getDefaultLanguage()->getId() : '';
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getUsername() {
-    @trigger_error('\Drupal\Core\Session\AccountInterface::getUsername() is deprecated in Drupal 8.0.0, will be removed before Drupal 9.0.0. Use \Drupal\Core\Session\AccountInterface::getAccountName() or \Drupal\user\UserInterface::getDisplayName() instead. See https://www.drupal.org/node/2572493', E_USER_DEPRECATED);
-    return $this->getAccountName();
   }
 
   /**

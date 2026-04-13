@@ -1,13 +1,25 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\FunctionalJavascript;
 
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
+use Drupal\Tests\system\Traits\OffCanvasTestTrait;
 
 /**
  * Base class contains common test functionality for the Off-canvas dialog.
  */
 abstract class OffCanvasTestBase extends WebDriverTestBase {
+
+  use OffCanvasTestTrait;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = [
+    'off_canvas_test',
+  ];
 
   /**
    * {@inheritdoc}
@@ -26,7 +38,6 @@ abstract class OffCanvasTestBase extends WebDriverTestBase {
    * the page is received.
    */
   protected function assertPageLoadComplete() {
-    $this->assertSession()->assertWaitOnAjaxRequest();
     if ($this->loggedInUser && $this->loggedInUser->hasPermission('access contextual links')) {
       $this->assertAllContextualLinksLoaded();
     }
@@ -67,14 +78,9 @@ abstract class OffCanvasTestBase extends WebDriverTestBase {
    * @throws \Behat\Mink\Exception\ElementNotFoundException
    */
   protected function waitForOffCanvasToOpen($position = 'side') {
-    $web_assert = $this->assertSession();
-    // Wait just slightly longer than the off-canvas dialog CSS animation.
-    // @see core/misc/dialog/off-canvas.motion.css
-    $this->getSession()->wait(800);
-    $web_assert->assertWaitOnAjaxRequest();
-    $this->assertElementVisibleAfterWait('css', '#drupal-off-canvas');
+    $this->waitForOffCanvasArea();
     // Check that the canvas is positioned on the side.
-    $web_assert->elementExists('css', '.ui-dialog-position-' . $position);
+    $this->assertSession()->elementExists('css', '.ui-dialog-position-' . $position);
   }
 
   /**
@@ -88,6 +94,7 @@ abstract class OffCanvasTestBase extends WebDriverTestBase {
    * Gets the off-canvas dialog element.
    *
    * @return \Behat\Mink\Element\NodeElement|null
+   *   The off-canvas dialog element.
    */
   protected function getOffCanvasDialog() {
     $off_canvas_dialog = $this->getSession()->getPage()->find('css', '.ui-dialog[aria-describedby="drupal-off-canvas"]');
@@ -96,29 +103,13 @@ abstract class OffCanvasTestBase extends WebDriverTestBase {
   }
 
   /**
-   * Waits for an element to be removed from the page.
-   *
-   * @param string $selector
-   *   CSS selector.
-   * @param int $timeout
-   *   (optional) Timeout in milliseconds, defaults to 10000.
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
-   *   Drupal\FunctionalJavascriptTests\JSWebAssert::assertNoElementAfterWait()
-   */
-  protected function waitForNoElement($selector, $timeout = 10000) {
-    @trigger_error('::waitForNoElement is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. Use \Drupal\FunctionalJavascriptTests\JSWebAssert::assertNoElementAfterWait() instead.', E_USER_DEPRECATED);
-    $this->assertSession()->assertNoElementAfterWait('css', $selector, $timeout);
-  }
-
-  /**
    * Get themes to test.
    *
    * @return string[]
    *   Theme names to test.
    */
-  protected function getTestThemes() {
-    return ['bartik', 'stark', 'classy', 'stable', 'seven'];
+  protected static function getTestThemes() {
+    return ['claro', 'olivero', 'stable9', 'stark'];
   }
 
   /**
@@ -138,10 +129,10 @@ abstract class OffCanvasTestBase extends WebDriverTestBase {
   }
 
   /**
-   * Dataprovider that returns theme name as the sole argument.
+   * Data provider that returns theme name as the sole argument.
    */
-  public function themeDataProvider() {
-    $themes = $this->getTestThemes();
+  public static function themeDataProvider() {
+    $themes = static::getTestThemes();
     $data = [];
     foreach ($themes as $theme) {
       $data[$theme] = [

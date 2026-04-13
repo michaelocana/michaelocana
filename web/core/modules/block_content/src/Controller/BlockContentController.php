@@ -2,25 +2,28 @@
 
 namespace Drupal\block_content\Controller;
 
+use Drupal\block_content\BlockContentTypeInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\block_content\BlockContentTypeInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
+/**
+ * Controller routines for custom block routes.
+ */
 class BlockContentController extends ControllerBase {
 
   /**
-   * The custom block storage.
+   * The content block storage.
    *
    * @var \Drupal\Core\Entity\EntityStorageInterface
    */
   protected $blockContentStorage;
 
   /**
-   * The custom block type storage.
+   * The content block type storage.
    *
    * @var \Drupal\Core\Entity\EntityStorageInterface
    */
@@ -49,9 +52,9 @@ class BlockContentController extends ControllerBase {
    * Constructs a BlockContent object.
    *
    * @param \Drupal\Core\Entity\EntityStorageInterface $block_content_storage
-   *   The custom block storage.
+   *   The content block storage.
    * @param \Drupal\Core\Entity\EntityStorageInterface $block_content_type_storage
-   *   The custom block type storage.
+   *   The block type storage.
    * @param \Drupal\Core\Extension\ThemeHandlerInterface $theme_handler
    *   The theme handler.
    */
@@ -62,21 +65,31 @@ class BlockContentController extends ControllerBase {
   }
 
   /**
-   * Displays add custom block links for available types.
+   * Displays add content block links for available types.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The current request object.
    *
    * @return array
-   *   A render array for a list of the custom block types that can be added or
-   *   if there is only one custom block type defined for the site, the function
-   *   returns the custom block add page for that custom block type.
+   *   A render array for a list of the block types that can be added or
+   *   if there is only one block type defined for the site, the function
+   *   returns the content block add page for that block type.
    */
   public function add(Request $request) {
-    $types = $this->blockContentTypeStorage->loadMultiple();
+    // @todo deprecate see https://www.drupal.org/project/drupal/issues/3346394.
+    $types = [];
+    // Only use block types the user has access to.
+    foreach ($this->blockContentTypeStorage->loadMultiple() as $type) {
+      $access = $this->entityTypeManager()->getAccessControlHandler('block_content')->createAccess($type->id(), NULL, [], TRUE);
+      if ($access->isAllowed()) {
+        $types[$type->id()] = $type;
+      }
+    }
+    uasort($types, [$this->blockContentTypeStorage->getEntityType()->getClass(), 'sort']);
     if ($types && count($types) == 1) {
       $type = reset($types);
-      return $this->addForm($type, $request);
+      $query = $request->query->all();
+      return $this->redirect('block_content.add_form', ['block_content_type' => $type->id()], ['query' => $query]);
     }
     if (count($types) === 0) {
       return [
@@ -90,10 +103,10 @@ class BlockContentController extends ControllerBase {
   }
 
   /**
-   * Presents the custom block creation form.
+   * Presents the content block creation form.
    *
    * @param \Drupal\block_content\BlockContentTypeInterface $block_content_type
-   *   The custom block type to add.
+   *   The block type to add.
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The current request object.
    *
@@ -106,9 +119,9 @@ class BlockContentController extends ControllerBase {
       'type' => $block_content_type->id(),
     ]);
     if (($theme = $request->query->get('theme')) && in_array($theme, array_keys($this->themeHandler->listInfo()))) {
-      // We have navigated to this page from the block library and will keep track
-      // of the theme for redirecting the user to the configuration page for the
-      // newly created block in the given theme.
+      // We have navigated to this page from the block library and will keep
+      // track of the theme for redirecting the user to the configuration page
+      // for the newly created block in the given theme.
       $block->setTheme($theme);
     }
     return $this->entityFormBuilder()->getForm($block);
@@ -118,13 +131,13 @@ class BlockContentController extends ControllerBase {
    * Provides the page title for this controller.
    *
    * @param \Drupal\block_content\BlockContentTypeInterface $block_content_type
-   *   The custom block type being added.
+   *   The block type being added.
    *
    * @return string
    *   The page title.
    */
   public function getAddFormTitle(BlockContentTypeInterface $block_content_type) {
-    return $this->t('Add %type custom block', ['%type' => $block_content_type->label()]);
+    return $this->t('Add %type content block', ['%type' => $block_content_type->label()]);
   }
 
 }

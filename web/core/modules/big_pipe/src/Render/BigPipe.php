@@ -2,28 +2,38 @@
 
 namespace Drupal\big_pipe\Render;
 
+use Drupal\Component\HttpFoundation\SecuredRedirectResponse;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\MessageCommand;
+use Drupal\Core\Ajax\RedirectCommand;
 use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Asset\AttachedAssets;
 use Drupal\Core\Asset\AttachedAssetsInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Form\EnforcedResponseException;
+use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Render\HtmlResponse;
 use Drupal\Core\Render\RendererInterface;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Drupal\Core\Routing\LocalRedirectResponse;
+use Drupal\Core\Routing\RequestContext;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Service for sending an HTML response in chunks (to get faster page loads).
  *
- * At a high level, BigPipe sends a HTML response in chunks:
+ * At a high level, BigPipe sends an HTML response in chunks:
  * 1. one chunk: everything until just before </body> — this contains BigPipe
  *    placeholders for the personalized parts of the page. Hence this sends the
  *    non-personalized parts of the page. Let's call it The Skeleton.
@@ -58,7 +68,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * the logic though, we choose to call this "no-JS BigPipe".
  *
  * However, there is also a tangible benefit: some dynamic/expensive content is
- * not HTML, but for example a HTML attribute value (or part thereof). It's not
+ * not HTML, but for example an HTML attribute value (or part thereof). It's not
  * possible to efficiently replace such content using JavaScript, so "classic"
  * BigPipe is out of the question. For example: CSRF tokens in URLs.
  *
@@ -68,7 +78,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Finally, a closer look at the implementation, and how it supports and reuses
  * existing Drupal concepts:
  * 1. BigPipe placeholders: 1 HtmlResponse + N embedded AjaxResponses.
- *   - Before a BigPipe response is sent, it is just a HTML response that
+ *   - Before a BigPipe response is sent, it is just an HTML response that
  *     contains BigPipe placeholders. Those placeholders look like
  *     <span data-big-pipe-placeholder-id="…"></span>. JavaScript is used to
  *     replace those placeholders.
@@ -76,15 +86,16 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *   - The Skeleton of course has attachments, including most notably asset
  *     libraries. And those we track in drupalSettings.ajaxPageState.libraries —
  *     so that when we load new content through AJAX, we don't load the same
- *     asset libraries again. A HTML page can have multiple AJAX responses, each
- *     of which should take into account the combined AJAX page state of the
- *     HTML document and all preceding AJAX responses.
+ *     asset libraries again. An HTML page can have multiple AJAX responses,
+ *     each of which should take into account the combined AJAX page state of
+ *     the HTML document and all preceding AJAX responses.
  *   - BigPipe does not make use of multiple AJAX requests/responses. It uses a
  *     single HTML response. But it is a more long-lived one: The Skeleton is
  *     sent first, the closing </body> tag is not yet sent, and the connection
  *     is kept open. Whenever another BigPipe Placeholder is rendered, Drupal
  *     sends (and so actually appends to the already-sent HTML) something like
- *     <script type="application/vnd.drupal-ajax">[{"command":"settings","settings":{…}}, {"command":…}.
+ *     <script type="application/vnd.drupal-ajax">
+ *     [{"command":"settings","settings":{…}}, {"command":…}.
  *   - So, for every BigPipe placeholder, we send such a <script
  *     type="application/vnd.drupal-ajax"> tag. And the contents of that tag is
  *     exactly like an AJAX response. The BigPipe module has JavaScript that
@@ -100,7 +111,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *     1. <span data-big-pipe-nojs-placeholder-id="…"></span> if it's a
  *        placeholder that will be replaced by HTML
  *     2. big_pipe_nojs_placeholder_attribute_safe:… if it's a placeholder
- *        inside a HTML attribute, in which 1. would be invalid (angle brackets
+ *        inside an HTML attribute, in which 1. would be invalid (angle brackets
  *        are not allowed inside HTML attributes)
  *     No-JS BigPipe placeholders are not replaced using JavaScript, they must
  *     be replaced upon sending the BigPipe response. So, while the response is
@@ -130,16 +141,21 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Combining all of the above, when using both BigPipe placeholders and no-JS
  * BigPipe placeholders, we therefore send: 1 HtmlResponse + M Embedded HTML
  * Responses + N Embedded AJAX Responses. Schematically, we send these chunks:
- *  1. Byte zero until 1st no-JS placeholder: headers + <html><head /><span>…</span>
- *  2. 1st no-JS placeholder replacement: <link rel="stylesheet" …><script …><content>
+ *  1. Byte zero until 1st no-JS placeholder:
+ *     headers + <html><head /><span>…</span>
+ *  2. 1st no-JS placeholder replacement:
+ *     <link rel="stylesheet" …><script …><content>
  *  3. Content until 2nd no-JS placeholder: <span>…</span>
- *  4. 2nd no-JS placeholder replacement: <link rel="stylesheet" …><script …><content>
+ *  4. 2nd no-JS placeholder replacement:
+ *     <link rel="stylesheet" …><script …><content>
  *  5. Content until 3rd no-JS placeholder: <span>…</span>
  *  6. [… repeat until all no-JS placeholder replacements are sent …]
  *  7. Send content after last no-JS placeholder.
  *  8. Send script_bottom (markup to load bottom i.e. non-critical JS).
- *  9. 1st placeholder replacement: <script type="application/vnd.drupal-ajax">[{"command":"settings","settings":{…}}, {"command":…}
- * 10. 2nd placeholder replacement: <script type="application/vnd.drupal-ajax">[{"command":"settings","settings":{…}}, {"command":…}
+ *  9. 1st placeholder replacement: <script type="application/vnd.drupal-ajax">
+ *     [{"command":"settings","settings":{…}}, {"command":…}
+ * 10. 2nd placeholder replacement: <script type="application/vnd.drupal-ajax">
+ *     [{"command":"settings","settings":{…}}, {"command":…}
  * 11. [… repeat until all placeholder replacements are sent …]
  * 12. Send </body> and everything after it.
  * 13. Terminate request/response cycle.
@@ -163,81 +179,18 @@ class BigPipe {
    */
   const STOP_SIGNAL = '<script type="application/vnd.drupal-ajax" data-big-pipe-event="stop"></script>';
 
-  /**
-   * The renderer.
-   *
-   * @var \Drupal\Core\Render\RendererInterface
-   */
-  protected $renderer;
-
-  /**
-   * The session.
-   *
-   * @var \Symfony\Component\HttpFoundation\Session\SessionInterface
-   */
-  protected $session;
-
-  /**
-   * The request stack.
-   *
-   * @var \Symfony\Component\HttpFoundation\RequestStack
-   */
-  protected $requestStack;
-
-  /**
-   * The HTTP kernel.
-   *
-   * @var \Symfony\Component\HttpKernel\HttpKernelInterface
-   */
-  protected $httpKernel;
-
-  /**
-   * The event dispatcher.
-   *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
-   */
-  protected $eventDispatcher;
-
-  /**
-   * The config factory.
-   *
-   * @var \Drupal\Core\Config\ConfigFactoryInterface
-   */
-  protected $configFactory;
-
-  /**
-   * Constructs a new BigPipe class.
-   *
-   * @param \Drupal\Core\Render\RendererInterface $renderer
-   *   The renderer.
-   * @param \Symfony\Component\HttpFoundation\Session\SessionInterface $session
-   *   The session.
-   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
-   *   The request stack.
-   * @param \Symfony\Component\HttpKernel\HttpKernelInterface $http_kernel
-   *   The HTTP kernel.
-   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
-   *   The event dispatcher.
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
-   *   The config factory.
-   */
-  public function __construct(RendererInterface $renderer, SessionInterface $session, RequestStack $request_stack, HttpKernelInterface $http_kernel, EventDispatcherInterface $event_dispatcher, ConfigFactoryInterface $config_factory) {
-    $this->renderer = $renderer;
-    $this->session = $session;
-    $this->requestStack = $request_stack;
-    $this->httpKernel = $http_kernel;
-    $this->eventDispatcher = $event_dispatcher;
-    $this->configFactory = $config_factory;
-  }
-
-  /**
-   * Performs tasks before sending content (and rendering placeholders).
-   */
-  protected function performPreSendTasks() {
-    // The content in the placeholders may depend on the session, and by the
-    // time the response is sent (see index.php), the session is already
-    // closed. Reopen it for the duration that we are rendering placeholders.
-    $this->session->start();
+  public function __construct(
+    protected RendererInterface $renderer,
+    protected SessionInterface $session,
+    protected RequestStack $requestStack,
+    protected HttpKernelInterface $httpKernel,
+    protected EventDispatcherInterface $eventDispatcher,
+    protected ConfigFactoryInterface $configFactory,
+    protected MessengerInterface $messenger,
+    protected RequestContext $requestContext,
+    protected LoggerInterface $logger,
+    protected bool $debugCacheabilityHeaders = FALSE,
+  ) {
   }
 
   /**
@@ -282,24 +235,22 @@ class BigPipe {
     $attachments = $response->getAttachments();
 
     // First, gather the BigPipe placeholders that must be replaced.
-    $placeholders = isset($attachments['big_pipe_placeholders']) ? $attachments['big_pipe_placeholders'] : [];
-    $nojs_placeholders = isset($attachments['big_pipe_nojs_placeholders']) ? $attachments['big_pipe_nojs_placeholders'] : [];
+    $placeholders = $attachments['big_pipe_placeholders'] ?? [];
+    $nojs_placeholders = $attachments['big_pipe_nojs_placeholders'] ?? [];
 
     // BigPipe sends responses using "Transfer-Encoding: chunked". To avoid
     // sending already-sent assets, it is necessary to track cumulative assets
     // from all previously rendered/sent chunks.
-    // @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.41
+    // @see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.41
     $cumulative_assets = AttachedAssets::createFromRenderArray(['#attached' => $attachments]);
     $cumulative_assets->setAlreadyLoadedLibraries($attachments['library']);
-
-    $this->performPreSendTasks();
 
     // Find the closing </body> tag and get the strings before and after. But be
     // careful to use the latest occurrence of the string "</body>", to ensure
     // that strings in inline JavaScript or CDATA sections aren't used instead.
     $parts = explode('</body>', $content);
     $post_body = array_pop($parts);
-    $pre_body = implode('', $parts);
+    $pre_body = implode('</body>', $parts);
 
     $this->sendPreBody($pre_body, $nojs_placeholders, $cumulative_assets);
     $this->sendPlaceholders($placeholders, $this->getPlaceholderOrder($pre_body, $placeholders), $cumulative_assets);
@@ -330,7 +281,7 @@ class BigPipe {
     // Extract the scripts_bottom markup: the no-JS BigPipe placeholders that we
     // will render may attach additional asset libraries, and if so, it will be
     // necessary to re-render scripts_bottom.
-    list($pre_scripts_bottom, $scripts_bottom, $post_scripts_bottom) = explode('<drupal-big-pipe-scripts-bottom-marker>', $pre_body, 3);
+    [$pre_scripts_bottom, $scripts_bottom, $post_scripts_bottom] = explode('<drupal-big-pipe-scripts-bottom-marker>', $pre_body, 3);
     $cumulative_assets_initial = clone $cumulative_assets;
 
     $this->sendNoJsPlaceholders($pre_scripts_bottom . $post_scripts_bottom, $no_js_placeholders, $cumulative_assets);
@@ -341,7 +292,7 @@ class BigPipe {
       // Create a new HtmlResponse. Ensure the CSS and (non-bottom) JS is sent
       // before the HTML they're associated with.
       // @see \Drupal\Core\Render\HtmlResponseSubscriber
-      // @see template_preprocess_html()
+      // @see \Drupal\Core\Theme\ThemePreprocess::preprocessHtml()
       $js_bottom_placeholder = '<nojs-bigpipe-placeholder-scripts-bottom-placeholder token="' . Crypt::randomBytesBase64(55) . '">';
 
       $html_response = new HtmlResponse();
@@ -361,7 +312,7 @@ class BigPipe {
       // KernelEvents::RESPONSE event. This results in the attachments for the
       // HTML response being processed by HtmlResponseAttachmentsProcessor and
       // hence the HTML to load the bottom JavaScript can be rendered.
-      $fake_request = $this->requestStack->getMasterRequest()->duplicate();
+      $fake_request = $this->requestStack->getMainRequest()->duplicate();
       $html_response = $this->filterEmbeddedResponse($fake_request, $html_response);
       $scripts_bottom = $html_response->getContent();
     }
@@ -438,7 +389,7 @@ class BigPipe {
           throw $e;
         }
         else {
-          trigger_error($e, E_USER_ERROR);
+          trigger_error($e, E_USER_WARNING);
           continue;
         }
       }
@@ -447,7 +398,7 @@ class BigPipe {
       // before the HTML they're associated with. In other words: ensure the
       // critical assets for this placeholder's markup are loaded first.
       // @see \Drupal\Core\Render\HtmlResponseSubscriber
-      // @see template_preprocess_html()
+      // @see \Drupal\Core\Theme\ThemePreprocess::preprocessHtml()
       $css_placeholder = '<nojs-bigpipe-placeholder-styles-placeholder token="' . $token . '">';
       $js_placeholder = '<nojs-bigpipe-placeholder-scripts-placeholder token="' . $token . '">';
       $elements['#markup'] = BigPipeMarkup::create($css_placeholder . $js_placeholder . (string) $elements['#markup']);
@@ -464,8 +415,8 @@ class BigPipe {
       // hence:
       // - the HTML to load the CSS can be rendered.
       // - the HTML to load the JS (at the top) can be rendered.
-      $fake_request = $this->requestStack->getMasterRequest()->duplicate();
-      $fake_request->request->set('ajax_page_state', ['libraries' => implode(',', $cumulative_assets->getAlreadyLoadedLibraries())]);
+      $fake_request = $this->requestStack->getMainRequest()->duplicate();
+      $fake_request->query->set('ajax_page_state', ['libraries' => implode(',', $cumulative_assets->getAlreadyLoadedLibraries())]);
       try {
         $html_response = $this->filterEmbeddedResponse($fake_request, $html_response);
       }
@@ -474,7 +425,7 @@ class BigPipe {
           throw $e;
         }
         else {
-          trigger_error($e, E_USER_ERROR);
+          trigger_error($e, E_USER_WARNING);
           continue;
         }
       }
@@ -526,84 +477,170 @@ class BigPipe {
     // Send the start signal.
     $this->sendChunk("\n" . static::START_SIGNAL . "\n");
 
-    // A BigPipe response consists of a HTML response plus multiple embedded
+    // A BigPipe response consists of an HTML response plus multiple embedded
     // AJAX responses. To process the attachments of those AJAX responses, we
-    // need a fake request that is identical to the master request, but with
+    // need a fake request that is identical to the main request, but with
     // one change: it must have the right Accept header, otherwise the work-
     // around for a bug in IE9 will cause not JSON, but <textarea>-wrapped JSON
     // to be returned.
     // @see \Drupal\Core\EventSubscriber\AjaxResponseSubscriber::onResponse()
-    $fake_request = $this->requestStack->getMasterRequest()->duplicate();
+    $fake_request = $this->requestStack->getMainRequest()->duplicate();
     $fake_request->headers->set('Accept', 'application/vnd.drupal-ajax');
+
+    // Create a Fiber for each placeholder.
+    $fibers = [];
+
+    $cacheable_metadata = new CacheableMetadata();
 
     foreach ($placeholder_order as $placeholder_id) {
       if (!isset($placeholders[$placeholder_id])) {
         continue;
       }
-
-      // Render the placeholder.
       $placeholder_render_array = $placeholders[$placeholder_id];
-      try {
-        $elements = $this->renderPlaceholder($placeholder_id, $placeholder_render_array);
-      }
-      catch (\Exception $e) {
-        if ($this->configFactory->get('system.logging')->get('error_level') === ERROR_REPORTING_DISPLAY_VERBOSE) {
-          throw $e;
-        }
-        else {
-          trigger_error($e, E_USER_ERROR);
-          continue;
-        }
-      }
+      $fibers[$placeholder_id] = new \Fiber(fn() => $this->renderPlaceholder($placeholder_id, $placeholder_render_array));
+    }
+    $iterations = 0;
+    while (count($fibers) > 0) {
+      foreach ($fibers as $placeholder_id => $fiber) {
+        try {
+          if (!$fiber->isStarted()) {
+            $fiber->start();
+          }
+          elseif ($fiber->isSuspended()) {
+            $fiber->resume();
+          }
+          // If the Fiber hasn't terminated by this point, move onto the next
+          // placeholder, we'll resume this Fiber again when we get back here.
+          if (!$fiber->isTerminated()) {
+            // If we've gone through the placeholders once already, and they're
+            // still not finished, then start to allow code higher up the stack
+            // to get on with something else.
+            if ($iterations) {
+              $fiber = \Fiber::getCurrent();
+              if ($fiber !== NULL) {
+                $fiber->suspend();
+              }
+            }
+            continue;
+          }
+          $elements = $fiber->getReturn();
+          unset($fibers[$placeholder_id]);
 
-      // Create a new AjaxResponse.
-      $ajax_response = new AjaxResponse();
-      // JavaScript's querySelector automatically decodes HTML entities in
-      // attributes, so we must decode the entities of the current BigPipe
-      // placeholder ID (which has HTML entities encoded since we use it to find
-      // the placeholders).
-      $big_pipe_js_placeholder_id = Html::decodeEntities($placeholder_id);
-      $ajax_response->addCommand(new ReplaceCommand(sprintf('[data-big-pipe-placeholder-id="%s"]', $big_pipe_js_placeholder_id), $elements['#markup']));
-      $ajax_response->setAttachments($elements['#attached']);
+          if ($this->debugCacheabilityHeaders) {
+            $cacheable_metadata->addCacheableDependency(CacheableMetadata::createFromRenderArray($elements));
+          }
 
-      // Push a fake request with the asset libraries loaded so far and dispatch
-      // KernelEvents::RESPONSE event. This results in the attachments for the
-      // AJAX response being processed by AjaxResponseAttachmentsProcessor and
-      // hence:
-      // - the necessary AJAX commands to load the necessary missing asset
-      //   libraries and updated AJAX page state are added to the AJAX response
-      // - the attachments associated with the response are finalized, which
-      //   allows us to track the total set of asset libraries sent in the
-      //   initial HTML response plus all embedded AJAX responses sent so far.
-      $fake_request->request->set('ajax_page_state', ['libraries' => implode(',', $cumulative_assets->getAlreadyLoadedLibraries())] + $cumulative_assets->getSettings()['ajaxPageState']);
-      try {
-        $ajax_response = $this->filterEmbeddedResponse($fake_request, $ajax_response);
-      }
-      catch (\Exception $e) {
-        if ($this->configFactory->get('system.logging')->get('error_level') === ERROR_REPORTING_DISPLAY_VERBOSE) {
-          throw $e;
-        }
-        else {
-          trigger_error($e, E_USER_ERROR);
-          continue;
-        }
-      }
+          // Create a new AjaxResponse.
+          $ajax_response = new AjaxResponse();
+          // JavaScript's querySelector automatically decodes HTML entities in
+          // attributes, so we must decode the entities of the current BigPipe
+          // placeholder ID (which has HTML entities encoded since we use it to
+          // find the placeholders).
+          $big_pipe_js_placeholder_id = Html::decodeEntities($placeholder_id);
+          $ajax_response->addCommand(new ReplaceCommand(sprintf('[data-big-pipe-placeholder-id="%s"]', $big_pipe_js_placeholder_id), $elements['#markup']));
+          $ajax_response->setAttachments($elements['#attached']);
 
-      // Send this embedded AJAX response.
-      $json = $ajax_response->getContent();
-      $output = <<<EOF
-    <script type="application/vnd.drupal-ajax" data-big-pipe-replacement-for-placeholder-with-id="$placeholder_id">
-    $json
-    </script>
+          // Delete all messages that were generated during the rendering of
+          // this placeholder, to render them in a BigPipe-optimized way.
+          $messages = $this->messenger->deleteAll();
+          foreach ($messages as $type => $type_messages) {
+            foreach ($type_messages as $message) {
+              $ajax_response->addCommand(new MessageCommand($message, NULL, ['type' => $type], FALSE));
+            }
+          }
+
+          // Push a fake request with the asset libraries loaded so far and
+          // dispatch KernelEvents::RESPONSE event. This results in the
+          // attachments for the AJAX response being processed by
+          // AjaxResponseAttachmentsProcessor and hence:
+          // - the necessary AJAX commands to load the necessary missing asset
+          //   libraries and updated AJAX page state are added to the AJAX
+          //   response
+          // - the attachments associated with the response are finalized,
+          // which allows us to track the total set of asset libraries sent in
+          // the initial HTML response plus all embedded AJAX responses sent so
+          // far.
+          $fake_request->query->set('ajax_page_state', ['libraries' => implode(',', $cumulative_assets->getAlreadyLoadedLibraries())] + $cumulative_assets->getSettings()['ajaxPageState']);
+          $ajax_response = $this->filterEmbeddedResponse($fake_request, $ajax_response);
+          // Send this embedded AJAX response.
+          $json = $ajax_response->getContent();
+          $output = <<<EOF
+<script type="application/vnd.drupal-ajax" data-big-pipe-replacement-for-placeholder-with-id="$placeholder_id">
+$json
+</script>
 EOF;
-      $this->sendChunk($output);
+          $this->sendChunk($output);
 
-      // Another placeholder was rendered and sent, track the set of asset
-      // libraries sent so far. Any new settings are already sent; we don't need
-      // to track those.
-      if (isset($ajax_response->getAttachments()['drupalSettings']['ajaxPageState']['libraries'])) {
-        $cumulative_assets->setAlreadyLoadedLibraries(explode(',', $ajax_response->getAttachments()['drupalSettings']['ajaxPageState']['libraries']));
+          // Another placeholder was rendered and sent, track the set of asset
+          // libraries sent so far. Any new settings are already sent; we
+          // don't need to track those.
+          if (isset($ajax_response->getAttachments()['drupalSettings']['ajaxPageState']['libraries'])) {
+            $cumulative_assets->setAlreadyLoadedLibraries(explode(',', $ajax_response->getAttachments()['drupalSettings']['ajaxPageState']['libraries']));
+          }
+        }
+        // Handle enforced redirect responses.
+        // A typical use case where this might happen are forms using GET as
+        // #method that are build inside a lazy builder.
+        catch (EnforcedResponseException $e) {
+          $response = $e->getResponse();
+          if (!$response instanceof RedirectResponse) {
+            throw $e;
+          }
+          $ajax_response = new AjaxResponse();
+          if ($response instanceof SecuredRedirectResponse) {
+            // Only redirect to safe locations.
+            $ajax_response->addCommand(new RedirectCommand($response->getTargetUrl()));
+          }
+          else {
+            try {
+              // SecuredRedirectResponse is an abstract class that requires a
+              // concrete implementation. Default to LocalRedirectResponse,
+              // which considers only redirects to within the same site as safe.
+              $safe_response = LocalRedirectResponse::createFromRedirectResponse($response);
+              $safe_response->setRequestContext($this->requestContext);
+              $ajax_response->addCommand(new RedirectCommand($safe_response->getTargetUrl()));
+            }
+            catch (\InvalidArgumentException) {
+              // If the above failed, it's because the redirect target wasn't
+              // local. Do not follow that redirect. Log an error message
+              // instead, then return a 400 response to the client with the
+              // error message. We don't throw an exception, because this is a
+              // client error rather than a server error.
+              $message = 'Redirects to external URLs are not allowed by default, use \Drupal\Core\Routing\TrustedRedirectResponse for it.';
+              $this->logger->error($message);
+              $ajax_response->addCommand(new MessageCommand($message));
+            }
+          }
+          $ajax_response = $this->filterEmbeddedResponse($fake_request, $ajax_response);
+
+          $json = $ajax_response->getContent();
+          $output = <<<EOF
+<script type="application/vnd.drupal-ajax" data-big-pipe-replacement-for-placeholder-with-id="$placeholder_id">
+$json
+</script>
+EOF;
+          $this->sendChunk($output);
+
+          // Send the stop signal.
+          $this->sendChunk("\n" . static::STOP_SIGNAL . "\n");
+          break;
+        }
+        catch (\Exception $e) {
+          unset($fibers[$placeholder_id]);
+          if ($this->configFactory->get('system.logging')->get('error_level') === ERROR_REPORTING_DISPLAY_VERBOSE) {
+            throw $e;
+          }
+          else {
+            trigger_error($e, E_USER_WARNING);
+          }
+        }
       }
+      $iterations++;
+    }
+
+    if ($this->debugCacheabilityHeaders) {
+      $this->sendChunk("\n<!-- big_pipe cache tags: " . implode(' ', $cacheable_metadata->getCacheTags()) . " -->\n");
+      $this->sendChunk("\n<!-- big_pipe cache contexts: " . implode(' ', $cacheable_metadata->getCacheContexts()) . " -->\n");
     }
 
     // Send the stop signal.
@@ -617,7 +654,7 @@ EOF;
    *   A fake subrequest that contains the cumulative AJAX page state of the
    *   HTML document and all preceding Embedded HTML or AJAX responses.
    * @param \Symfony\Component\HttpFoundation\Response|\Drupal\Core\Render\HtmlResponse|\Drupal\Core\Ajax\AjaxResponse $embedded_response
-   *   Either a HTML response or an AJAX response that will be embedded in the
+   *   Either an HTML response or an AJAX response that will be embedded in the
    *   overall HTML response.
    *
    * @return \Symfony\Component\HttpFoundation\Response
@@ -637,7 +674,7 @@ EOF;
    *   The request for which a response is being sent.
    * @param int $request_type
    *   The request type. Can either be
-   *   \Symfony\Component\HttpKernel\HttpKernelInterface::MASTER_REQUEST or
+   *   \Symfony\Component\HttpKernel\HttpKernelInterface::MAIN_REQUEST or
    *   \Symfony\Component\HttpKernel\HttpKernelInterface::SUB_REQUEST.
    * @param \Symfony\Component\HttpFoundation\Response $response
    *   The response to filter.
@@ -646,10 +683,10 @@ EOF;
    *   The filtered response.
    */
   protected function filterResponse(Request $request, $request_type, Response $response) {
-    assert($request_type === HttpKernelInterface::MASTER_REQUEST || $request_type === HttpKernelInterface::SUB_REQUEST);
+    assert($request_type === HttpKernelInterface::MAIN_REQUEST || $request_type === HttpKernelInterface::SUB_REQUEST);
     $this->requestStack->push($request);
-    $event = new FilterResponseEvent($this->httpKernel, $request, $request_type, $response);
-    $this->eventDispatcher->dispatch(KernelEvents::RESPONSE, $event);
+    $event = new ResponseEvent($this->httpKernel, $request, $request_type, $response);
+    $this->eventDispatcher->dispatch($event, KernelEvents::RESPONSE);
     $filtered_response = $event->getResponse();
     $this->requestStack->pop();
     return $filtered_response;
@@ -696,7 +733,9 @@ EOF;
   /**
    * Gets the BigPipe placeholder order.
    *
-   * Determines the order in which BigPipe placeholders must be replaced.
+   * Determines the order in which BigPipe placeholders are executed. It is
+   * safe to use a regular expression here as the HTML is statically created in
+   * \Drupal\big_pipe\Render\Placeholder\BigPipeStrategy::createBigPipeJsPlaceholder().
    *
    * @param string $html
    *   HTML markup.
@@ -705,54 +744,23 @@ EOF;
    *   placeholder IDs.
    *
    * @return array
-   *   Indexed array; the order in which the BigPipe placeholders must be sent.
-   *   Values are the BigPipe placeholder IDs. Note that only unique
-   *   placeholders are kept: if the same placeholder occurs multiple times, we
-   *   only keep the first occurrence.
+   *   Indexed array; the order in which the BigPipe placeholders will start
+   *   execution. Placeholders begin execution in DOM order. Note that due to
+   *   the Fibers implementation of BigPipe, although placeholders will start
+   *   executing in DOM order, they may finish and render in any order. Values
+   *   are the BigPipe placeholder IDs. Note that only unique placeholders are
+   *   kept: if the same placeholder occurs multiple times, we only keep the
+   *   first occurrence.
    */
   protected function getPlaceholderOrder($html, $placeholders) {
-    $fragments = explode('<span data-big-pipe-placeholder-id="', $html);
-    array_shift($fragments);
-    $placeholder_ids = [];
-
-    foreach ($fragments as $fragment) {
-      $t = explode('"></span>', $fragment, 2);
-      $placeholder_id = $t[0];
-      $placeholder_ids[] = $placeholder_id;
+    if (preg_match_all('/<span data-big-pipe-placeholder-id="([^"]*)">/', $html, $matches)) {
+      return array_unique($matches[1]);
     }
-    $placeholder_ids = array_unique($placeholder_ids);
-
-    // The 'status messages' placeholder needs to be special cased, because it
-    // depends on global state that can be modified when other placeholders are
-    // being rendered: any code can add messages to render.
-    // This violates the principle that each lazy builder must be able to render
-    // itself in isolation, and therefore in any order. However, we cannot
-    // change the way \Drupal\Core\Messenger\MessengerInterface::addMessage()
-    // works in the Drupal 8 cycle. So we have to accommodate its special needs.
-    // Allowing placeholders to be rendered in a particular order (in this case:
-    // last) would violate this isolation principle. Thus a monopoly is granted
-    // to this one special case, with this hard-coded solution.
-    // @see \Drupal\Core\Render\Element\StatusMessages
-    // @see \Drupal\Core\Render\Renderer::replacePlaceholders()
-    // @see https://www.drupal.org/node/2712935#comment-11368923
-    $message_placeholder_ids = [];
-    foreach ($placeholders as $placeholder_id => $placeholder_element) {
-      if (isset($placeholder_element['#lazy_builder']) && $placeholder_element['#lazy_builder'][0] === 'Drupal\Core\Render\Element\StatusMessages::renderMessages') {
-        $message_placeholder_ids[] = $placeholder_id;
-      }
-    }
-
-    // Return placeholder IDs in DOM order, but with the 'status messages'
-    // placeholders at the end, if they are present.
-    $ordered_placeholder_ids = array_merge(
-      array_diff($placeholder_ids, $message_placeholder_ids),
-      array_intersect($placeholder_ids, $message_placeholder_ids)
-    );
-    return $ordered_placeholder_ids;
+    return [];
   }
 
   /**
-   * Splits a HTML string into fragments.
+   * Splits an HTML string into fragments.
    *
    * Creates an array of HTML fragments, separated by placeholders. The result
    * includes the placeholders themselves. The original order is respected.
@@ -774,7 +782,7 @@ EOF;
     if (strlen($pattern) < 31000) {
       // Only small (<31K characters) patterns can be handled by preg_split().
       $flags = PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE;
-      $result = preg_split($pattern, $html_string, NULL, $flags);
+      $result = preg_split($pattern, $html_string, 0, $flags);
     }
     else {
       // For large amounts of placeholders we use a simpler but slower approach.

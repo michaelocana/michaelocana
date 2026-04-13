@@ -2,9 +2,9 @@
 
 namespace Drupal\Core\Plugin;
 
+use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Component\Plugin\LazyPluginCollection;
-use Drupal\Component\Plugin\PluginHelper;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 
@@ -74,7 +74,7 @@ class DefaultLazyPluginCollection extends LazyPluginCollection {
    * {@inheritdoc}
    */
   protected function initializePlugin($instance_id) {
-    $configuration = isset($this->configurations[$instance_id]) ? $this->configurations[$instance_id] : [];
+    $configuration = $this->configurations[$instance_id] ?? [];
     if (!isset($configuration[$this->pluginKey])) {
       throw new PluginNotFoundException($instance_id);
     }
@@ -112,7 +112,7 @@ class DefaultLazyPluginCollection extends LazyPluginCollection {
     $this->instanceIds = $this->originalOrder + $current_order;
 
     foreach ($this as $instance_id => $instance) {
-      if (PluginHelper::isConfigurable($instance)) {
+      if ($instance instanceof ConfigurableInterface) {
         $instances[$instance_id] = $instance->getConfiguration();
       }
       else {
@@ -127,7 +127,7 @@ class DefaultLazyPluginCollection extends LazyPluginCollection {
   /**
    * {@inheritdoc}
    */
-  public function setConfiguration($configuration) {
+  public function setConfiguration(array $configuration) {
     // Track each instance ID as it is updated.
     $unprocessed_instance_ids = $this->getInstanceIds();
 
@@ -156,9 +156,20 @@ class DefaultLazyPluginCollection extends LazyPluginCollection {
    *   The plugin configuration to set.
    */
   public function setInstanceConfiguration($instance_id, array $configuration) {
+    if (
+      isset($this->pluginInstances[$instance_id]) &&
+      isset($configuration[$this->pluginKey]) &&
+      isset($this->configurations[$instance_id][$this->pluginKey]) &&
+      $configuration[$this->pluginKey] !== $this->configurations[$instance_id][$this->pluginKey]
+    ) {
+      // If the plugin has already been instantiated by the configuration was
+      // for a different plugin then we need to unset the instantiated plugin.
+      unset($this->pluginInstances[$instance_id]);
+    }
+
     $this->configurations[$instance_id] = $configuration;
     $instance = $this->get($instance_id);
-    if (PluginHelper::isConfigurable($instance)) {
+    if ($instance instanceof ConfigurableInterface) {
       $instance->setConfiguration($configuration);
     }
   }

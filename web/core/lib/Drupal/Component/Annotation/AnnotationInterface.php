@@ -16,6 +16,7 @@ interface AnnotationInterface {
    * Gets the name of the provider of the annotated class.
    *
    * @return string
+   *   The provider of the annotated class.
    */
   public function getProvider();
 
@@ -23,6 +24,7 @@ interface AnnotationInterface {
    * Sets the name of the provider of the annotated class.
    *
    * @param string $provider
+   *   The provider of the annotated class.
    */
   public function setProvider($provider);
 
@@ -30,6 +32,7 @@ interface AnnotationInterface {
    * Gets the unique ID for this annotated class.
    *
    * @return string
+   *   The annotated class ID.
    */
   public function getId();
 
@@ -37,6 +40,7 @@ interface AnnotationInterface {
    * Gets the class of the annotated class.
    *
    * @return string
+   *   The class name of the annotated class.
    */
   public function getClass();
 
@@ -44,6 +48,7 @@ interface AnnotationInterface {
    * Sets the class of the annotated class.
    *
    * @param string $class
+   *   The class of the annotated class.
    */
   public function setClass($class);
 

@@ -218,8 +218,16 @@ class SelectExtender implements SelectInterface {
    * {@inheritdoc}
    */
   public function extend($extender_name) {
-    $class = $this->connection->getDriverClass($extender_name);
-    return new $class($this, $this->connection);
+    // We cannot call $this->query->extend(), because with multiple extenders
+    // you will replace all the earlier extenders with the last extender,
+    // instead of creating list of objects that extend each other.
+    $parts = explode('\\', $extender_name);
+    $class = end($parts);
+    $driver_class = $this->connection->getDriverClass($class);
+    if ($driver_class !== $class) {
+      return new $driver_class($this, $this->connection);
+    }
+    return new $extender_name($this, $this->connection);
   }
 
   /* Alter accessors to expose the query data to alter hooks. */
@@ -284,7 +292,7 @@ class SelectExtender implements SelectInterface {
   /**
    * {@inheritdoc}
    */
-  public function getArguments(PlaceholderInterface $queryPlaceholder = NULL) {
+  public function getArguments(?PlaceholderInterface $queryPlaceholder = NULL) {
     return $this->query->getArguments($queryPlaceholder);
   }
 
@@ -298,7 +306,7 @@ class SelectExtender implements SelectInterface {
   /**
    * {@inheritdoc}
    */
-  public function preExecute(SelectInterface $query = NULL) {
+  public function preExecute(?SelectInterface $query = NULL) {
     // If no query object is passed in, use $this.
     if (!isset($query)) {
       $query = $this;
@@ -370,13 +378,6 @@ class SelectExtender implements SelectInterface {
    */
   public function leftJoin($table, $alias = NULL, $condition = NULL, $arguments = []) {
     return $this->query->leftJoin($table, $alias, $condition, $arguments);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function rightJoin($table, $alias = NULL, $condition = NULL, $arguments = []) {
-    return $this->query->rightJoin($table, $alias, $condition, $arguments);
   }
 
   /**
@@ -502,11 +503,11 @@ class SelectExtender implements SelectInterface {
   /**
    * Magic override for undefined methods.
    *
-   * If one extender extends another extender, then methods in the inner extender
-   * will not be exposed on the outer extender.  That's because we cannot know
-   * in advance what those methods will be, so we cannot provide wrapping
-   * implementations as we do above.  Instead, we use this slower catch-all method
-   * to handle any additional methods.
+   * If one extender extends another extender, then methods in the inner
+   * extender will not be exposed on the outer extender.  That's because we
+   * cannot know in advance what those methods will be, so we cannot provide
+   * wrapping implementations as we do above.  Instead, we use this slower
+   * catch-all method to handle any additional methods.
    */
   public function __call($method, $args) {
     $return = call_user_func_array([$this->query, $method], $args);

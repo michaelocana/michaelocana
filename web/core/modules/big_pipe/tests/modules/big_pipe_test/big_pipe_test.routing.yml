@@ -23,3 +23,27 @@ big_pipe_test_multi_occurrence:
     _title: 'BigPipe test multiple occurrences of the same placeholder'
   requirements:
     _access: 'TRUE'
+
+big_pipe_test_preview:
+  path: '/big_pipe_test_preview'
+  defaults:
+    _controller: '\Drupal\big_pipe_test\BigPipeTestController::placeholderPreview'
+    _title: 'Test placeholder previews'
+  requirements:
+    _access: 'TRUE'
+
+big_pipe_test_trusted_redirect:
+  path: '/big_pipe_test_trusted_redirect'
+  defaults:
+    _controller: '\Drupal\big_pipe_test\BigPipeTestController::trustedRedirectLazyBuilder'
+    _title: 'BigPipe test trusted redirect'
+  requirements:
+    _access: 'TRUE'
+
+big_pipe_test_untrusted_redirect:
+  path: '/big_pipe_test_untrusted_redirect'
+  defaults:
+    _controller: '\Drupal\big_pipe_test\BigPipeTestController::untrustedRedirectLazyBuilder'
+    _title: 'BigPipe test untrusted redirect'
+  requirements:
+    _access: 'TRUE'

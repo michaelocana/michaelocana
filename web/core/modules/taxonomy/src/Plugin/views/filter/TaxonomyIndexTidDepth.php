@@ -2,9 +2,9 @@
 
 namespace Drupal\taxonomy\Plugin\views\filter;
 
-use Drupal\Core\Database\Database;
-use Drupal\Core\Database\Query\Condition;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\taxonomy\TaxonomyIndexDepthQueryTrait;
+use Drupal\views\Attribute\ViewsFilter;
 
 /**
  * Filter handler for taxonomy terms with depth.
@@ -13,17 +13,23 @@ use Drupal\Core\Form\FormStateInterface;
  * because it uses a subquery to find nodes with.
  *
  * @ingroup views_filter_handlers
- *
- * @ViewsFilter("taxonomy_index_tid_depth")
  */
+#[ViewsFilter("taxonomy_index_tid_depth")]
 class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
+  use TaxonomyIndexDepthQueryTrait;
 
+  /**
+   * {@inheritdoc}
+   */
   public function operatorOptions($which = 'title') {
     return [
       'or' => $this->t('Is one of'),
     ];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -32,6 +38,9 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
     return $options;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function buildExtraOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildExtraOptionsForm($form, $form_state);
 
@@ -43,6 +52,9 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
     ];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function query() {
     // If no filter values are present, then do nothing.
     if (count($this->value) == 0) {
@@ -53,15 +65,11 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
       if (is_array($this->value)) {
         $this->value = current($this->value);
       }
-      $operator = '=';
-    }
-    else {
-      $operator = 'IN';
     }
 
     // The normal use of ensureMyTable() here breaks Views.
     // So instead we trick the filter into using the alias of the base table.
-    //   See https://www.drupal.org/node/271833.
+    // See https://www.drupal.org/node/271833.
     // If a relationship is set, we must use the alias it provides.
     if (!empty($this->relationship)) {
       $this->tableAlias = $this->relationship;
@@ -71,32 +79,7 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
       $this->tableAlias = $this->query->ensureTable($this->view->storage->get('base_table'));
     }
 
-    // Now build the subqueries.
-    $subquery = Database::getConnection()->select('taxonomy_index', 'tn');
-    $subquery->addField('tn', 'nid');
-    $where = (new Condition('OR'))->condition('tn.tid', $this->value, $operator);
-    $last = "tn";
-
-    if ($this->options['depth'] > 0) {
-      $subquery->leftJoin('taxonomy_term__parent', 'th', "th.entity_id = tn.tid");
-      $last = "th";
-      foreach (range(1, abs($this->options['depth'])) as $count) {
-        $subquery->leftJoin('taxonomy_term__parent', "th$count", "$last.parent_target_id = th$count.entity_id");
-        $where->condition("th$count.entity_id", $this->value, $operator);
-        $last = "th$count";
-      }
-    }
-    elseif ($this->options['depth'] < 0) {
-      foreach (range(1, abs($this->options['depth'])) as $count) {
-        $field = $count == 1 ? 'tid' : 'entity_id';
-        $subquery->leftJoin('taxonomy_term__parent', "th$count", "$last.$field = th$count.parent_target_id");
-        $where->condition("th$count.entity_id", $this->value, $operator);
-        $last = "th$count";
-      }
-    }
-
-    $subquery->condition($where);
-    $this->query->addWhere($this->options['group'], "$this->tableAlias.$this->realField", $subquery, 'IN');
+    $this->addSubQueryJoin($this->value);
   }
 
 }

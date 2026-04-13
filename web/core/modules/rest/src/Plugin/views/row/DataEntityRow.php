@@ -2,10 +2,11 @@
 
 namespace Drupal\rest\Plugin\views\row;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\views\Attribute\ViewsRow;
 use Drupal\views\Entity\Render\EntityTranslationRenderTrait;
 use Drupal\views\Plugin\views\row\RowPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,23 +15,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Plugin which displays entities as raw data.
  *
  * @ingroup views_row_plugins
- *
- * @ViewsRow(
- *   id = "data_entity",
- *   title = @Translation("Entity"),
- *   help = @Translation("Use entities as row data."),
- *   display_types = {"data"}
- * )
  */
+#[ViewsRow(
+  id: "data_entity",
+  title: new TranslatableMarkup("Entity"),
+  help: new TranslatableMarkup("Use entities as row data."),
+  display_types: ["data"]
+)]
 class DataEntityRow extends RowPluginBase {
 
   use EntityTranslationRenderTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * {@inheritdoc}
@@ -78,26 +72,21 @@ class DataEntityRow extends RowPluginBase {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param array $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity manager.
+   *   The entity type manager.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
    *   The entity repository.
    */
-  public function __construct(array $configuration, $plugin_id, array $plugin_definition, EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, EntityRepositoryInterface $entity_repository = NULL) {
+  public function __construct(array $configuration, $plugin_id, array $plugin_definition, EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, EntityRepositoryInterface $entity_repository) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
     $this->entityTypeManager = $entity_type_manager;
     $this->languageManager = $language_manager;
-
-    if (!$entity_repository) {
-      @trigger_error('Calling DataEntityRow::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
     $this->entityRepository = $entity_repository;
   }
 
@@ -119,7 +108,7 @@ class DataEntityRow extends RowPluginBase {
    * {@inheritdoc}
    */
   public function render($row) {
-    return $this->getEntityTranslation($row->_entity, $row);
+    return $this->getEntityTranslationByRelationship($row->_entity, $row);
   }
 
   /**
@@ -127,15 +116,6 @@ class DataEntityRow extends RowPluginBase {
    */
   public function getEntityTypeId() {
     return $this->view->getBaseEntityType()->id();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getEntityManager() {
-    // This relies on DeprecatedServicePropertyTrait to trigger a deprecation
-    // message in case it is accessed.
-    return $this->entityManager;
   }
 
   /**

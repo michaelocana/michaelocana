@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Functional\EntityReference\Views;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Site\Settings;
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\Tests\BrowserTestBase;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 use Drupal\views\Views;
 
 /**
@@ -17,7 +20,7 @@ use Drupal\views\Views;
  */
 class SelectionTest extends BrowserTestBase {
 
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
 
   /**
    * {@inheritdoc}
@@ -51,7 +54,7 @@ class SelectionTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Create content types and nodes.
@@ -65,6 +68,10 @@ class SelectionTest extends BrowserTestBase {
     foreach ([$node1, $node2, $node3] as $node) {
       $this->nodes[$node->id()] = $node;
     }
+
+    // Ensure the bundle to which the field is attached actually exists, or we
+    // will get config validation errors.
+    EntityTestHelper::createBundle('test_bundle');
 
     // Create an entity reference field.
     $handler_settings = [
@@ -80,7 +87,7 @@ class SelectionTest extends BrowserTestBase {
   /**
    * Tests that the Views selection handles the views output properly.
    */
-  public function testAutocompleteOutput() {
+  public function testAutocompleteOutput(): void {
     // Reset any internal static caching.
     \Drupal::service('entity_type.manager')->getStorage('node')->resetCache();
 
@@ -118,7 +125,7 @@ class SelectionTest extends BrowserTestBase {
         'label' => '<span class="views-field views-field-type"><span class="field-content">' . $this->nodes[3]->bundle() . '</span></span>: <span class="views-field views-field-title"><span class="field-content">' . Html::escape($this->nodes[3]->label()) . '</span></span>',
       ],
     ];
-    $this->assertEqual($result, $expected, 'The autocomplete result of the Views entity reference selection handler contains the proper output.');
+    $this->assertEquals($expected, $result, 'The autocomplete result of the Views entity reference selection handler contains the proper output.');
   }
 
 }

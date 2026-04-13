@@ -4,7 +4,7 @@ dependencies:
   module:
     - user
 id: test_user_changed
-label: ''
+label: test_user_changed
 module: views
 description: ''
 tag: ''
@@ -37,6 +37,7 @@ display:
           table: users_field_data
           field: changed
           label: 'Updated date'
+          element_label_colon: true
           plugin_id: field
           type: timestamp
           settings:
@@ -47,7 +48,7 @@ display:
           entity_field: changed
       filters: {  }
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   page_1:

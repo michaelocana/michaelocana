@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel;
 
 use Drupal\comment\Entity\Comment;
@@ -19,13 +21,14 @@ class CommentItemTest extends FieldKernelTestBase {
   use CommentTestTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['comment', 'entity_test', 'user'];
+  protected static $modules = ['comment', 'entity_test', 'user'];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('comment');
     $this->installSchema('comment', ['comment_entity_statistics']);
@@ -35,7 +38,7 @@ class CommentItemTest extends FieldKernelTestBase {
   /**
    * Tests using entity fields of the comment field type.
    */
-  public function testCommentItem() {
+  public function testCommentItem(): void {
     $this->addDefaultCommentField('entity_test', 'entity_test', 'comment');
 
     // Verify entity creation.
@@ -63,13 +66,13 @@ class CommentItemTest extends FieldKernelTestBase {
     ], 'Comment status value in defined range');
 
     $mainProperty = $entity->comment[0]->mainPropertyName();
-    $this->assertEqual('status', $mainProperty);
+    $this->assertEquals('status', $mainProperty);
   }
 
   /**
    * Tests comment author name.
    */
-  public function testCommentAuthorName() {
+  public function testCommentAuthorName(): void {
     $this->installEntitySchema('comment');
     $this->addDefaultCommentField('entity_test', 'entity_test', 'comment');
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -36,7 +38,7 @@ class FormTestDisabledElementsForm extends FormBase {
       ];
     }
 
-    // Multiple values option elements.
+    // Multiple values option elements, disabled as a whole.
     foreach (['checkboxes', 'select'] as $type) {
       $form[$type . '_multiple'] = [
         '#type' => $type,
@@ -47,12 +49,41 @@ class FormTestDisabledElementsForm extends FormBase {
         ],
         '#multiple' => TRUE,
         '#default_value' => ['test_2' => 'test_2'],
-        // The keys of #test_hijack_value need to match the #name of the control.
+        // The keys of #test_hijack_value need to match the #name of the
+        // control.
         // @see FormsTestCase::testDisabledElements()
         '#test_hijack_value' => $type == 'select' ? ['' => 'test_1'] : ['test_1' => 'test_1'],
         '#disabled' => TRUE,
       ];
     }
+
+    // Multiple values option elements, only single options disabled.
+    $form['checkboxes_single_select'] = [
+      '#type' => 'checkboxes',
+      '#title' => 'checkboxes (multiple)',
+      '#options' => [
+        'test_1' => 'Test 1',
+        'test_2' => 'Test 2',
+      ],
+      '#multiple' => TRUE,
+      '#default_value' => ['test_2' => 'test_2'],
+      'test_1' => [
+        '#disabled' => TRUE,
+      ],
+    ];
+    $form['checkboxes_single_unselect'] = [
+      '#type' => 'checkboxes',
+      '#title' => 'checkboxes (multiple)',
+      '#options' => [
+        'test_1' => 'Test 1',
+        'test_2' => 'Test 2',
+      ],
+      '#multiple' => TRUE,
+      '#default_value' => ['test_2' => 'test_2'],
+      'test_2' => [
+        '#disabled' => TRUE,
+      ],
+    ];
 
     // Single values option elements.
     foreach (['radios', 'select'] as $type) {
@@ -209,6 +240,7 @@ class FormTestDisabledElementsForm extends FormBase {
     $form['image_button'] = [
       '#type' => 'image_button',
       '#value' => 'Image button',
+      '#src' => '',
       '#disabled' => TRUE,
     ];
     $form['button'] = [
@@ -224,7 +256,7 @@ class FormTestDisabledElementsForm extends FormBase {
 
     $form['submit'] = [
       '#type' => 'submit',
-      '#value' => t('Submit'),
+      '#value' => $this->t('Submit'),
     ];
 
     return $form;

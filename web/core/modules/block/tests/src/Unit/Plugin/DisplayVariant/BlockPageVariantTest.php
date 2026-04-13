@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\Unit\Plugin\DisplayVariant;
 
+use Drupal\block\Plugin\DisplayVariant\BlockPageVariant;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\Container;
 use Drupal\Tests\UnitTestCase;
@@ -41,15 +44,15 @@ class BlockPageVariantTest extends UnitTestCase {
    * @param array $definition
    *   The plugin definition array.
    *
-   * @return \Drupal\block\Plugin\DisplayVariant\BlockPageVariant|\PHPUnit\Framework\MockObject\MockObject
-   *   A mocked display variant plugin.
+   * @return \Drupal\block\Plugin\DisplayVariant\BlockPageVariant
+   *   A test display variant plugin.
    */
   public function setUpDisplayVariant($configuration = [], $definition = []) {
 
     $container = new Container();
-    $cache_context_manager = $this->getMockBuilder('Drupal\Core\Cache\CacheContextsManager')
+    $cache_context_manager = $this->getMockBuilder('Drupal\Core\Cache\Context\CacheContextsManager')
       ->disableOriginalConstructor()
-      ->setMethods(['assertValidTokens'])
+      ->onlyMethods(['assertValidTokens'])
       ->getMock();
     $container->set('cache_contexts_manager', $cache_context_manager);
     $cache_context_manager->expects($this->any())
@@ -60,13 +63,13 @@ class BlockPageVariantTest extends UnitTestCase {
     $this->blockRepository = $this->createMock('Drupal\block\BlockRepositoryInterface');
     $this->blockViewBuilder = $this->createMock('Drupal\Core\Entity\EntityViewBuilderInterface');
 
-    return $this->getMockBuilder('Drupal\block\Plugin\DisplayVariant\BlockPageVariant')
-      ->setConstructorArgs([$configuration, 'test', $definition, $this->blockRepository, $this->blockViewBuilder, ['config:block_list']])
-      ->setMethods(['getRegionNames'])
-      ->getMock();
+    return new BlockPageVariant($configuration, 'test', $definition, $this->blockRepository, $this->blockViewBuilder, ['config:block_list']);
   }
 
-  public function providerBuild() {
+  /**
+   * Provides data to testBuild().
+   */
+  public static function providerBuild() {
     $blocks_config = [
       'block1' => [
         // region, is main content block, is messages block, is title block
@@ -201,7 +204,7 @@ class BlockPageVariantTest extends UnitTestCase {
    *
    * @dataProvider providerBuild
    */
-  public function testBuild(array $blocks_config, $visible_block_count, array $expected_render_array) {
+  public function testBuild(array $blocks_config, $visible_block_count, array $expected_render_array): void {
     $display_variant = $this->setUpDisplayVariant();
     $display_variant->setMainContent(['#markup' => 'Hello kittens!']);
 
@@ -219,7 +222,7 @@ class BlockPageVariantTest extends UnitTestCase {
     }
     $this->blockViewBuilder->expects($this->exactly($visible_block_count))
       ->method('view')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
     $this->blockRepository->expects($this->once())
       ->method('getVisibleBlocksPerRegion')
       ->willReturnCallback(function (&$cacheable_metadata) use ($blocks) {
@@ -236,7 +239,7 @@ class BlockPageVariantTest extends UnitTestCase {
    *
    * @covers ::build
    */
-  public function testBuildWithoutMainContent() {
+  public function testBuildWithoutMainContent(): void {
     $display_variant = $this->setUpDisplayVariant();
     $this->blockRepository->expects($this->once())
       ->method('getVisibleBlocksPerRegion')

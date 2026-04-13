@@ -9,7 +9,7 @@
  *   The drupalUserIsLoggedIn command.
  */
 exports.command = function drupalLogin({ name, password }) {
-  this.drupalUserIsLoggedIn(sessionExists => {
+  this.drupalUserIsLoggedIn((sessionExists) => {
     // Log the current user out if necessary.
     if (sessionExists) {
       this.drupalLogout();
@@ -19,8 +19,11 @@ exports.command = function drupalLogin({ name, password }) {
       .setValue('input[name="name"]', name)
       .setValue('input[name="pass"]', password)
       .submitForm('#user-login-form');
+    // MongoDB needs a moment, because it is using a replica set and the
+    // members of the replica set need to synchronize.
+    this.pause(50);
     // Assert that a user is logged in.
-    this.drupalUserIsLoggedIn(sessionExists => {
+    this.drupalUserIsLoggedIn((sessionExists) => {
       this.assert.equal(
         sessionExists,
         true,

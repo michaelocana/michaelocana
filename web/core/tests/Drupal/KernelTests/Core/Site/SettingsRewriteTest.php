@@ -1,23 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Site;
 
 use Drupal\Core\Site\Settings;
+use Drupal\Core\Site\SettingsEditor;
 use Drupal\KernelTests\KernelTestBase;
 
 /**
- * Tests the drupal_rewrite_settings() function.
+ * Tests the SettingsEditor::rewrite() function.
  *
  * @group system
  */
 class SettingsRewriteTest extends KernelTestBase {
 
   /**
-   * Tests the drupal_rewrite_settings() function.
+   * @covers \Drupal\Core\Site\SettingsEditor::rewrite
    */
-  public function testDrupalRewriteSettings() {
+  public function testDrupalRewriteSettings(): void {
     include_once $this->root . '/core/includes/install.inc';
-    $site_path = $this->container->get('site.path');
+    $site_path = $this->container->getParameter('site.path');
     $tests = [
       [
         'original' => '$no_index_value_scalar = TRUE;',
@@ -48,7 +51,7 @@ $no_index_value_foo['foo']['value'] = NULL; // comment
 EXPECTED
       ],
       [
-        'original' => '$no_index_value_array = array("old" => "value");',
+        'original' => '$no_index_value_array = ["old" => "value"];',
         'settings' => [
           'no_index_value_array' => (object) [
             'value' => FALSE,
@@ -56,7 +59,7 @@ EXPECTED
             'comment' => 'comment',
           ],
         ],
-        'expected' => '$no_index_value_array = array("old" => "value");
+        'expected' => '$no_index_value_array = ["old" => "value"];
 $no_index_value_array = false; // comment',
       ],
       [
@@ -98,8 +101,8 @@ EXPECTED
     foreach ($tests as $test) {
       $filename = Settings::get('file_public_path', $site_path . '/files') . '/mock_settings.php';
       file_put_contents($filename, "<?php\n" . $test['original'] . "\n");
-      drupal_rewrite_settings($test['settings'], $filename);
-      $this->assertEqual(file_get_contents($filename), "<?php\n" . $test['expected'] . "\n");
+      SettingsEditor::rewrite($filename, $test['settings']);
+      $this->assertEquals("<?php\n" . $test['expected'] . "\n", file_get_contents($filename));
     }
 
     // Test that <?php gets added to the start of an empty settings file.
@@ -118,10 +121,10 @@ EXPECTED
     file_put_contents($filename, "");
 
     // Write the setting to the file.
-    drupal_rewrite_settings($test['settings'], $filename);
+    SettingsEditor::rewrite($filename, $test['settings']);
 
     // Check that the result is just the php opening tag and the settings.
-    $this->assertEqual(file_get_contents($filename), "<?php\n" . $test['expected'] . "\n");
+    $this->assertEquals("<?php\n" . $test['expected'] . "\n", file_get_contents($filename));
   }
 
 }

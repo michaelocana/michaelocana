@@ -5,8 +5,7 @@ namespace Drupal\taxonomy\Plugin\views\relationship;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\taxonomy\VocabularyStorageInterface;
-use Drupal\views\ViewExecutable;
-use Drupal\views\Plugin\views\display\DisplayPluginBase;
+use Drupal\views\Attribute\ViewsRelationship;
 use Drupal\views\Plugin\views\relationship\RelationshipPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -14,9 +13,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Relationship handler to return the taxonomy terms of nodes.
  *
  * @ingroup views_relationship_handlers
- *
- * @ViewsRelationship("node_term_data")
  */
+#[ViewsRelationship("node_term_data")]
 class NodeTermData extends RelationshipPluginBase {
 
   /**
@@ -32,7 +30,7 @@ class NodeTermData extends RelationshipPluginBase {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\taxonomy\VocabularyStorageInterface $vocabulary_storage
@@ -58,27 +56,15 @@ class NodeTermData extends RelationshipPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
-    parent::init($view, $display, $options);
-
-    // @todo Remove the legacy code.
-    // Convert legacy vids option to machine name vocabularies.
-    if (!empty($this->options['vids'])) {
-      $vocabularies = taxonomy_vocabulary_get_names();
-      foreach ($this->options['vids'] as $vid) {
-        if (isset($vocabularies[$vid], $vocabularies[$vid]->machine_name)) {
-          $this->options['vocabularies'][$vocabularies[$vid]->machine_name] = $vocabularies[$vid]->machine_name;
-        }
-      }
-    }
-  }
-
   protected function defineOptions() {
     $options = parent::defineOptions();
     $options['vids'] = ['default' => []];
     return $options;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $vocabularies = $this->vocabularyStorage->loadMultiple();
     $options = [];
@@ -131,7 +117,7 @@ class NodeTermData extends RelationshipPluginBase {
       $def['adjusted'] = TRUE;
 
       $query = Database::getConnection()->select('taxonomy_term_field_data', 'td');
-      $query->addJoin($def['type'], 'taxonomy_index', 'tn', 'tn.tid = td.tid');
+      $query->addJoin($def['type'], 'taxonomy_index', 'tn', '[tn].[tid] = [td].[tid]');
       $query->condition('td.vid', array_filter($this->options['vids']), 'IN');
       if (empty($this->query->options['disable_sql_rewrite'])) {
         $query->addTag('taxonomy_term_access');
@@ -143,7 +129,7 @@ class NodeTermData extends RelationshipPluginBase {
 
     $join = \Drupal::service('plugin.manager.views.join')->createInstance('standard', $def);
 
-    // use a short alias for this:
+    // Use a short alias for this:
     $alias = $def['table'] . '_' . $this->table;
 
     $this->alias = $this->query->addRelationship($alias, $join, 'taxonomy_term_field_data', $this->relationship);

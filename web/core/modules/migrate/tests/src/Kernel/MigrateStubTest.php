@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Kernel;
 
-use Drupal\Component\Plugin\Exception\PluginNotFoundException;
+use Drupal\field\Entity\FieldConfig;
 use Drupal\Tests\node\Traits\ContentTypeCreationTrait;
 
 /**
@@ -16,12 +18,13 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'system',
     'node',
     'field',
     'user',
     'text',
+    'filter',
     'migrate_stub_test',
   ];
 
@@ -49,7 +52,7 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->setTestLogger();
     $this->migrateStub = $this->container->get('migrate.stub');
@@ -65,7 +68,7 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * Tests stub creation.
    */
-  public function testCreateStub() {
+  public function testCreateStub(): void {
     $this->assertSame([], $this->migrateLookup->lookup('sample_stubbing_migration', [17]));
     $ids = $this->migrateStub->createStub('sample_stubbing_migration', [17]);
     $this->assertSame([$ids], $this->migrateLookup->lookup('sample_stubbing_migration', [17]));
@@ -75,7 +78,7 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * Tests raw stub creation.
    */
-  public function testCreateStubRawReturn() {
+  public function testCreateStubRawReturn(): void {
     $this->assertSame([], $this->migrateLookup->lookup('sample_stubbing_migration', [17]));
     $ids = $this->migrateStub->createStub('sample_stubbing_migration', [17], [], FALSE);
     $this->assertSame($ids, [$this->migrateLookup->lookup('sample_stubbing_migration', [17])[0]['nid']]);
@@ -85,7 +88,7 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * Tests stub creation with default values.
    */
-  public function testStubWithDefaultValues() {
+  public function testStubWithDefaultValues(): void {
     $this->assertSame([], $this->migrateLookup->lookup('sample_stubbing_migration', [17]));
     $ids = $this->migrateStub->createStub('sample_stubbing_migration', [17], ['title' => "Placeholder for source id 17"]);
     $this->assertSame([$ids], $this->migrateLookup->lookup('sample_stubbing_migration', [17]));
@@ -101,9 +104,27 @@ class MigrateStubTest extends MigrateTestBase {
   }
 
   /**
-   * Test invalid source id count.
+   * Tests stub creation with bundle fields.
    */
-  public function testInvalidSourceIdCount() {
+  public function testStubWithBundleFields(): void {
+    $this->createContentType(['type' => 'node_stub']);
+    // Make "Body" field required to make stubbing populate field value.
+    $body_field = FieldConfig::loadByName('node', 'node_stub', 'body');
+    $body_field->setRequired(TRUE)->save();
+
+    $this->assertSame([], $this->migrateLookup->lookup('sample_stubbing_migration', [33]));
+    $ids = $this->migrateStub->createStub('sample_stubbing_migration', [33], []);
+    $this->assertSame([$ids], $this->migrateLookup->lookup('sample_stubbing_migration', [33]));
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($ids['nid']);
+    $this->assertNotNull($node);
+    // Make sure the "Body" field value was populated.
+    $this->assertNotEmpty($node->get('body')->value);
+  }
+
+  /**
+   * Tests invalid source id count.
+   */
+  public function testInvalidSourceIdCount(): void {
     $this->expectException(\InvalidArgumentException::class);
     $this->expectExceptionMessage('Expected and provided source id counts do not match.');
     $this->migrateStub->createStub('sample_stubbing_migration_with_multiple_source_ids', [17]);
@@ -112,19 +133,10 @@ class MigrateStubTest extends MigrateTestBase {
   /**
    * Tests invalid source ids keys.
    */
-  public function testInvalidSourceIdKeys() {
+  public function testInvalidSourceIdKeys(): void {
     $this->expectException(\InvalidArgumentException::class);
-    $this->expectExceptionMessage('version_id is defined as a source ID but has no value.');
+    $this->expectExceptionMessage("'version_id' is defined as a source ID but has no value.");
     $this->migrateStub->createStub('sample_stubbing_migration_with_multiple_source_ids', ['id' => 17, 'not_a_key' => 17]);
-  }
-
-  /**
-   * Tests that an exception is thrown if a migration does not exist.
-   */
-  public function testErrorOnMigrationNotFound() {
-    $this->expectException(PluginNotFoundException::class);
-    $this->expectExceptionMessage("Plugin ID 'nonexistent_migration' was not found.");
-    $this->migrateStub->createStub('nonexistent_migration', [1]);
   }
 
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Routing;
 
 use Symfony\Component\Routing\Route;
@@ -81,6 +83,7 @@ class RoutingFixtures {
    * Returns a standard set of routes for testing.
    *
    * @return \Symfony\Component\Routing\RouteCollection
+   *   An array of of predefined routes for testing.
    */
   public function sampleRouteCollection() {
     $collection = new RouteCollection();
@@ -113,6 +116,7 @@ class RoutingFixtures {
    * Returns a complex set of routes for testing.
    *
    * @return \Symfony\Component\Routing\RouteCollection
+   *   A RouteCollection with varied route structures.
    */
   public function complexRouteCollection() {
     $collection = new RouteCollection();
@@ -143,6 +147,7 @@ class RoutingFixtures {
    * Returns a complex set of routes for testing.
    *
    * @return \Symfony\Component\Routing\RouteCollection
+   *   A RouteCollection containing routes with mixed casing and Unicode characters.
    */
   public function mixedCaseRouteCollection() {
     $collection = new RouteCollection();
@@ -156,6 +161,7 @@ class RoutingFixtures {
     $collection->add('route_b', $route);
 
     // Uses Hebrew letter QOF (U+05E7)
+    // cSpell:disable-next-line
     $route = new Route('/somewhere/{item}/over/the/קainbow');
     $route->setMethods(['GET']);
     $collection->add('route_c', $route);
@@ -164,6 +170,7 @@ class RoutingFixtures {
     $collection->add('route_d', $route);
 
     // Greek letters lower case phi (U+03C6) and lower case omega (U+03C9)
+    // cSpell:disable-next-line
     $route = new Route('/place/meφω');
     $route->setMethods(['GET', 'HEAD']);
     $collection->add('route_e', $route);
@@ -175,6 +182,7 @@ class RoutingFixtures {
    * Returns a complex set of routes for testing.
    *
    * @return \Symfony\Component\Routing\RouteCollection
+   *   A RouteCollection containing duplicate paths with different route names.
    */
   public function duplicatePathsRouteCollection() {
     $collection = new RouteCollection();
@@ -197,10 +205,12 @@ class RoutingFixtures {
     $collection->add('route_d', $route);
 
     // Greek letters lower case phi (U+03C6) and lower case omega (U+03C9)
+    // cSpell:disable-next-line
     $route = new Route('/place/meφω');
     $route->setMethods(['GET', 'HEAD']);
     $collection->add('route_f', $route);
 
+    // cSpell:disable-next-line
     $route = new Route('/PLACE/meφω');
     $collection->add('route_e', $route);
 
@@ -211,6 +221,7 @@ class RoutingFixtures {
    * Returns a Content-type restricted set of routes for testing.
    *
    * @return \Symfony\Component\Routing\RouteCollection
+   *   A RouteCollection containing routes with Content-type restrictions for testing.
    */
   public function contentRouteCollection() {
     $collection = new RouteCollection();
@@ -224,6 +235,27 @@ class RoutingFixtures {
     $route->setMethods(['PATCH']);
     $route->setRequirement('_content_type_format', 'xml');
     $collection->add('route_g', $route);
+    return $collection;
+  }
+
+  /**
+   * Returns a set of routes and aliases for testing.
+   */
+  public function aliasedRouteCollection(): RouteCollection {
+    $collection = new RouteCollection();
+
+    $route = new Route('path/one');
+    $collection->add('route_a', $route);
+
+    $collection->addAlias('route_b', 'route_a');
+
+    $collection->addAlias('route_c', 'route_a')
+      ->setDeprecated(
+        'drupal/core',
+        '11.2.0',
+        '%alias_id% is deprecated!',
+      );
+
     return $collection;
   }
 
@@ -293,13 +325,20 @@ class RoutingFixtures {
         ],
         'route' => [
           'description' => 'A serialized Route object',
-          'type' => 'text',
+          'type' => 'blob',
+          'size' => 'big',
+        ],
+        'alias' => [
+          'description' => 'The alias of the route, if applicable.',
+          'type' => 'varchar_ascii',
+          'length' => 255,
         ],
       ],
       'indexes' => [
         'fit' => ['fit'],
         'pattern_outline' => ['pattern_outline'],
         'provider' => ['provider'],
+        'alias' => ['alias'],
       ],
       'primary key' => ['name'],
     ];

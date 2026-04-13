@@ -1,5 +1,5 @@
 <?php
-// @codingStandardsIgnoreFile
+// phpcs:ignoreFile
 
 /**
  * This file was generated via php core/scripts/generate-proxy-class.php 'Drupal\Core\Config\ConfigInstaller' "core/lib/Drupal/Core".
@@ -70,15 +70,15 @@ namespace Drupal\Core\ProxyClass\Config {
         /**
          * {@inheritdoc}
          */
-        public function installDefaultConfig($type, $name)
+        public function installDefaultConfig($type, $name, \Drupal\Core\Config\DefaultConfigMode $mode = \Drupal\Core\Config\DefaultConfigMode::All)
         {
-            return $this->lazyLoadItself()->installDefaultConfig($type, $name);
+            return $this->lazyLoadItself()->installDefaultConfig($type, $name, $mode);
         }
 
         /**
          * {@inheritdoc}
          */
-        public function installOptionalConfig(\Drupal\Core\Config\StorageInterface $storage = NULL, $dependency = array (
+        public function installOptionalConfig(?\Drupal\Core\Config\StorageInterface $storage = NULL, $dependency = array (
         ))
         {
             return $this->lazyLoadItself()->installOptionalConfig($storage, $dependency);

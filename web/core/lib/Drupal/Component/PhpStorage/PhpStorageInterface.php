@@ -52,13 +52,6 @@ interface PhpStorageInterface {
   public function save($name, $code);
 
   /**
-   * Whether this is a writable storage.
-   *
-   * @return bool
-   */
-  public function writeable();
-
-  /**
    * Deletes PHP code from storage.
    *
    * @param string $name

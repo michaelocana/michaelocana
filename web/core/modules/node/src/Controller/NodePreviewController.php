@@ -22,7 +22,7 @@ class NodePreviewController extends EntityViewController {
   protected $entityRepository;
 
   /**
-   * Creates an NodeViewController object.
+   * Creates a NodeViewController object.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
@@ -31,12 +31,8 @@ class NodePreviewController extends EntityViewController {
    * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
    *   The entity repository.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, RendererInterface $renderer, EntityRepositoryInterface $entity_repository = NULL) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, RendererInterface $renderer, EntityRepositoryInterface $entity_repository) {
     parent::__construct($entity_type_manager, $renderer);
-    if (!$entity_repository) {
-      @trigger_error('The entity.repository service must be passed to NodePreviewController::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
     $this->entityRepository = $entity_repository;
   }
 
@@ -74,8 +70,13 @@ class NodePreviewController extends EntityViewController {
    *
    * @return string
    *   The page title.
+   *
+   * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no
+   * replacement.
+   * @see https://www.drupal.org/node/3518065
    */
   public function title(EntityInterface $node_preview) {
+    @trigger_error(__METHOD__ . ' is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. See https://www.drupal.org/node/3518065', E_USER_DEPRECATED);
     return $this->entityRepository->getTranslationFromContext($node_preview)->label();
   }
 

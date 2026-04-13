@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\taxonomy\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -28,7 +30,7 @@ class TermEntityQueryTest extends KernelTestBase {
   /**
    * Tests that a basic taxonomy entity query works.
    */
-  public function testTermEntityQuery() {
+  public function testTermEntityQuery(): void {
     $this->installEntitySchema('taxonomy_term');
     $vocabulary = $this->createVocabulary();
 
@@ -37,7 +39,7 @@ class TermEntityQueryTest extends KernelTestBase {
       $term = $this->createTerm($vocabulary);
       $terms[$term->id()] = $term;
     }
-    $result = \Drupal::entityQuery('taxonomy_term')->execute();
+    $result = \Drupal::entityQuery('taxonomy_term')->accessCheck(FALSE)->execute();
     sort($result);
     $this->assertEquals(array_keys($terms), $result);
     $tid = reset($result);
@@ -58,10 +60,11 @@ class TermEntityQueryTest extends KernelTestBase {
     }
 
     $result = \Drupal::entityQuery('taxonomy_term')
+      ->accessCheck(FALSE)
       ->condition('vid', $vocabulary2->id())
       ->execute();
     sort($result);
-    $this->assertEqual(array_keys($terms2), $result);
+    $this->assertEquals(array_keys($terms2), $result);
     $tid = reset($result);
     $ids = (object) [
       'entity_type' => 'taxonomy_term',

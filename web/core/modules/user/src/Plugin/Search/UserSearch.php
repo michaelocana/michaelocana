@@ -4,29 +4,24 @@ namespace Drupal\user\Plugin\Search;
 
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
+use Drupal\Core\Database\Query\PagerSelectExtender;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Access\AccessibleInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\search\Attribute\Search;
 use Drupal\search\Plugin\SearchPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Executes a keyword search for users against the {users} database table.
- *
- * @SearchPlugin(
- *   id = "user_search",
- *   title = @Translation("Users")
- * )
  */
+#[Search(
+  id: 'user_search',
+  title: new TranslatableMarkup('Users'),
+)]
 class UserSearch extends SearchPluginBase implements AccessibleInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The database connection.
@@ -85,7 +80,7 @@ class UserSearch extends SearchPluginBase implements AccessibleInterface {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    */
@@ -102,7 +97,7 @@ class UserSearch extends SearchPluginBase implements AccessibleInterface {
   /**
    * {@inheritdoc}
    */
-  public function access($operation = 'view', AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($operation = 'view', ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $result = AccessResult::allowedIf(!empty($account) && $account->hasPermission('access user profiles'))->cachePerPermissions();
     return $return_as_object ? $result : $result->isAllowed();
   }
@@ -126,7 +121,7 @@ class UserSearch extends SearchPluginBase implements AccessibleInterface {
     // Run the query to find matching users.
     $query = $this->database
       ->select('users_field_data', 'users')
-      ->extend('Drupal\Core\Database\Query\PagerSelectExtender');
+      ->extend(PagerSelectExtender::class);
     $query->fields('users', ['uid']);
     $query->condition('default_langcode', 1);
     if ($this->currentUser->hasPermission('administer users')) {

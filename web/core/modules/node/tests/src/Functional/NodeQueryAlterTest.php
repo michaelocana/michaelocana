@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\Core\Database\Database;
+use Drupal\user\Entity\User;
 
 /**
  * Tests that node access queries are properly altered by the node module.
@@ -12,11 +15,9 @@ use Drupal\Core\Database\Database;
 class NodeQueryAlterTest extends NodeTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node_access_test'];
+  protected static $modules = ['node_access_test'];
 
   /**
    * {@inheritdoc}
@@ -25,15 +26,29 @@ class NodeQueryAlterTest extends NodeTestBase {
 
   /**
    * User with permission to view content.
+   *
+   * @var \Drupal\user\Entity\User|false
    */
   protected $accessUser;
 
   /**
    * User without permission to view content.
+   *
+   * @var \Drupal\user\Entity\User|false
    */
   protected $noAccessUser;
 
-  protected function setUp() {
+  /**
+   * User without permission to view content.
+   *
+   * @var \Drupal\user\Entity\User
+   */
+  protected User $noAccessUser2;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     node_access_rebuild();
@@ -67,11 +82,11 @@ class NodeQueryAlterTest extends NodeTestBase {
    * Verifies that a non-standard table alias can be used, and that a user with
    * node access can view the nodes.
    */
-  public function testNodeQueryAlterLowLevelWithAccess() {
+  public function testNodeQueryAlterLowLevelWithAccess(): void {
     // User with access should be able to view 4 nodes.
     try {
-      $query = Database::getConnection()->select('node', 'mytab')
-        ->fields('mytab');
+      $query = Database::getConnection()->select('node', 'n')
+        ->fields('n');
       $query->addTag('node_access');
       $query->addMetaData('op', 'view');
       $query->addMetaData('account', $this->accessUser);
@@ -79,7 +94,7 @@ class NodeQueryAlterTest extends NodeTestBase {
       $result = $query->execute()->fetchAll();
       $this->assertCount(4, $result, 'User with access can see correct nodes');
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Altered query is malformed');
     }
   }
@@ -87,17 +102,18 @@ class NodeQueryAlterTest extends NodeTestBase {
   /**
    * Tests 'node_access' query alter with revision-enabled nodes.
    */
-  public function testNodeQueryAlterWithRevisions() {
+  public function testNodeQueryAlterWithRevisions(): void {
     // Execute a query that only deals with the 'node_revision' table.
     try {
       $query = \Drupal::entityTypeManager()->getStorage('node')->getQuery();
       $result = $query
+        ->accessCheck(TRUE)
         ->allRevisions()
         ->execute();
 
       $this->assertCount(4, $result, 'User with access can see correct nodes');
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Altered query is malformed');
     }
   }
@@ -108,11 +124,11 @@ class NodeQueryAlterTest extends NodeTestBase {
    * Verifies that a non-standard table alias can be used, and that a user
    * without node access cannot view the nodes.
    */
-  public function testNodeQueryAlterLowLevelNoAccess() {
+  public function testNodeQueryAlterLowLevelNoAccess(): void {
     // User without access should be able to view 0 nodes.
     try {
-      $query = Database::getConnection()->select('node', 'mytab')
-        ->fields('mytab');
+      $query = Database::getConnection()->select('node', 'n')
+        ->fields('n');
       $query->addTag('node_access');
       $query->addMetaData('op', 'view');
       $query->addMetaData('account', $this->noAccessUser);
@@ -120,7 +136,7 @@ class NodeQueryAlterTest extends NodeTestBase {
       $result = $query->execute()->fetchAll();
       $this->assertCount(0, $result, 'User with no access cannot see nodes');
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Altered query is malformed');
     }
   }
@@ -131,11 +147,11 @@ class NodeQueryAlterTest extends NodeTestBase {
    * Verifies that a non-standard table alias can be used, and that a user with
    * view-only node access cannot edit the nodes.
    */
-  public function testNodeQueryAlterLowLevelEditAccess() {
+  public function testNodeQueryAlterLowLevelEditAccess(): void {
     // User with view-only access should not be able to edit nodes.
     try {
-      $query = Database::getConnection()->select('node', 'mytab')
-        ->fields('mytab');
+      $query = Database::getConnection()->select('node', 'n')
+        ->fields('n');
       $query->addTag('node_access');
       $query->addMetaData('op', 'update');
       $query->addMetaData('account', $this->accessUser);
@@ -159,7 +175,7 @@ class NodeQueryAlterTest extends NodeTestBase {
    * add a record to {node_access} paired with a corresponding privilege in
    * hook_node_grants().
    */
-  public function testNodeQueryAlterOverride() {
+  public function testNodeQueryAlterOverride(): void {
     $record = [
       'nid' => 0,
       'gid' => 0,
@@ -175,8 +191,8 @@ class NodeQueryAlterTest extends NodeTestBase {
     // privilege after adding the node_access record.
     drupal_static_reset('node_access_view_all_nodes');
     try {
-      $query = $connection->select('node', 'mytab')
-        ->fields('mytab');
+      $query = $connection->select('node', 'n')
+        ->fields('n');
       $query->addTag('node_access');
       $query->addMetaData('op', 'view');
       $query->addMetaData('account', $this->noAccessUser);
@@ -184,7 +200,7 @@ class NodeQueryAlterTest extends NodeTestBase {
       $result = $query->execute()->fetchAll();
       $this->assertCount(0, $result, 'User view privileges are not overridden');
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Altered query is malformed');
     }
 
@@ -197,8 +213,8 @@ class NodeQueryAlterTest extends NodeTestBase {
     \Drupal::state()->set('node_access_test.no_access_uid', $this->noAccessUser->id());
     drupal_static_reset('node_access_view_all_nodes');
     try {
-      $query = $connection->select('node', 'mytab')
-        ->fields('mytab');
+      $query = $connection->select('node', 'n')
+        ->fields('n');
       $query->addTag('node_access');
       $query->addMetaData('op', 'view');
       $query->addMetaData('account', $this->noAccessUser);
@@ -206,7 +222,7 @@ class NodeQueryAlterTest extends NodeTestBase {
       $result = $query->execute()->fetchAll();
       $this->assertCount(4, $result, 'User view privileges are overridden');
     }
-    catch (\Exception $e) {
+    catch (\Exception) {
       $this->fail('Altered query is malformed');
     }
     \Drupal::state()->delete('node_access_test.no_access_uid');

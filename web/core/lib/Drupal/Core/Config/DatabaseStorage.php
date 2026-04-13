@@ -2,7 +2,6 @@
 
 namespace Drupal\Core\Config;
 
-use Drupal\Core\Database\Database;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\DatabaseException;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
@@ -66,14 +65,17 @@ class DatabaseStorage implements StorageInterface {
    */
   public function exists($name) {
     try {
-      return (bool) $this->connection->queryRange('SELECT 1 FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection AND name = :name', 0, 1, [
+      return (bool) $this->connection->queryRange('SELECT 1 FROM {' . $this->connection->escapeTable($this->table) . '} WHERE [collection] = :collection AND [name] = :name', 0, 1, [
         ':collection' => $this->collection,
         ':name' => $name,
       ], $this->options)->fetchField();
     }
     catch (\Exception $e) {
-      // If we attempt a read without actually having the database or the table
-      // available, just return FALSE so the caller can handle it.
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a read without actually having the table available,
+      // return false so the caller can handle it.
       return FALSE;
     }
   }
@@ -84,14 +86,20 @@ class DatabaseStorage implements StorageInterface {
   public function read($name) {
     $data = FALSE;
     try {
-      $raw = $this->connection->query('SELECT data FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection AND name = :name', [':collection' => $this->collection, ':name' => $name], $this->options)->fetchField();
+      $raw = $this->connection->query('SELECT [data] FROM {' . $this->connection->escapeTable($this->table) . '} WHERE [collection] = :collection AND [name] = :name', [
+        ':collection' => $this->collection,
+        ':name' => $name,
+      ], $this->options)->fetchField();
       if ($raw !== FALSE) {
         $data = $this->decode($raw);
       }
     }
     catch (\Exception $e) {
-      // If we attempt a read without actually having the database or the table
-      // available, just return FALSE so the caller can handle it.
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a read without actually having the table available,
+      // return false so the caller can handle it.
     }
     return $data;
   }
@@ -100,16 +108,28 @@ class DatabaseStorage implements StorageInterface {
    * {@inheritdoc}
    */
   public function readMultiple(array $names) {
+    if (empty($names)) {
+      return [];
+    }
+
     $list = [];
     try {
-      $list = $this->connection->query('SELECT name, data FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection AND name IN ( :names[] )', [':collection' => $this->collection, ':names[]' => $names], $this->options)->fetchAllKeyed();
+      $list = $this->connection
+        ->query('SELECT [name], [data] FROM {' . $this->connection->escapeTable($this->table) . '} WHERE [collection] = :collection AND [name] IN ( :names[] )', [
+          ':collection' => $this->collection,
+          ':names[]' => $names,
+        ], $this->options)
+        ->fetchAllKeyed();
       foreach ($list as &$data) {
         $data = $this->decode($data);
       }
     }
     catch (\Exception $e) {
-      // If we attempt a read without actually having the database or the table
-      // available, just return an empty array so the caller can handle it.
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a read without actually having the table available,
+      // return an empty array so the caller can handle it.
     }
     return $list;
   }
@@ -128,7 +148,7 @@ class DatabaseStorage implements StorageInterface {
         return $this->doWrite($name, $data);
       }
       // Some other failure that we can not recover from.
-      throw $e;
+      throw new StorageException($e->getMessage(), 0, $e);
     }
   }
 
@@ -141,10 +161,10 @@ class DatabaseStorage implements StorageInterface {
    *   The config data, already dumped to a string.
    *
    * @return bool
+   *   TRUE when the write was successful, FALSE otherwise.
    */
   protected function doWrite($name, $data) {
-    $options = ['return' => Database::RETURN_AFFECTED] + $this->options;
-    return (bool) $this->connection->merge($this->table, $options)
+    return (bool) $this->connection->merge($this->table, $this->options)
       ->keys(['collection', 'name'], [$this->collection, $name])
       ->fields(['data' => $data])
       ->execute();
@@ -161,21 +181,18 @@ class DatabaseStorage implements StorageInterface {
    */
   protected function ensureTableExists() {
     try {
-      if (!$this->connection->schema()->tableExists($this->table)) {
-        $this->connection->schema()->createTable($this->table, static::schemaDefinition());
-        return TRUE;
-      }
+      $this->connection->schema()->createTable($this->table, static::schemaDefinition());
     }
     // If another process has already created the config table, attempting to
     // recreate it will throw an exception. In this case just catch the
     // exception and do nothing.
-    catch (DatabaseException $e) {
+    catch (DatabaseException) {
       return TRUE;
     }
-    catch (\Exception $e) {
-      throw new StorageException($e->getMessage(), NULL, $e);
+    catch (\Exception) {
+      return FALSE;
     }
-    return FALSE;
+    return TRUE;
   }
 
   /**
@@ -216,13 +233,12 @@ class DatabaseStorage implements StorageInterface {
   /**
    * Implements Drupal\Core\Config\StorageInterface::delete().
    *
-   * @throws PDOException
+   * @throws \PDOException
    *
    * @todo Ignore replica targets for data manipulation operations.
    */
   public function delete($name) {
-    $options = ['return' => Database::RETURN_AFFECTED] + $this->options;
-    return (bool) $this->connection->delete($this->table, $options)
+    return (bool) $this->connection->delete($this->table, $this->options)
       ->condition('collection', $this->collection)
       ->condition('name', $name)
       ->execute();
@@ -231,11 +247,10 @@ class DatabaseStorage implements StorageInterface {
   /**
    * Implements Drupal\Core\Config\StorageInterface::rename().
    *
-   * @throws PDOException
+   * @throws \PDOException
    */
   public function rename($name, $new_name) {
-    $options = ['return' => Database::RETURN_AFFECTED] + $this->options;
-    return (bool) $this->connection->update($this->table, $options)
+    return (bool) $this->connection->update($this->table, $this->options)
       ->fields(['name' => $new_name])
       ->condition('name', $name)
       ->condition('collection', $this->collection)
@@ -252,12 +267,12 @@ class DatabaseStorage implements StorageInterface {
   /**
    * Implements Drupal\Core\Config\StorageInterface::decode().
    *
-   * @throws ErrorException
+   * @throws \ErrorException
    *   The unserialize() call will trigger E_NOTICE if the string cannot
    *   be unserialized.
    */
   public function decode($raw) {
-    $data = @unserialize($raw);
+    $data = @unserialize($raw, ['allowed_classes' => FALSE]);
     return is_array($data) ? $data : FALSE;
   }
 
@@ -274,6 +289,11 @@ class DatabaseStorage implements StorageInterface {
       return $query->execute()->fetchCol();
     }
     catch (\Exception $e) {
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a read without actually having the table available,
+      // return an empty array so the caller can handle it.
       return [];
     }
   }
@@ -283,13 +303,17 @@ class DatabaseStorage implements StorageInterface {
    */
   public function deleteAll($prefix = '') {
     try {
-      $options = ['return' => Database::RETURN_AFFECTED] + $this->options;
-      return (bool) $this->connection->delete($this->table, $options)
+      return (bool) $this->connection->delete($this->table, $this->options)
         ->condition('name', $prefix . '%', 'LIKE')
         ->condition('collection', $this->collection)
         ->execute();
     }
     catch (\Exception $e) {
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a delete without actually having the table available,
+      // return false so the caller can handle it.
       return FALSE;
     }
   }
@@ -318,12 +342,16 @@ class DatabaseStorage implements StorageInterface {
    */
   public function getAllCollectionNames() {
     try {
-      return $this->connection->query('SELECT DISTINCT collection FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection <> :collection ORDER by collection', [
-          ':collection' => StorageInterface::DEFAULT_COLLECTION,
-        ]
-      )->fetchCol();
+      return $this->connection->query('SELECT DISTINCT [collection] FROM {' . $this->connection->escapeTable($this->table) . '} WHERE [collection] <> :collection ORDER by [collection]', [
+        ':collection' => StorageInterface::DEFAULT_COLLECTION,
+      ])->fetchCol();
     }
     catch (\Exception $e) {
+      if ($this->connection->schema()->tableExists($this->table)) {
+        throw $e;
+      }
+      // If we attempt a read without actually having the table available,
+      // return an empty array so the caller can handle it.
       return [];
     }
   }

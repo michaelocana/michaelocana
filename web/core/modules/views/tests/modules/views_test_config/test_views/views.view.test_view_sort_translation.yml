@@ -2,6 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: test_view_sort_translation
+label: test_view_sort_translation
 module: views
 description: ''
 tag: ''
@@ -58,7 +59,7 @@ display:
           entity_type: node
           entity_field: weight
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   display_de:

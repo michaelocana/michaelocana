@@ -15,7 +15,7 @@
  *
  * Callback for batch_set().
  *
- * @param $multiple_params
+ * @param array $multiple_params
  *   Additional parameters specific to the batch. These are specified in the
  *   array passed to batch_set().
  * @param array|\ArrayAccess $context
@@ -34,9 +34,8 @@
  *     $context['sandbox'] will be there the next time this function is called
  *     for the current operation. For example, an operation may wish to store a
  *     pointer in a file or an offset for a large query. The 'sandbox' array key
- *     is not initially set when this callback is first called, which makes it
- *     useful for determining whether it is the first call of the callback or
- *     not:
+ *     is empty when this callback is first called, which makes it useful for
+ *     determining whether it is the first call of the callback or not:
  *     @code
  *       if (empty($context['sandbox'])) {
  *         // Perform set-up steps here.
@@ -51,7 +50,7 @@
  *     all operations have finished, this is passed to callback_batch_finished()
  *     where results may be referenced to display information to the end-user,
  *     such as how many total items were processed.
- *   It is discouraged to typehint this parameter as an array, to allow an
+ *   It is discouraged to type hint this parameter as an array, to allow an
  *   object implement \ArrayAccess to be passed.
  */
 function callback_batch_operation($multiple_params, &$context) {
@@ -61,7 +60,7 @@ function callback_batch_operation($multiple_params, &$context) {
   if (!isset($context['sandbox']['progress'])) {
     $context['sandbox']['progress'] = 0;
     $context['sandbox']['current_node'] = 0;
-    $context['sandbox']['max'] = $database->query('SELECT COUNT(DISTINCT nid) FROM {node}')->fetchField();
+    $context['sandbox']['max'] = $database->query('SELECT COUNT(DISTINCT [nid]) FROM {node}')->fetchField();
   }
 
   // For this example, we decide that we can safely process
@@ -69,7 +68,7 @@ function callback_batch_operation($multiple_params, &$context) {
   $limit = 5;
 
   // With each pass through the callback, retrieve the next group of nids.
-  $result = $database->queryRange("SELECT nid FROM {node} WHERE nid > :nid ORDER BY nid ASC", 0, $limit, [':nid' => $context['sandbox']['current_node']]);
+  $result = $database->queryRange("SELECT [nid] FROM {node} WHERE [nid] > :nid ORDER BY [nid] ASC", 0, $limit, [':nid' => $context['sandbox']['current_node']]);
   foreach ($result as $row) {
 
     // Here we actually perform our processing on the current node.
@@ -103,19 +102,23 @@ function callback_batch_operation($multiple_params, &$context) {
  * This callback may be specified in a batch to perform clean-up operations, or
  * to analyze the results of the batch operations.
  *
- * @param $success
+ * @param bool $success
  *   A boolean indicating whether the batch has completed successfully.
- * @param $results
+ * @param array $results
  *   The value set in $context['results'] by callback_batch_operation().
- * @param $operations
+ * @param array $operations
  *   If $success is FALSE, contains the operations that remained unprocessed.
+ * @param string $elapsed
+ *   A string representing the elapsed time for the batch process, e.g.,
+ *   '1 min 30 secs'.
  */
-function callback_batch_finished($success, $results, $operations) {
+function callback_batch_finished($success, $results, $operations, $elapsed) {
   if ($success) {
     // Here we do something meaningful with the results.
-    $message = t("@count items were processed.", [
+    $message = t("@count items were processed (@elapsed).", [
       '@count' => count($results),
-      ]);
+      '@elapsed' => $elapsed,
+    ]);
     $list = [
       '#theme' => 'item_list',
       '#items' => $results,
@@ -165,7 +168,7 @@ function hook_ajax_render_alter(array &$data) {
  * $form_state->getFormObject()->getEntity().
  *
  * Implementations are responsible for adding cache contexts/tags/max-age as
- * needed. See https://www.drupal.org/developing/api/8/cache.
+ * needed. See https://www.drupal.org/docs/8/api/cache-api/cache-api.
  *
  * In addition to hook_form_alter(), which is called for all forms, there are
  * two more specific form hooks available. The first,
@@ -183,32 +186,33 @@ function hook_ajax_render_alter(array &$data) {
  * hook_form_FORM_ID_alter(). So, for each module, the more general hooks are
  * called first followed by the more specific.
  *
- * @param $form
+ * @param array $form
  *   Nested array of form elements that comprise the form.
- * @param $form_state
+ * @param \Drupal\Core\Form\FormStateInterface $form_state
  *   The current state of the form. The arguments that
  *   \Drupal::formBuilder()->getForm() was originally called with are available
  *   in the array $form_state->getBuildInfo()['args'].
- * @param $form_id
- *   String representing the name of the form itself. Typically this is the
- *   name of the function that generated the form.
+ * @param string $form_id
+ *   A string that is the unique ID of the form, set by
+ *   Drupal\Core\Form\FormInterface::getFormId().
  *
  * @see hook_form_BASE_FORM_ID_alter()
  * @see hook_form_FORM_ID_alter()
  *
  * @ingroup form_api
  */
-function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id): void {
   if (isset($form['type']) && $form['type']['#value'] . '_node_settings' == $form_id) {
-    $upload_enabled_types = \Drupal::config('mymodule.settings')->get('upload_enabled_types');
+    $upload_enabled_types = \Drupal::config('my_module.settings')->get('upload_enabled_types');
     $form['workflow']['upload_' . $form['type']['#value']] = [
       '#type' => 'radios',
       '#title' => t('Attachments'),
       '#default_value' => in_array($form['type']['#value'], $upload_enabled_types) ? 1 : 0,
       '#options' => [t('Disabled'), t('Enabled')],
     ];
-    // Add a custom submit handler to save the array of types back to the config file.
-    $form['actions']['submit']['#submit'][] = 'mymodule_upload_enabled_types_submit';
+    // Add a custom submit handler to save the array of types back to the config
+    // file.
+    $form['actions']['submit']['#submit'][] = 'my_module_upload_enabled_types_submit';
   }
 }
 
@@ -216,23 +220,29 @@ function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_stat
  * Provide a form-specific alteration instead of the global hook_form_alter().
  *
  * Implementations are responsible for adding cache contexts/tags/max-age as
- * needed. See https://www.drupal.org/developing/api/8/cache.
+ * needed. See https://www.drupal.org/docs/8/api/cache-api/cache-api.
  *
  * Modules can implement hook_form_FORM_ID_alter() to modify a specific form,
  * rather than implementing hook_form_alter() and checking the form ID, or
  * using long switch statements to alter multiple forms.
  *
- * Form alter hooks are called in the following order: hook_form_alter(),
- * hook_form_BASE_FORM_ID_alter(), hook_form_FORM_ID_alter(). See
- * hook_form_alter() for more details.
+ * The call order is as follows: all existing form alter functions are called
+ * for module A, then all for module B, etc., followed by all for any base
+ * theme(s), and finally for the theme itself. The module order is determined
+ * by system weight, then by module name.
  *
- * @param $form
+ * Within each module, form alter hooks are called in the following order:
+ * first, hook_form_alter(); second, hook_form_BASE_FORM_ID_alter(); third,
+ * hook_form_FORM_ID_alter(). So, for each module, the more general hooks are
+ * called first followed by the more specific.
+ *
+ * @param array $form
  *   Nested array of form elements that comprise the form.
- * @param $form_state
+ * @param \Drupal\Core\Form\FormStateInterface $form_state
  *   The current state of the form. The arguments that
  *   \Drupal::formBuilder()->getForm() was originally called with are available
  *   in the array $form_state->getBuildInfo()['args'].
- * @param $form_id
+ * @param string $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
  *
@@ -242,7 +252,7 @@ function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_stat
  *
  * @ingroup form_api
  */
-function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id): void {
   // Modification for the form with the given form ID goes here. For example, if
   // FORM_ID is "user_register_form" this code would run only on the user
   // registration form.
@@ -259,7 +269,7 @@ function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $f
  * Provide a form-specific alteration for shared ('base') forms.
  *
  * Implementations are responsible for adding cache contexts/tags/max-age as
- * needed. See https://www.drupal.org/developing/api/8/cache.
+ * needed. See https://www.drupal.org/docs/8/api/cache-api/cache-api.
  *
  * By default, when \Drupal::formBuilder()->getForm() is called, Drupal looks
  * for a function with the same name as the form ID, and uses that function to
@@ -274,15 +284,21 @@ function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $f
  * one exists) check the $form_state. The base form ID is stored under
  * $form_state->getBuildInfo()['base_form_id'].
  *
- * Form alter hooks are called in the following order: hook_form_alter(),
- * hook_form_BASE_FORM_ID_alter(), hook_form_FORM_ID_alter(). See
- * hook_form_alter() for more details.
+ * The call order is as follows: all existing form alter functions are called
+ * for module A, then all for module B, etc., followed by all for any base
+ * theme(s), and finally for the theme itself. The module order is determined
+ * by system weight, then by module name.
  *
- * @param $form
+ * Within each module, form alter hooks are called in the following order:
+ * first, hook_form_alter(); second, hook_form_BASE_FORM_ID_alter(); third,
+ * hook_form_FORM_ID_alter(). So, for each module, the more general hooks are
+ * called first followed by the more specific.
+ *
+ * @param array $form
  *   Nested array of form elements that comprise the form.
- * @param $form_state
+ * @param \Drupal\Core\Form\FormStateInterface $form_state
  *   The current state of the form.
- * @param $form_id
+ * @param string $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
  *
@@ -292,7 +308,7 @@ function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $f
  *
  * @ingroup form_api
  */
-function hook_form_BASE_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+function hook_form_BASE_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id): void {
   // Modification for the form with the given BASE_FORM_ID goes here. For
   // example, if BASE_FORM_ID is "node_form", this code would run on every
   // node form, regardless of node type.
@@ -311,7 +327,7 @@ function hook_form_BASE_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterfa
  * Called by batch_process() to allow modules to alter a batch before it is
  * processed.
  *
- * @param $batch
+ * @param array $batch
  *   The associative array of batch information. See batch_set() for details on
  *   what this could contain.
  *

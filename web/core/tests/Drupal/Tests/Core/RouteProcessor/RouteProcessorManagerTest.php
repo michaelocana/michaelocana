@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\RouteProcessor;
 
 use Drupal\Core\Cache\Cache;
@@ -21,14 +23,19 @@ class RouteProcessorManagerTest extends UnitTestCase {
    */
   protected $processorManager;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+
     $this->processorManager = new RouteProcessorManager();
   }
 
   /**
    * Tests the Route process manager functionality.
    */
-  public function testRouteProcessorManager() {
+  public function testRouteProcessorManager(): void {
     $route = new Route('');
     $parameters = ['test' => 'test'];
     $route_name = 'test_name';
@@ -61,6 +68,7 @@ class RouteProcessorManagerTest extends UnitTestCase {
    *   The parameters to use in mock with() expectation.
    *
    * @return \Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface|\PHPUnit\Framework\MockObject\MockObject
+   *   The mock processor object.
    */
   protected function getMockProcessor($route_name, $route, $parameters) {
     $processor = $this->createMock('Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface');

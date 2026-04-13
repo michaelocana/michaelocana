@@ -1,9 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Datetime;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\language\Entity\ConfigurableLanguage;
+
+// cspell:ignore marzo
 
 /**
  * Tests date formatting.
@@ -16,7 +20,7 @@ class DateFormatterTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['language', 'system'];
+  protected static $modules = ['language', 'system'];
 
   /**
    * Arbitrary langcode for a custom language.
@@ -26,7 +30,7 @@ class DateFormatterTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installConfig(['system']);
@@ -51,7 +55,7 @@ class DateFormatterTest extends KernelTestBase {
    *
    * @covers ::format
    */
-  public function testFormat() {
+  public function testFormat(): void {
     /** @var \Drupal\Core\Datetime\DateFormatterInterface $formatter */
     $formatter = $this->container->get('date.formatter');
     /** @var \Drupal\Core\Language\LanguageManagerInterface $language_manager */
@@ -64,7 +68,7 @@ class DateFormatterTest extends KernelTestBase {
     $this->assertSame('\\domingo, 25-Mar-07 17:00:00 PDT', $formatter->format($timestamp, 'custom', '\\\\l, d-M-y H:i:s T', 'America/Los_Angeles', self::LANGCODE), 'Test format containing backslash character.');
     $this->assertSame('\\l, 25-Mar-07 17:00:00 PDT', $formatter->format($timestamp, 'custom', '\\\\\\l, d-M-y H:i:s T', 'America/Los_Angeles', self::LANGCODE), 'Test format containing backslash followed by escaped format string.');
     $this->assertSame('Monday, 26-Mar-07 01:00:00 BST', $formatter->format($timestamp, 'custom', 'l, d-M-y H:i:s T', 'Europe/London', 'en'), 'Test a different time zone.');
-    $this->assertSame('Thu, 01/01/1970 - 00:00', $formatter->format(0, 'custom', '', 'UTC', 'en'), 'Test custom format with empty string.');
+    $this->assertSame('Thu, 1 Jan 1970 - 00:00', $formatter->format(0, 'custom', '', 'UTC', 'en'), 'Test custom format with empty string.');
 
     // Make sure we didn't change the configuration override language.
     $this->assertSame('en', $language_manager->getConfigOverrideLanguage()->getId(), 'Configuration override language not disturbed,');
@@ -108,6 +112,28 @@ class DateFormatterTest extends KernelTestBase {
     // HTML is not escaped by the date formatter, it must be escaped later.
     $this->assertSame("<script>alert('2007');</script>", $formatter->format($timestamp, 'custom', '\<\s\c\r\i\p\t\>\a\l\e\r\t\(\'Y\'\)\;\<\/\s\c\r\i\p\t\>'), 'Script tags not removed from dates.');
     $this->assertSame('<em>2007</em>', $formatter->format($timestamp, 'custom', '\<\e\m\>Y\<\/\e\m\>'), 'Em tags are not removed from dates.');
+  }
+
+  /**
+   * Tests that an RFC2822 formatted date always returns an English string.
+   *
+   * @see http://www.faqs.org/rfcs/rfc2822.html
+   *
+   * @covers ::format
+   */
+  public function testRfc2822DateFormat(): void {
+    $days_of_week_abbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    foreach ($days_of_week_abbr as $day_of_week_abbr) {
+      $this->setSetting('locale_custom_strings_' . self::LANGCODE, [
+        'Abbreviated weekday' => [$day_of_week_abbr => $this->randomString(3)],
+      ]);
+    }
+    /** @var \Drupal\Core\Datetime\DateFormatterInterface $formatter */
+    $formatter = $this->container->get('date.formatter');
+
+    // Check that RFC2822 format date is returned regardless of langcode.
+    $this->assertEquals('Sat, 02 Feb 2019 13:30:00 +0100', $formatter->format(1549110600, 'custom', 'r', 'Europe/Berlin', static::LANGCODE));
+    $this->assertEquals('Sat, 02 Feb 2019 13:30:00 +0100', $formatter->format(1549110600, 'custom', 'r', 'Europe/Berlin'));
   }
 
 }

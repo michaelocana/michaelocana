@@ -22,14 +22,14 @@ namespace Symfony\Component\HttpFoundation\Session;
 final class SessionUtils
 {
     /**
-     * Find the session header amongst the headers that are to be sent, remove it, and return
+     * Finds the session header amongst the headers that are to be sent, removes it, and returns
      * it so the caller can process it further.
      */
-    public static function popSessionCookie($sessionName, $sessionId)
+    public static function popSessionCookie(string $sessionName, #[\SensitiveParameter] string $sessionId): ?string
     {
         $sessionCookie = null;
-        $sessionCookiePrefix = sprintf(' %s=', urlencode($sessionName));
-        $sessionCookieWithId = sprintf('%s%s;', $sessionCookiePrefix, urlencode($sessionId));
+        $sessionCookiePrefix = \sprintf(' %s=', urlencode($sessionName));
+        $sessionCookieWithId = \sprintf('%s%s;', $sessionCookiePrefix, urlencode($sessionId));
         $otherCookies = [];
         foreach (headers_list() as $h) {
             if (0 !== stripos($h, 'Set-Cookie:')) {

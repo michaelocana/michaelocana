@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Views;
 
 use Drupal\Core\Form\FormState;
@@ -21,7 +23,7 @@ class ArgumentValidateTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'path_alias',
     'user_test_views',
@@ -42,18 +44,18 @@ class ArgumentValidateTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
     $this->installEntitySchema('user');
     $this->installEntitySchema('node');
     $this->account = $this->createUser();
-    ViewTestData::createTestViews(get_class($this), ['user_test_views']);
+    ViewTestData::createTestViews(static::class, ['user_test_views']);
   }
 
   /**
    * Tests the User (ID) argument validator.
    */
-  public function testArgumentValidateUserUid() {
+  public function testArgumentValidateUserUid(): void {
     $view = Views::getView('test_view_argument_validate_user');
     $this->executeView($view);
 
@@ -73,7 +75,7 @@ class ArgumentValidateTest extends ViewsKernelTestBase {
   /**
    * Tests the UserName argument validator.
    */
-  public function testArgumentValidateUserName() {
+  public function testArgumentValidateUserName(): void {
     $view = Views::getView('test_view_argument_validate_username');
     $this->executeView($view);
 

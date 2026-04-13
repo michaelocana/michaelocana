@@ -2,15 +2,15 @@
 
 namespace Drupal\field\Plugin\migrate\process\d7;
 
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
 
 /**
- * @MigrateProcessPlugin(
- *   id = "d7_field_settings"
- * )
+ * Determines the field settings values for a field.
  */
+#[MigrateProcess('d7_field_settings')]
 class FieldSettings extends ProcessPluginBase {
 
   /**
@@ -39,6 +39,10 @@ class FieldSettings extends ProcessPluginBase {
 
       case 'taxonomy_term_reference':
         $value['target_type'] = 'taxonomy_term';
+        break;
+
+      case 'user_reference':
+        $value['target_type'] = 'user';
         break;
 
       default:

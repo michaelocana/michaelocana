@@ -35,11 +35,11 @@ class ImageToolkit extends Plugin {
   /**
    * The title of the image toolkit.
    *
-   * The string should be wrapped in a @Translation().
-   *
-   * @ingroup plugin_translatable
+   * The string should be wrapped in @Translation().
    *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $title;
 

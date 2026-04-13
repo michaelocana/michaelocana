@@ -3,7 +3,7 @@
 namespace Drupal\Core\Routing\Enhancer;
 
 use Drupal\Core\Routing\EnhancerInterface;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
+use Drupal\Core\Routing\RouteObjectInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 
@@ -19,12 +19,13 @@ class EntityRevisionRouteEnhancer implements EnhancerInterface {
    *   The current route.
    *
    * @return bool
+   *   TRUE if the enhancer runs on the current route, FALSE otherwise.
    */
   protected function applies(Route $route) {
     // Check whether there is any entity revision parameter.
     $parameters = $route->getOption('parameters') ?: [];
     foreach ($parameters as $info) {
-      if (isset($info['type']) && strpos($info['type'], 'entity_revision:') === 0) {
+      if (isset($info['type']) && str_starts_with($info['type'], 'entity_revision:')) {
         return TRUE;
       }
     }
@@ -44,7 +45,7 @@ class EntityRevisionRouteEnhancer implements EnhancerInterface {
     $options = $route->getOptions();
     if (isset($options['parameters'])) {
       foreach ($options['parameters'] as $name => $details) {
-        if (!empty($details['type']) && strpos($details['type'], 'entity_revision:') !== FALSE) {
+        if (!empty($details['type']) && str_contains($details['type'], 'entity_revision:')) {
           $defaults['_entity_revision'] = $defaults[$name];
           break;
         }

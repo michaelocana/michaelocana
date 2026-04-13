@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\options\Functional;
 
 use Drupal\field\Entity\FieldConfig;
@@ -7,18 +9,16 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\Tests\field\Functional\FieldTestBase;
 
 /**
- * Tests option fields can be updated and created through config synchronization.
+ * Tests option fields can be updated and created by config synchronization.
  *
  * @group options
  */
 class OptionsFloatFieldImportTest extends FieldTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'options',
     'field_ui',
@@ -31,7 +31,10 @@ class OptionsFloatFieldImportTest extends FieldTestBase {
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create test user.
@@ -52,7 +55,7 @@ class OptionsFloatFieldImportTest extends FieldTestBase {
   /**
    * Tests that importing list_float fields works.
    */
-  public function testImport() {
+  public function testImport(): void {
     $field_name = 'field_options_float';
     $type = 'options_install_test';
 
@@ -60,34 +63,40 @@ class OptionsFloatFieldImportTest extends FieldTestBase {
     // necessary configuration for this test is created by installing that
     // module.
     $field_storage = FieldStorageConfig::loadByName('node', $field_name);
-    $this->assertIdentical($field_storage->getSetting('allowed_values'), $array = ['0' => 'Zero', '0.5' => 'Point five']);
+    $this->assertSame($array = ['0' => 'Zero', '0.5' => 'Point five'], $field_storage->getSetting('allowed_values'));
 
-    $admin_path = 'admin/structure/types/manage/' . $type . '/fields/node.' . $type . '.' . $field_name . '/storage';
+    $admin_path = 'admin/structure/types/manage/' . $type . '/fields/node.' . $type . '.' . $field_name;
 
     // Export active config to sync.
     $this->copyConfig($this->container->get('config.storage'), $this->container->get('config.storage.sync'));
 
     // Set the active to not use dots in the allowed values key names.
-    $edit = ['settings[allowed_values]' => "0|Zero\n1|One"];
-    $this->drupalPostForm($admin_path, $edit, t('Save field settings'));
+    $edit = [
+      'field_storage[subform][settings][allowed_values][table][0][item][key]' => 0,
+      'field_storage[subform][settings][allowed_values][table][0][item][label]' => 'Zero',
+      'field_storage[subform][settings][allowed_values][table][1][item][key]' => 1,
+      'field_storage[subform][settings][allowed_values][table][1][item][label]' => 'One',
+    ];
+    $this->drupalGet($admin_path);
+    $this->submitForm($edit, 'Save');
     $field_storage = FieldStorageConfig::loadByName('node', $field_name);
-    $this->assertIdentical($field_storage->getSetting('allowed_values'), $array = ['0' => 'Zero', '1' => 'One']);
+    $this->assertSame($array = ['0' => 'Zero', '1' => 'One'], $field_storage->getSetting('allowed_values'));
 
     // Import configuration with dots in the allowed values key names. This
     // tests \Drupal\Core\Config\Entity\ConfigEntityStorage::importUpdate().
     $this->drupalGet('admin/config/development/configuration');
-    $this->drupalPostForm(NULL, [], t('Import all'));
+    $this->submitForm([], 'Import all');
     $field_storage = FieldStorageConfig::loadByName('node', $field_name);
-    $this->assertIdentical($field_storage->getSetting('allowed_values'), $array = ['0' => 'Zero', '0.5' => 'Point five']);
+    $this->assertSame($array = ['0' => 'Zero', '0.5' => 'Point five'], $field_storage->getSetting('allowed_values'));
 
     // Delete field to test creation. This tests
     // \Drupal\Core\Config\Entity\ConfigEntityStorage::importCreate().
     FieldConfig::loadByName('node', $type, $field_name)->delete();
 
     $this->drupalGet('admin/config/development/configuration');
-    $this->drupalPostForm(NULL, [], t('Import all'));
+    $this->submitForm([], 'Import all');
     $field_storage = FieldStorageConfig::loadByName('node', $field_name);
-    $this->assertIdentical($field_storage->getSetting('allowed_values'), $array = ['0' => 'Zero', '0.5' => 'Point five']);
+    $this->assertSame($array = ['0' => 'Zero', '0.5' => 'Point five'], $field_storage->getSetting('allowed_values'));
   }
 
 }

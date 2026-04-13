@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\jsonapi\Functional;
 
+use Drupal\jsonapi\JsonApiSpec;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
@@ -10,6 +13,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\Node;
 use Drupal\user\Entity\User;
+use Drupal\user\UserInterface;
 use GuzzleHttp\RequestOptions;
 
 /**
@@ -19,10 +23,12 @@ use GuzzleHttp\RequestOptions;
  */
 class UserTest extends ResourceTestBase {
 
+  const BATCH_TEST_NODE_COUNT = 15;
+
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user', 'jsonapi_test_user'];
+  protected static $modules = ['user', 'jsonapi_test_user', 'node'];
 
   /**
    * {@inheritdoc}
@@ -76,7 +82,7 @@ class UserTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUpAuthorization($method) {
+  protected function setUpAuthorization($method): void {
     // @todo Remove this in
     $this->grantPermissionsToTestedRole(['access content']);
 
@@ -122,16 +128,25 @@ class UserTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getExpectedDocument() {
+  protected function doTestDeleteIndividual(): void {
+    $this->config('user.settings')->set('cancel_method', 'user_cancel_delete')->save(TRUE);
+
+    parent::doTestDeleteIndividual();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getExpectedDocument(): array {
     $self_url = Url::fromUri('base:/jsonapi/user/user/' . $this->entity->uuid())->setAbsolute()->toString(TRUE)->getGeneratedUrl();
     return [
       'jsonapi' => [
         'meta' => [
           'links' => [
-            'self' => ['href' => 'http://jsonapi.org/format/1.0/'],
+            'self' => ['href' => JsonApiSpec::SUPPORTED_SPECIFICATION_PERMALINK],
           ],
         ],
-        'version' => '1.0',
+        'version' => JsonApiSpec::SUPPORTED_SPECIFICATION_VERSION,
       ],
       'links' => [
         'self' => ['href' => $self_url],
@@ -158,9 +173,9 @@ class UserTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getExpectedCacheContexts(array $sparse_fieldset = NULL) {
+  protected function getExpectedCacheContexts(?array $sparse_fieldset = NULL) {
     $cache_contexts = parent::getExpectedCacheContexts($sparse_fieldset);
-    if ($sparse_fieldset === NULL || in_array('mail', $sparse_fieldset)) {
+    if ($sparse_fieldset === NULL || !empty(array_intersect(['mail', 'display_name'], $sparse_fieldset))) {
       $cache_contexts = Cache::mergeContexts($cache_contexts, ['user']);
     }
     return $cache_contexts;
@@ -169,12 +184,27 @@ class UserTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getPostDocument() {
+  protected function getPostDocument(): array {
     return [
       'data' => [
         'type' => 'user--user',
         'attributes' => [
-          'name' => 'Dramallama',
+          'name' => 'Drama llama',
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getPatchDocument() {
+    return [
+      'data' => [
+        'id' => $this->entity->uuid(),
+        'type' => 'user--user',
+        'attributes' => [
+          'name' => 'Drama llama 2',
         ],
       ],
     ];
@@ -202,7 +232,7 @@ class UserTest extends ResourceTestBase {
   /**
    * Tests PATCHing security-sensitive base fields of the logged in account.
    */
-  public function testPatchDxForSecuritySensitiveBaseFields() {
+  public function testPatchDxForSecuritySensitiveBaseFields(): void {
     // @todo Remove line below in favor of commented line in https://www.drupal.org/project/drupal/issues/2878463.
     $url = Url::fromRoute(sprintf('jsonapi.user--user.individual'), ['entity' => $this->account->uuid()]);
     /* $url = $this->account->toUrl('jsonapi'); */
@@ -215,7 +245,7 @@ class UserTest extends ResourceTestBase {
     $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
 
     $response = $this->request('GET', $url, $request_options);
-    $original_normalization = Json::decode((string) $response->getBody());
+    $original_normalization = $this->getDocumentFromResponse($response);
 
     // Test case 1: changing email.
     $normalization = $original_normalization;
@@ -248,7 +278,7 @@ class UserTest extends ResourceTestBase {
     $this->assertResourceResponse(200, FALSE, $response);
 
     // Test case 2: changing password.
-    $normalization = Json::decode((string) $response->getBody());
+    $normalization = $this->getDocumentFromResponse($response);
     $normalization['data']['attributes']['mail'] = 'new-email@example.com';
     $new_password = $this->randomString();
     $normalization['data']['attributes']['pass']['value'] = $new_password;
@@ -276,7 +306,7 @@ class UserTest extends ResourceTestBase {
     $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
 
     // Test case 3: changing name.
-    $normalization = Json::decode((string) $response->getBody());
+    $normalization = $this->getDocumentFromResponse($response);
     $normalization['data']['attributes']['mail'] = 'new-email@example.com';
     $normalization['data']['attributes']['pass']['existing'] = $new_password;
     $normalization['data']['attributes']['name'] = 'Cooler Llama';
@@ -303,8 +333,10 @@ class UserTest extends ResourceTestBase {
    *   The username to log in with.
    * @param string $password
    *   The password to log in with.
+   *
+   * @internal
    */
-  protected function assertRpcLogin($username, $password) {
+  protected function assertRpcLogin(string $username, string $password): void {
     $request_body = [
       'name' => $username,
       'pass' => $password,
@@ -320,7 +352,7 @@ class UserTest extends ResourceTestBase {
   /**
    * Tests PATCHing security-sensitive base fields to change other users.
    */
-  public function testPatchSecurityOtherUser() {
+  public function testPatchSecurityOtherUser(): void {
     // @todo Remove line below in favor of commented line in https://www.drupal.org/project/drupal/issues/2878463.
     $url = Url::fromRoute(sprintf('jsonapi.user--user.individual'), ['entity' => $this->account->uuid()]);
     /* $url = $this->account->toUrl('jsonapi'); */
@@ -361,10 +393,10 @@ class UserTest extends ResourceTestBase {
   /**
    * Tests GETting privacy-sensitive base fields.
    */
-  public function testGetMailFieldOnlyVisibleToOwner() {
+  public function testGetMailFieldOnlyVisibleToOwner(): void {
     // Create user B, with the same roles (and hence permissions) as user A.
     $user_a = $this->account;
-    $pass = user_password();
+    $pass = \Drupal::service('password_generator')->generate();
     $user_b = User::create([
       'name' => 'sibling-of-' . $user_a->getAccountName(),
       'mail' => 'sibling-of-' . $user_a->getAccountName() . '@example.com',
@@ -388,11 +420,11 @@ class UserTest extends ResourceTestBase {
 
     // Viewing user A as user A: "mail" field is accessible.
     $response = $this->request('GET', $user_a_url, $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertArrayHasKey('mail', $doc['data']['attributes']);
     // Also when looking at the collection.
     $response = $this->request('GET', $collection_url, $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertSame($user_a->uuid(), $doc['data']['2']['id']);
     $this->assertArrayHasKey('mail', $doc['data'][2]['attributes'], "Own user--user resource's 'mail' field is visible.");
     $this->assertSame($user_b->uuid(), $doc['data'][count($doc['data']) - 1]['id']);
@@ -403,21 +435,33 @@ class UserTest extends ResourceTestBase {
     $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
     // Viewing user A as user B: "mail" field should be inaccessible.
     $response = $this->request('GET', $user_a_url, $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertArrayNotHasKey('mail', $doc['data']['attributes']);
     // Also when looking at the collection.
     $response = $this->request('GET', $collection_url, $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertSame($user_a->uuid(), $doc['data']['2']['id']);
     $this->assertArrayNotHasKey('mail', $doc['data'][2]['attributes']);
     $this->assertSame($user_b->uuid(), $doc['data'][count($doc['data']) - 1]['id']);
     $this->assertArrayHasKey('mail', $doc['data'][count($doc['data']) - 1]['attributes']);
+
+    // Now grant permission to view user email addresses and verify.
+    $this->grantPermissionsToTestedRole(['view user email addresses']);
+    // Viewing user A as user B: "mail" field should be accessible.
+    $response = $this->request('GET', $user_a_url, $request_options);
+    $doc = $this->getDocumentFromResponse($response);
+    $this->assertArrayHasKey('mail', $doc['data']['attributes']);
+    // Also when looking at the collection.
+    $response = $this->request('GET', $collection_url, $request_options);
+    $doc = $this->getDocumentFromResponse($response);
+    $this->assertSame($user_a->uuid(), $doc['data']['2']['id']);
+    $this->assertArrayHasKey('mail', $doc['data'][2]['attributes']);
   }
 
   /**
-   * Test good error DX when trying to filter users by role.
+   * Tests good error DX when trying to filter users by role.
    */
-  public function testQueryInvolvingRoles() {
+  public function testQueryInvolvingRoles(): void {
     $this->setUpAuthorization('GET');
 
     $collection_url = Url::fromRoute('jsonapi.user--user.collection', [], ['query' => ['filter[roles.id][value]' => 'e9b1de3f-9517-4c27-bef0-0301229de792']]);
@@ -429,21 +473,21 @@ class UserTest extends ResourceTestBase {
     $this->grantPermissionsToTestedRole(['administer users']);
 
     $response = $this->request('GET', $collection_url, $request_options);
-    $expected_cache_contexts = ['url.path', 'url.query_args:filter', 'url.site'];
-    $this->assertResourceErrorResponse(400, "Filtering on config entities is not supported by Drupal's entity API. You tried to filter on a Role config entity.", $collection_url, $response, FALSE, ['4xx-response', 'http_response'], $expected_cache_contexts, FALSE, 'MISS');
+    $expected_cache_contexts = ['url.path', 'url.query_args', 'url.site'];
+    $this->assertResourceErrorResponse(400, "Filtering on config entities is not supported by Drupal's entity API. You tried to filter on a Role config entity.", $collection_url, $response, FALSE, ['4xx-response', 'http_response'], $expected_cache_contexts, NULL, 'MISS');
   }
 
   /**
    * Tests that the collection contains the anonymous user.
    */
-  public function testCollectionContainsAnonymousUser() {
+  public function testCollectionContainsAnonymousUser(): void {
     $url = Url::fromRoute('jsonapi.user--user.collection', [], ['query' => ['sort' => 'drupal_internal__uid']]);
     $request_options = [];
     $request_options[RequestOptions::HEADERS]['Accept'] = 'application/vnd.api+json';
     $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
 
     $response = $this->request('GET', $url, $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
 
     $this->assertCount(4, $doc['data']);
     $this->assertSame(User::load(0)->uuid(), $doc['data'][0]['id']);
@@ -453,7 +497,7 @@ class UserTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public function testCollectionFilterAccess() {
+  public function testCollectionFilterAccess(): void {
     // Set up data model.
     $this->assertTrue($this->container->get('module_installer')->install(['node'], TRUE), 'Installed modules.');
     FieldStorageConfig::create([
@@ -501,58 +545,58 @@ class UserTest extends ResourceTestBase {
     // ?filter[uid.id]=OWN_UUID requires no permissions: 1 result.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.id]' => $this->account->uuid()]), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(1, $doc['data']);
     $this->assertSame($node_auth_1->uuid(), $doc['data'][0]['id']);
     // ?filter[uid.id]=ANONYMOUS_UUID: 0 results.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.id]' => User::load(0)->uuid()]), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(0, $doc['data']);
     // ?filter[uid.name]=A: 0 results.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.name]' => 'A']), $request_options);
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(0, $doc['data']);
     // /jsonapi/user/user?filter[field_favorite_animal]: 0 results.
     $response = $this->request('GET', $favorite_animal_test_url, $request_options);
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertSame(200, $response->getStatusCode());
-    $doc = Json::decode((string) $response->getBody());
     $this->assertCount(0, $doc['data']);
     // Grant "view" permission.
     $this->grantPermissionsToTestedRole(['access user profiles']);
     // ?filter[uid.id]=ANONYMOUS_UUID: 0 results.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.id]' => User::load(0)->uuid()]), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(0, $doc['data']);
     // ?filter[uid.name]=A: 1 result since user A is active.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.name]' => 'A']), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(1, $doc['data']);
     $this->assertSame($node_a->uuid(), $doc['data'][0]['id']);
     // ?filter[uid.name]=B: 0 results since user B is blocked.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.name]' => 'B']), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(0, $doc['data']);
     // /jsonapi/user/user?filter[field_favorite_animal]: 0 results.
     $response = $this->request('GET', $favorite_animal_test_url, $request_options);
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertSame(200, $response->getStatusCode());
-    $doc = Json::decode((string) $response->getBody());
     $this->assertCount(0, $doc['data']);
     // Grant "admin" permission.
     $this->grantPermissionsToTestedRole(['administer users']);
     // ?filter[uid.name]=B: 1 result.
     $response = $this->request('GET', $collection_url->setOption('query', ['filter[uid.name]' => 'B']), $request_options);
     $this->assertSession()->responseHeaderContains('X-Drupal-Cache-Contexts', 'user.permissions');
-    $doc = Json::decode((string) $response->getBody());
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertCount(1, $doc['data']);
     $this->assertSame($node_b->uuid(), $doc['data'][0]['id']);
     // /jsonapi/user/user?filter[field_favorite_animal]: 1 result.
     $response = $this->request('GET', $favorite_animal_test_url, $request_options);
+    $doc = $this->getDocumentFromResponse($response);
     $this->assertSame(200, $response->getStatusCode());
-    $doc = Json::decode((string) $response->getBody());
     $this->assertCount(1, $doc['data']);
     $this->assertSame($user_b->uuid(), $doc['data'][0]['id']);
   }
@@ -560,7 +604,7 @@ class UserTest extends ResourceTestBase {
   /**
    * Tests users with altered display names.
    */
-  public function testResaveAccountName() {
+  public function testResaveAccountName(): void {
     $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
     $this->setUpAuthorization('PATCH');
 
@@ -586,6 +630,176 @@ class UserTest extends ResourceTestBase {
   }
 
   /**
+   * Tests if JSON:API respects user.settings.cancel_method: user_cancel_block.
+   */
+  public function testDeleteRespectsUserCancelBlock(): void {
+    $cancel_method = 'user_cancel_block';
+    $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
+    $this->config('user.settings')->set('cancel_method', $cancel_method)->save(TRUE);
+
+    $account = $this->createAnotherEntity($cancel_method);
+    $node = $this->drupalCreateNode(['uid' => $account->id()]);
+
+    $this->sendDeleteRequestForUser($account, $cancel_method);
+
+    $user_storage = $this->container->get('entity_type.manager')
+      ->getStorage('user');
+    $user_storage->resetCache([$account->id()]);
+    $account = $user_storage->load($account->id());
+
+    $this->assertNotNull($account, 'User is not deleted after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+    $this->assertTrue($account->isBlocked(), 'User is blocked after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+
+    $node_storage = $this->container->get('entity_type.manager')->getStorage('node');
+    $node_storage->resetCache([$node->id()]);
+    $test_node = $node_storage->load($node->id());
+    $this->assertNotNull($test_node, 'Node of the user is not deleted.');
+    $this->assertTrue($test_node->isPublished(), 'Node of the user is published.');
+    $test_node = $node_storage->loadRevision($node->getRevisionId());
+    $this->assertTrue($test_node->isPublished(), 'Node revision of the user is published.');
+  }
+
+  /**
+   * Tests if JSON:API respects user.settings.cancel_method: user_cancel_block_unpublish.
+   */
+  public function testDeleteRespectsUserCancelBlockUnpublish(): void {
+    $cancel_method = 'user_cancel_block_unpublish';
+    $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
+    $this->config('user.settings')->set('cancel_method', $cancel_method)->save(TRUE);
+
+    $account = $this->createAnotherEntity($cancel_method);
+    $node = $this->drupalCreateNode(['uid' => $account->id()]);
+
+    $this->sendDeleteRequestForUser($account, $cancel_method);
+
+    $user_storage = $this->container->get('entity_type.manager')
+      ->getStorage('user');
+    $user_storage->resetCache([$account->id()]);
+    $account = $user_storage->load($account->id());
+
+    $this->assertNotNull($account, 'User is not deleted after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+    $this->assertTrue($account->isBlocked(), 'User is blocked after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+
+    $node_storage = $this->container->get('entity_type.manager')->getStorage('node');
+    $node_storage->resetCache([$node->id()]);
+    $test_node = $node_storage->load($node->id());
+    $this->assertNotNull($test_node, 'Node of the user is not deleted.');
+    $this->assertFalse($test_node->isPublished(), 'Node of the user is no longer published.');
+    $test_node = $node_storage->loadRevision($node->getRevisionId());
+    $this->assertFalse($test_node->isPublished(), 'Node revision of the user is no longer published.');
+  }
+
+  /**
+   * Tests if JSON:API respects user.settings.cancel_method: user_cancel_block_unpublish.
+   *
+   * @group jsonapi
+   */
+  public function testDeleteRespectsUserCancelBlockUnpublishAndProcessesBatches(): void {
+    $cancel_method = 'user_cancel_block_unpublish';
+    $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
+    $this->config('user.settings')->set('cancel_method', $cancel_method)->save(TRUE);
+
+    $account = $this->createAnotherEntity($cancel_method);
+
+    $nodeCount = self::BATCH_TEST_NODE_COUNT;
+    $node_ids = [];
+    $nodes = [];
+    while ($nodeCount-- > 0) {
+      $node = $this->drupalCreateNode(['uid' => $account->id()]);
+      $nodes[] = $node;
+      $node_ids[] = $node->id();
+    }
+
+    $this->sendDeleteRequestForUser($account, $cancel_method);
+
+    $user_storage = $this->container->get('entity_type.manager')
+      ->getStorage('user');
+    $user_storage->resetCache([$account->id()]);
+    $account = $user_storage->load($account->id());
+
+    $this->assertNotNull($account, 'User is not deleted after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+    $this->assertTrue($account->isBlocked(), 'User is blocked after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+
+    $node_storage = $this->container->get('entity_type.manager')->getStorage('node');
+    $node_storage->resetCache($node_ids);
+
+    $test_nodes = $node_storage->loadMultiple($node_ids);
+
+    $this->assertCount(self::BATCH_TEST_NODE_COUNT, $test_nodes, 'Nodes of the user are not deleted.');
+
+    foreach ($test_nodes as $test_node) {
+      $this->assertFalse($test_node->isPublished(), 'Node of the user is no longer published.');
+    }
+
+    foreach ($nodes as $node) {
+      $test_node = $node_storage->loadRevision($node->getRevisionId());
+      $this->assertFalse($test_node->isPublished(), 'Node revision of the user is no longer published.');
+    }
+  }
+
+  /**
+   * Tests if JSON:API respects user.settings.cancel_method: user_cancel_reassign.
+   */
+  public function testDeleteRespectsUserCancelReassign(): void {
+    $cancel_method = 'user_cancel_reassign';
+    $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
+    $this->config('user.settings')->set('cancel_method', $cancel_method)->save(TRUE);
+
+    $account = $this->createAnotherEntity($cancel_method);
+    $node = $this->drupalCreateNode(['uid' => $account->id()]);
+
+    $this->sendDeleteRequestForUser($account, $cancel_method);
+
+    $user_storage = $this->container->get('entity_type.manager')
+      ->getStorage('user');
+    $user_storage->resetCache([$account->id()]);
+    $account = $user_storage->load($account->id());
+
+    $this->assertNull($account, 'User is deleted after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+
+    $node_storage = $this->container->get('entity_type.manager')->getStorage('node');
+    $node_storage->resetCache([$node->id()]);
+    $test_node = $node_storage->load($node->id());
+    $this->assertNotNull($test_node, 'Node of the user is not deleted.');
+    $this->assertTrue($test_node->isPublished(), 'Node of the user is still published.');
+    $this->assertEquals(0, $test_node->getOwnerId(), 'Node of the user has been attributed to anonymous user.');
+    $test_node = $node_storage->loadRevision($node->getRevisionId());
+    $this->assertTrue($test_node->isPublished(), 'Node revision of the user is still published.');
+    $this->assertEquals(0, $test_node->getRevisionUser()->id(), 'Node revision of the user has been attributed to anonymous user.');
+  }
+
+  /**
+   * Tests if JSON:API respects user.settings.cancel_method: user_cancel_delete.
+   */
+  public function testDeleteRespectsUserCancelDelete(): void {
+    $cancel_method = 'user_cancel_delete';
+    $this->config('jsonapi.settings')->set('read_only', FALSE)->save(TRUE);
+    $this->config('user.settings')->set('cancel_method', $cancel_method)->save(TRUE);
+
+    $account = $this->createAnotherEntity($cancel_method);
+    $node = $this->drupalCreateNode(['uid' => $account->id()]);
+
+    $url = Url::fromRoute(sprintf('jsonapi.%s.individual', static::$resourceTypeName), ['entity' => $account->uuid()]);
+    $request_options = [];
+    $request_options[RequestOptions::HEADERS]['Accept'] = 'application/vnd.api+json';
+    $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
+    $this->setUpAuthorization('DELETE');
+    $response = $this->request('DELETE', $url, $request_options);
+    $this->assertResourceResponse(204, NULL, $response);
+
+    $node_storage = $this->container->get('entity_type.manager')->getStorage('node');
+    $user_storage = $this->container->get('entity_type.manager')->getStorage('user');
+
+    $user_storage->resetCache([$account->id()]);
+    $account = $user_storage->load($account->id());
+    $this->assertNull($account, 'User is deleted after JSON:API DELETE operation with user.settings.cancel_method: ' . $cancel_method);
+
+    $node_storage->resetCache([$node->id()]);
+    $test_node = $node_storage->load($node->id());
+    $this->assertNull($test_node, 'Node of the user is deleted.');
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function getModifiedEntityForPostTesting() {
@@ -606,6 +820,22 @@ class UserTest extends ResourceTestBase {
       return $document;
     }
     return parent::makeNormalizationInvalid($document, $entity_key);
+  }
+
+  /**
+   * @param \Drupal\user\UserInterface $account
+   *   The user account.
+   * @param string $cancel_method
+   *   The cancel method.
+   */
+  private function sendDeleteRequestForUser(UserInterface $account, string $cancel_method): void {
+    $url = Url::fromRoute(sprintf('jsonapi.%s.individual', static::$resourceTypeName), ['entity' => $account->uuid()]);
+    $request_options = [];
+    $request_options[RequestOptions::HEADERS]['Accept'] = 'application/vnd.api+json';
+    $request_options = NestedArray::mergeDeep($request_options, $this->getAuthenticationRequestOptions());
+    $this->setUpAuthorization('DELETE');
+    $response = $this->request('DELETE', $url, $request_options);
+    $this->assertResourceResponse(204, NULL, $response);
   }
 
 }

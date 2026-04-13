@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Component\Render;
 
 use Drupal\Component\Render\FormattableMarkup;
+use Drupal\TestTools\Extension\DeprecationBridge\ExpectDeprecationTrait;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  * @group utility
  */
 class FormattableMarkupTest extends TestCase {
+
+  use ExpectDeprecationTrait;
 
   /**
    * The error message of the last error in the error handler.
@@ -31,20 +36,20 @@ class FormattableMarkupTest extends TestCase {
    * @covers ::__toString
    * @covers ::jsonSerialize
    */
-  public function testToString() {
-    $string = 'Can I please have a @replacement';
+  public function testToString(): void {
+    $string = 'Can I have a @replacement';
     $formattable_string = new FormattableMarkup($string, ['@replacement' => 'kitten']);
     $text = (string) $formattable_string;
-    $this->assertEquals('Can I please have a kitten', $text);
+    $this->assertEquals('Can I have a kitten', $text);
     $text = $formattable_string->jsonSerialize();
-    $this->assertEquals('Can I please have a kitten', $text);
+    $this->assertEquals('Can I have a kitten', $text);
   }
 
   /**
    * @covers ::count
    */
-  public function testCount() {
-    $string = 'Can I please have a @replacement';
+  public function testCount(): void {
+    $string = 'Can I have a @replacement';
     $formattable_string = new FormattableMarkup($string, ['@replacement' => 'kitten']);
     $this->assertEquals(strlen($string), $formattable_string->count());
   }
@@ -61,7 +66,7 @@ class FormattableMarkupTest extends TestCase {
    * @param string $error_message
    *   The error message.
    */
-  public function errorHandler($error_number, $error_message) {
+  public function errorHandler($error_number, $error_message): void {
     $this->lastErrorNumber = $error_number;
     $this->lastErrorMessage = $error_message;
   }
@@ -70,8 +75,9 @@ class FormattableMarkupTest extends TestCase {
    * @covers ::__toString
    * @dataProvider providerTestUnexpectedPlaceholder
    */
-  public function testUnexpectedPlaceholder($string, $arguments, $error_number, $error_message) {
-    // We set a custom error handler because of https://github.com/sebastianbergmann/phpunit/issues/487
+  public function testUnexpectedPlaceholder($string, $arguments, $error_number, $error_message): void {
+    // We set a custom error handler because of
+    // https://github.com/sebastianbergmann/phpunit/issues/487
     set_error_handler([$this, 'errorHandler']);
     // We want this to trigger an error.
     $markup = new FormattableMarkup($string, $arguments);
@@ -88,14 +94,16 @@ class FormattableMarkupTest extends TestCase {
    * Data provider for FormattableMarkupTest::testUnexpectedPlaceholder().
    *
    * @return array
+   *   An array of test cases.
    */
-  public function providerTestUnexpectedPlaceholder() {
+  public static function providerTestUnexpectedPlaceholder() {
     return [
-      ['Non alpha starting character: ~placeholder', ['~placeholder' => 'replaced'], E_USER_ERROR, 'Invalid placeholder (~placeholder) in string: Non alpha starting character: ~placeholder'],
-      ['Alpha starting character: placeholder', ['placeholder' => 'replaced'], E_USER_DEPRECATED, 'Invalid placeholder (placeholder) in string: Alpha starting character: placeholder'],
+      ['Non alpha, non-allowed starting character: ~placeholder', ['~placeholder' => 'replaced'], E_USER_WARNING, 'Placeholders must begin with one of the following "@", ":" or "%", invalid placeholder (~placeholder) with string: "Non alpha, non-allowed starting character: ~placeholder"'],
+      ['Alpha starting character: placeholder', ['placeholder' => 'replaced'], NULL, ''],
       // Ensure that where the placeholder is located in the string is
       // irrelevant.
-      ['placeholder', ['placeholder' => 'replaced'], E_USER_DEPRECATED, 'Invalid placeholder (placeholder) in string: placeholder'],
+      ['placeholder', ['placeholder' => 'replaced'], NULL, ''],
+      ['No replacements', ['foo' => 'bar'], NULL, ''],
     ];
   }
 

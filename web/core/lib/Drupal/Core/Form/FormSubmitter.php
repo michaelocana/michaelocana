@@ -2,7 +2,7 @@
 
 namespace Drupal\Core\Form;
 
-use Drupal\Core\Installer\InstallerKernel;
+use Drupal\Core\EventSubscriber\RedirectResponseSubscriber;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -15,29 +15,20 @@ use Drupal\Core\Routing\UrlGeneratorInterface;
 class FormSubmitter implements FormSubmitterInterface {
 
   /**
-   * The URL generator.
+   * Constructs a new FormSubmitter.
    *
-   * @var \Drupal\Core\Routing\UrlGeneratorInterface
-   */
-  protected $urlGenerator;
-
-  /**
-   * The request stack.
-   *
-   * @var \Symfony\Component\HttpFoundation\RequestStack
-   */
-  protected $requestStack;
-
-  /**
-   * Constructs a new FormValidator.
-   *
-   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   * @param \Symfony\Component\HttpFoundation\RequestStack $requestStack
    *   The request stack.
-   * @param \Drupal\Core\Routing\UrlGeneratorInterface $url_generator
+   * @param \Drupal\Core\Routing\UrlGeneratorInterface $urlGenerator
+   *   The URL generator.
+   * @param \Drupal\Core\EventSubscriber\RedirectResponseSubscriber $redirectResponseSubscriber
+   *   The redirect response subscriber.
    */
-  public function __construct(RequestStack $request_stack, UrlGeneratorInterface $url_generator) {
-    $this->requestStack = $request_stack;
-    $this->urlGenerator = $url_generator;
+  public function __construct(
+    protected RequestStack $requestStack,
+    protected UrlGeneratorInterface $urlGenerator,
+    protected RedirectResponseSubscriber $redirectResponseSubscriber,
+  ) {
   }
 
   /**
@@ -102,7 +93,7 @@ class FormSubmitter implements FormSubmitterInterface {
       // Check if a previous _submit handler has set a batch, but make sure we
       // do not react to a batch that is already being processed (for instance
       // if a batch operation performs a
-      //  \Drupal\Core\Form\FormBuilderInterface::submitForm()).
+      // \Drupal\Core\Form\FormBuilderInterface::submitForm()).
       if (($batch = &$this->batchGet()) && !isset($batch['id'])) {
         // Some previous submit handler has set a batch. To ensure correct
         // execution order, store the call in a special 'control' batch set.
@@ -122,6 +113,8 @@ class FormSubmitter implements FormSubmitterInterface {
   public function redirectForm(FormStateInterface $form_state) {
     $redirect = $form_state->getRedirect();
 
+    $this->redirectResponseSubscriber->setIgnoreDestination($form_state->getIgnoreDestination());
+
     // Allow using redirect responses directly if needed.
     if ($redirect instanceof RedirectResponse) {
       return $redirect;
@@ -135,32 +128,18 @@ class FormSubmitter implements FormSubmitterInterface {
     // If no redirect was specified, redirect to the current path.
     elseif ($redirect === NULL) {
       $request = $this->requestStack->getCurrentRequest();
-      $url = $this->urlGenerator->generateFromRoute('<current>', [], ['query' => $request->query->all(), 'absolute' => TRUE]);
+      $url = $this->urlGenerator->generateFromRoute('<current>', [], [
+        'query' => $request->query->all(),
+        'absolute' => TRUE,
+      ]);
     }
 
     if ($url) {
-      // According to RFC 7231, 303 See Other status code must be used to redirect
-      // user agent (and not default 302 Found).
+      // According to RFC 7231, 303 See Other status code must be used to
+      // redirect user agent (and not default 302 Found).
       // @see http://tools.ietf.org/html/rfc7231#section-6.4.4
       return new RedirectResponse($url, Response::HTTP_SEE_OTHER);
     }
-  }
-
-  /**
-   * Wraps drupal_installation_attempted().
-   *
-   * @return bool
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\Installer\InstallerKernel::installationAttempted()
-   *   instead.
-   *
-   * @see https://www.drupal.org/node/3035275
-   * @see \Drupal\Core\Installer\InstallerKernel::installationAttempted()
-   */
-  protected function drupalInstallationAttempted() {
-    @trigger_error(__METHOD__ . '() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Installer\InstallerKernel::installationAttempted() instead. See https://www.drupal.org/node/3035275', E_USER_DEPRECATED);
-    return InstallerKernel::installationAttempted();
   }
 
   /**

@@ -17,10 +17,10 @@ use Drupal\jsonapi\ResourceType\ResourceType;
  * reference items to the same entity. Here, these are termed "parallel"
  * relationships (as in "parallel edges" of a graph).
  *
- * This class adds a concept of an @code arity @endcode member under each its
- * @code meta @endcode object. The value of this member is an integer that is
- * incremented by 1 (starting from 0) for each repeated resource identifier
- * sharing a common @code type @endcode and @code id @endcode.
+ * This class adds a concept of an "arity" member under each its "meta" object.
+ * The value of this member is an integer that is incremented by 1 (starting
+ * from 0) for each repeated resource identifier sharing a common "type" and
+ * "id".
  *
  * There are a number of helper methods to process the logic of dealing with
  * resource identifies with and without arity.
@@ -103,7 +103,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
    */
   public function getResourceType() {
     if (!isset($this->resourceType)) {
-      /* @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
+      /** @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
       $resource_type_repository = \Drupal::service('jsonapi.resource_type.repository');
       $this->resourceType = $resource_type_repository->getByTypeName($this->getTypeName());
     }
@@ -123,7 +123,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
   /**
    * Whether this ResourceIdentifier has an arity.
    *
-   * @return int
+   * @return bool
    *   TRUE if the ResourceIdentifier has an arity, FALSE otherwise.
    */
   public function hasArity() {
@@ -203,7 +203,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
    *
    * @return bool
    *   TRUE if both relationships reference the same resource, even when they
-   *   have differing arity values, FALSE otherwise.
+   *   have different arity values, FALSE otherwise.
    */
   public static function isParallel(ResourceIdentifier $a, ResourceIdentifier $b) {
     return static::compare($a->withArity(0), $b->withArity(0)) === 0;
@@ -286,16 +286,18 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
       return static::getVirtualOrMissingResourceIdentifier($item);
     }
     assert($target instanceof EntityInterface);
-    /* @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
+    /** @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
     $resource_type_repository = \Drupal::service('jsonapi.resource_type.repository');
     $resource_type = $resource_type_repository->get($target->getEntityTypeId(), $target->bundle());
     // Remove unwanted properties from the meta value, usually 'entity'
     // and 'target_id'.
     $properties = TypedDataInternalPropertiesHelper::getNonInternalProperties($item);
-    $meta = array_diff_key($properties, array_flip([$property_name, $item->getDataDefinition()->getMainPropertyName()]));
+    $main_property_name = $item->getDataDefinition()->getMainPropertyName();
+    $meta = array_diff_key($properties, array_flip([$property_name, $main_property_name]));
     if (!is_null($arity)) {
       $meta[static::ARITY_KEY] = $arity;
     }
+    $meta["drupal_internal__$main_property_name"] = $properties[$main_property_name];
     return new static($resource_type, $target->uuid(), $meta);
   }
 
@@ -324,7 +326,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
       // order. Reverse order is important so that when a parallel relationship
       // is encountered, it will have the highest arity value so the current
       // relationship's arity value can simply be incremented by one.
-      /* @var self $existing */
+      /** @var \Drupal\jsonapi\JsonApiResource\ResourceIdentifier $existing */
       foreach (array_reverse($relationships, TRUE) as $index => $existing) {
         $is_parallel = static::isParallel($existing, $relationship);
         if ($is_parallel) {
@@ -375,7 +377,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
    *   A new ResourceIdentifier object.
    */
   public static function fromEntity(EntityInterface $entity) {
-    /* @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
+    /** @var \Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface $resource_type_repository */
     $resource_type_repository = \Drupal::service('jsonapi.resource_type.repository');
     $resource_type = $resource_type_repository->get($entity->getEntityTypeId(), $entity->bundle());
     return new static($resource_type, $entity->uuid());
@@ -388,7 +390,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
    *   The entity reference item for which to determine the entity property
    *   name.
    *
-   * @return string
+   * @return string|null
    *   The property name which has an entity as its value.
    */
   protected static function getDataReferencePropertyName(EntityReferenceItem $item) {
@@ -397,6 +399,7 @@ class ResourceIdentifier implements ResourceIdentifierInterface {
         return $property_name;
       }
     }
+    return NULL;
   }
 
   /**

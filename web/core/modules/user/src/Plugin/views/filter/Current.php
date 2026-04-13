@@ -2,7 +2,7 @@
 
 namespace Drupal\user\Plugin\views\filter;
 
-use Drupal\Core\Database\Query\Condition;
+use Drupal\views\Attribute\ViewsFilter;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\filter\BooleanOperator;
@@ -11,25 +11,27 @@ use Drupal\views\Plugin\views\filter\BooleanOperator;
  * Filter handler for the current user.
  *
  * @ingroup views_filter_handlers
- *
- * @ViewsFilter("user_current")
  */
+#[ViewsFilter("user_current")]
 class Current extends BooleanOperator {
 
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
     $this->value_value = $this->t('Is the logged in user');
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function query() {
     $this->ensureMyTable();
 
     $field = $this->tableAlias . '.' . $this->realField . ' ';
-    $or = new Condition('OR');
+    $or = $this->view->query->getConnection()->condition('OR');
 
     if (empty($this->value)) {
       $or->condition($field, '***CURRENT_USER***', '<>');

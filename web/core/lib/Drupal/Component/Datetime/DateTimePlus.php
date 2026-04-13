@@ -30,7 +30,7 @@ use Drupal\Component\Utility\ToStringTrait;
  * @method $this setDate(int $year, int $month, int $day)
  * @method $this setISODate(int $year, int $week, int $day = 1)
  * @method $this setTime(int $hour, int $minute, int $second = 0, int $microseconds = 0)
- * @method $this setTimestamp(int $unixtimestamp)
+ * @method $this setTimestamp(int $unix_timestamp)
  * @method $this setTimezone(\DateTimeZone $timezone)
  * @method $this sub(\DateInterval $interval)
  * @method int getOffset()
@@ -54,6 +54,8 @@ class DateTimePlus {
 
   /**
    * An array of possible date parts.
+   *
+   * @var string[]
    */
   protected static $dateParts = [
     'year',
@@ -108,11 +110,15 @@ class DateTimePlus {
 
   /**
    * The value of the language code passed to the constructor.
+   *
+   * @var string|null
    */
   protected $langcode = NULL;
 
   /**
    * An array of errors encountered when creating this date.
+   *
+   * @var string[]
    */
   protected $errors = [];
 
@@ -126,7 +132,7 @@ class DateTimePlus {
   /**
    * Creates a date object from an input date object.
    *
-   * @param \DateTime $datetime
+   * @param \DateTimeInterface $datetime
    *   A DateTime object.
    * @param array $settings
    *   (optional) A keyed array for settings, suitable for passing on to
@@ -135,7 +141,7 @@ class DateTimePlus {
    * @return static
    *   A new DateTimePlus object.
    */
-  public static function createFromDateTime(\DateTime $datetime, $settings = []) {
+  public static function createFromDateTime(\DateTimeInterface $datetime, $settings = []) {
     return new static($datetime->format(static::FORMAT), $datetime->getTimezone(), $settings);
   }
 
@@ -213,6 +219,7 @@ class DateTimePlus {
    *   to use things like negative years, which php's parser fails on, or
    *   any other specialized input with a known format. If provided the
    *   date will be created using the createFromFormat() method.
+   *   phpcs:ignore Drupal.Commenting.FunctionComment.ParamCommentFullStop
    *   @see http://php.net/manual/datetime.createfromformat.php
    * @param string $time
    *   String representing the time.
@@ -246,32 +253,26 @@ class DateTimePlus {
     // Tries to create a date from the format and use it if possible.
     // A regular try/catch won't work right here, if the value is
     // invalid it doesn't return an exception.
-    $datetimeplus = new static('', $timezone, $settings);
+    $datetime_plus = new static('', $timezone, $settings);
 
-    $date = \DateTime::createFromFormat($format, $time, $datetimeplus->getTimezone());
+    $date = \DateTime::createFromFormat($format, $time, $datetime_plus->getTimezone());
     if (!$date instanceof \DateTime) {
       throw new \InvalidArgumentException('The date cannot be created from a format.');
     }
     else {
-      // Functions that parse date is forgiving, it might create a date that
-      // is not exactly a match for the provided value, so test for that by
-      // re-creating the date/time formatted string and comparing it to the input. For
-      // instance, an input value of '11' using a format of Y (4 digits) gets
-      // created as '0011' instead of '2011'.
-      if ($date instanceof DateTimePlus) {
-        $test_time = $date->format($format, $settings);
-      }
-      elseif ($date instanceof \DateTime) {
-        $test_time = $date->format($format);
-      }
-      $datetimeplus->setTimestamp($date->getTimestamp());
-      $datetimeplus->setTimezone($date->getTimezone());
+      $datetime_plus->setTimestamp($date->getTimestamp());
+      $datetime_plus->setTimezone($date->getTimezone());
 
-      if ($settings['validate_format'] && $test_time != $time) {
+      // Functions that parse date is forgiving, it might create a date that is
+      // not exactly a match for the provided value, so test for that by
+      // re-creating the date/time formatted string and comparing it to the
+      // input. For instance, an input value of '11' using a format of Y (4
+      // digits) gets created as '0011' instead of '2011'.
+      if ($settings['validate_format'] && $date->format($format) != $time) {
         throw new \UnexpectedValueException('The created date does not match the input value.');
       }
     }
-    return $datetimeplus;
+    return $datetime_plus;
   }
 
   /**
@@ -285,6 +286,7 @@ class DateTimePlus {
    *   parameter and the current timezone are ignored when the $time parameter
    *   either is a UNIX timestamp (e.g. @946684800) or specifies a timezone
    *   (e.g. 2010-01-28T15:00:00+02:00).
+   *   phpcs:ignore Drupal.Commenting.FunctionComment.ParamCommentFullStop
    *   @see http://php.net/manual/datetime.construct.php
    * @param array $settings
    *   (optional) Keyed array of settings. Defaults to empty array.
@@ -327,6 +329,7 @@ class DateTimePlus {
    * Renders the timezone name.
    *
    * @return string
+   *   The formatted value of the date including the name of the timezone.
    */
   public function render() {
     return $this->format(static::FORMAT) . ' ' . $this->getTimeZone()->getName();
@@ -360,7 +363,7 @@ class DateTimePlus {
       throw new \Exception('DateTime object not set.');
     }
     if (!method_exists($this->dateTimeObject, $method)) {
-      throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', get_class($this), $method));
+      throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', static::class, $method));
     }
 
     $result = call_user_func_array([$this->dateTimeObject, $method], $args);
@@ -399,7 +402,7 @@ class DateTimePlus {
    */
   public static function __callStatic($method, $args) {
     if (!method_exists('\DateTime', $method)) {
-      throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', get_called_class(), $method));
+      throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', static::class, $method));
     }
     return call_user_func_array(['\DateTime', $method], $args);
   }

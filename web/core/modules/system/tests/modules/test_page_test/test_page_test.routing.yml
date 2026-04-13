@@ -36,13 +36,6 @@ test_page_test.dynamic_title:
   requirements:
     _access: 'TRUE'
 
-test_page_test.admin_render_title:
-  path: '/admin/test-render-title'
-  defaults:
-    _controller: '\Drupal\test_page_test\Controller\Test::renderTitle'
-  requirements:
-    _access: 'TRUE'
-
 test_page_test.http_response_exception:
   path: '/test-http-response-exception/{code}'
   defaults:
@@ -56,22 +49,6 @@ test_page_test.error:
   defaults:
     _controller: '\Drupal\test_page_test\Controller\Test::error'
     code: 200
-  requirements:
-    _access: 'TRUE'
-
-test_page_test.encoded:
-  path: '/test-encoded'
-  defaults:
-    _title: 'Page with encoded HTML'
-    _controller: '\Drupal\test_page_test\Controller\Test::renderEncodedMarkup'
-  requirements:
-    _access: 'TRUE'
-
-test_page_test.pipe:
-  path: '/test-pipe-char'
-  defaults:
-    _title: 'Page with pipe char in link'
-    _controller: '\Drupal\test_page_test\Controller\Test::renderPipeInLink'
   requirements:
     _access: 'TRUE'
 
@@ -120,5 +97,13 @@ test_page_test.deprecations:
   defaults:
     _title: 'Page with deprecation notices'
     _controller: '\Drupal\test_page_test\Controller\Test::deprecations'
+  requirements:
+    _access: 'TRUE'
+
+test_page_test.test_page_var_dump:
+  path: '/test-page-var-dump'
+  defaults:
+    _title: 'Test front page with var dump'
+    _controller: '\Drupal\test_page_test\Controller\TestPageTestController::testPageVarDump'
   requirements:
     _access: 'TRUE'

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\entity_test\Controller;
 
 use Drupal\Core\Cache\Cache;
@@ -42,6 +44,7 @@ class EntityTestController extends ControllerBase {
     }
 
     $query = $this->entityTypeManager()->getStorage('entity_test')->getQuery()
+      ->accessCheck(TRUE)
       ->condition($entity_reference_field_name . '.target_id', $referenced_entity_id);
     $entities = $this->entityTypeManager()
       ->getStorage('entity_test')
@@ -62,7 +65,7 @@ class EntityTestController extends ControllerBase {
    */
   public function listEntitiesAlphabetically($entity_type_id) {
     $entity_type_definition = $this->entityTypeManager()->getDefinition($entity_type_id);
-    $query = $this->entityTypeManager()->getStorage($entity_type_id)->getQuery();
+    $query = $this->entityTypeManager()->getStorage($entity_type_id)->getQuery()->accessCheck(TRUE);
 
     // Sort by label field, if any.
     if ($label_field = $entity_type_definition->getKey('label')) {

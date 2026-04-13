@@ -2,6 +2,7 @@
 
 namespace Drupal\migrate\Plugin\migrate\id_map;
 
+use Drupal\Component\Plugin\Attribute\PluginID;
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\migrate\MigrateMessageInterface;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
@@ -12,9 +13,8 @@ use Drupal\migrate\Row;
  * Defines the null ID map implementation.
  *
  * This serves as a dummy in order to not store anything.
- *
- * @PluginID("null")
  */
+#[PluginID('null')]
 class NullIdMap extends PluginBase implements MigrateIdMapInterface {
 
   /**
@@ -55,14 +55,6 @@ class NullIdMap extends PluginBase implements MigrateIdMapInterface {
   /**
    * {@inheritdoc}
    */
-  public function lookupDestinationId(array $source_id_values) {
-    @trigger_error(__NAMESPACE__ . '\NullIdMap::lookupDestinationId() is deprecated in drupal:8.1.0 and is removed from drupal:9.0.0. Use Sql::lookupDestinationIds() instead. See https://www.drupal.org/node/2725809', E_USER_DEPRECATED);
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function lookupDestinationIds(array $source_id_values) {
     return [];
   }
@@ -86,14 +78,6 @@ class NullIdMap extends PluginBase implements MigrateIdMapInterface {
    */
   public function getMessages(array $source_id_values = [], $level = NULL) {
     return new \ArrayIterator([]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getMessageIterator(array $source_id_values = [], $level = NULL) {
-    @trigger_error('getMessageIterator() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use getMessages() instead. See https://www.drupal.org/node/3060969', E_USER_DEPRECATED);
-    return $this->getMessages($source_id_values, $level);
   }
 
   /**
@@ -197,35 +181,33 @@ class NullIdMap extends PluginBase implements MigrateIdMapInterface {
   /**
    * {@inheritdoc}
    */
-  public function rewind() {
+  public function rewind(): void {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function current(): mixed {
     return NULL;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function current() {
-    return NULL;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function key() {
+  public function key(): mixed {
     return '';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function next() {
-    return NULL;
+  public function next(): void {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function valid() {
+  public function valid(): bool {
     return FALSE;
   }
 

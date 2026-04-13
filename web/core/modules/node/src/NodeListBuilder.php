@@ -7,7 +7,6 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityListBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Routing\RedirectDestinationInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -91,20 +90,10 @@ class NodeListBuilder extends EntityListBuilder {
    */
   public function buildRow(EntityInterface $entity) {
     /** @var \Drupal\node\NodeInterface $entity */
-    $mark = [
-      '#theme' => 'mark',
-      '#mark_type' => node_mark($entity->id(), $entity->getChangedTime()),
-    ];
-    $langcode = $entity->language()->getId();
-    $uri = $entity->toUrl();
-    $options = $uri->getOptions();
-    $options += ($langcode != LanguageInterface::LANGCODE_NOT_SPECIFIED && isset($languages[$langcode]) ? ['language' => $languages[$langcode]] : []);
-    $uri->setOptions($options);
     $row['title']['data'] = [
       '#type' => 'link',
       '#title' => $entity->label(),
-      '#suffix' => ' ' . \Drupal::service('renderer')->render($mark),
-      '#url' => $uri,
+      '#url' => $entity->toUrl(),
     ];
     $row['type'] = node_get_type_label($entity);
     $row['author']['data'] = [
@@ -115,7 +104,7 @@ class NodeListBuilder extends EntityListBuilder {
     $row['changed'] = $this->dateFormatter->format($entity->getChangedTime(), 'short');
     $language_manager = \Drupal::languageManager();
     if ($language_manager->isMultilingual()) {
-      $row['language_name'] = $language_manager->getLanguageName($langcode);
+      $row['language_name'] = $language_manager->getLanguageName($entity->language()->getId());
     }
     $row['operations']['data'] = $this->buildOperations($entity);
     return $row + parent::buildRow($entity);

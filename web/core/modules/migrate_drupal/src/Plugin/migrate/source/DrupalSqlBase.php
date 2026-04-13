@@ -3,10 +3,8 @@
 namespace Drupal\migrate_drupal\Plugin\migrate\source;
 
 use Drupal\Component\Plugin\DependentPluginInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\DependencyTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Exception\RequirementsException;
@@ -24,19 +22,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * For a full list, refer to the methods of this class.
  *
- * For available configuration keys, refer to the parent classes:
+ * For available configuration keys, refer to the parent classes.
+ *
  * @see \Drupal\migrate\Plugin\migrate\source\SqlBase
  * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  */
-abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginInterface, DependentPluginInterface {
+abstract class DrupalSqlBase extends SqlBase implements DependentPluginInterface {
 
   use DependencyTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The contents of the system table.
@@ -84,7 +77,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
           $this->systemData[$result['type']][$result['name']] = $result;
         }
       }
-      catch (\Exception $e) {
+      catch (\Exception) {
         // The table might not exist for example in tests.
       }
     }
@@ -94,7 +87,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, ?MigrationInterface $migration = NULL) {
     return new static(
       $configuration,
       $plugin_id,
@@ -111,14 +104,18 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   public function checkRequirements() {
     parent::checkRequirements();
     if ($this->pluginDefinition['requirements_met'] === TRUE) {
-      if (isset($this->pluginDefinition['source_module'])) {
-        if ($this->moduleExists($this->pluginDefinition['source_module'])) {
-          if (isset($this->pluginDefinition['minimum_schema_version']) && !$this->getModuleSchemaVersion($this->pluginDefinition['source_module']) < $this->pluginDefinition['minimum_schema_version']) {
-            throw new RequirementsException('Required minimum schema version ' . $this->pluginDefinition['minimum_schema_version'], ['minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]);
+      if ($source_module = $this->getSourceModule()) {
+        if ($this->moduleExists($source_module)) {
+          if (isset($this->pluginDefinition['minimum_version'])) {
+            $minimum_version = (int) $this->pluginDefinition['minimum_version'];
+            $installed_version = (int) $this->getModuleSchemaVersion($source_module);
+            if ($minimum_version > $installed_version) {
+              throw new RequirementsException('Required minimum version ' . $this->pluginDefinition['minimum_version'], ['minimum_version' => $this->pluginDefinition['minimum_version']]);
+            }
           }
         }
         else {
-          throw new RequirementsException('The module ' . $this->pluginDefinition['source_module'] . ' is not enabled in the source site.', ['source_module' => $this->pluginDefinition['source_module']]);
+          throw new RequirementsException('The module ' . $source_module . ' is not enabled in the source site.', ['source_module' => $source_module]);
         }
       }
     }
@@ -136,7 +133,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
    */
   protected function getModuleSchemaVersion($module) {
     $system_data = $this->getSystemData();
-    return isset($system_data['module'][$module]['schema_version']) ? $system_data['module'][$module]['schema_version'] : FALSE;
+    return $system_data['module'][$module]['schema_version'] ?? FALSE;
   }
 
   /**
@@ -156,12 +153,13 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   /**
    * Reads a variable from a source Drupal database.
    *
-   * @param $name
+   * @param string $name
    *   Name of the variable.
-   * @param $default
+   * @param mixed $default
    *   The default value.
    *
    * @return mixed
+   *   The variable value.
    */
   protected function variableGet($name, $default) {
     try {
@@ -172,7 +170,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
         ->fetchField();
     }
     // The table might not exist.
-    catch (\Exception $e) {
+    catch (\Exception) {
       $result = FALSE;
     }
     return $result !== FALSE ? unserialize($result) : $default;
@@ -190,6 +188,13 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
       $this->addDependency('module', $this->configuration['constants']['module']);
     }
     return $this->dependencies;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSourceModule(): ?string {
+    return parent::getSourceModule() ?? $this->pluginDefinition['source_module'] ?? NULL;
   }
 
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\search\Kernel\Migrate\d7;
 
 use Drupal\Core\Database\Database;
@@ -18,10 +20,10 @@ class MigrateSearchPageTest extends MigrateDrupal7TestBase {
    *
    * {@inheritdoc}
    */
-  public static $modules = ['search'];
+  protected static $modules = ['search'];
 
   /**
-   * Asserts various aspects of an SearchPage entity.
+   * Asserts various aspects of a SearchPage entity.
    *
    * @param string $id
    *   The expected search page ID.
@@ -31,8 +33,10 @@ class MigrateSearchPageTest extends MigrateDrupal7TestBase {
    *   The expected status of the search page.
    * @param array $expected_config
    *   An array of expected configuration for the search page.
+   *
+   * @internal
    */
-  protected function assertEntity($id, $path, $status = FALSE, array $expected_config = NULL) {
+  protected function assertEntity(string $id, string $path, bool $status = FALSE, ?array $expected_config = NULL): void {
     /** @var \Drupal\search\Entity\SearchPage $search_page */
     $search_page = SearchPage::load($id);
     $this->assertSame($id, $search_page->id());
@@ -47,7 +51,7 @@ class MigrateSearchPageTest extends MigrateDrupal7TestBase {
   /**
    * Tests migration of search status and settings to search page entity.
    */
-  public function testSearchPage() {
+  public function testSearchPage(): void {
     $this->enableModules(['node']);
     $this->installConfig(['search']);
     $this->executeMigration('d7_search_page');
@@ -77,12 +81,25 @@ class MigrateSearchPageTest extends MigrateDrupal7TestBase {
     $this->executeMigration($migration);
     $configuration['rankings']['comments'] = 4;
     $this->assertEntity('node_search', 'node', TRUE, $configuration);
+
+    // Test that a configurable search without a configuration imports. Do this
+    // by removing the node rankings from the source database.
+    Database::getConnection('default', 'migrate')
+      ->delete('variable')
+      ->condition('name', 'node_rank_%', 'LIKE')
+      ->execute();
+
+    $migration = $this->getMigration('d7_search_page');
+    $migration->getIdMap()->prepareUpdate();
+    $this->executeMigration($migration);
+    $configuration = ['rankings' => []];
+    $this->assertEntity('node_search', 'node', TRUE, $configuration);
   }
 
   /**
    * Tests that search page is only migrated for modules enabled on D8 site.
    */
-  public function testModuleExists() {
+  public function testModuleExists(): void {
     $this->installConfig(['search']);
     $this->executeMigration('d7_search_page');
 
@@ -93,7 +110,7 @@ class MigrateSearchPageTest extends MigrateDrupal7TestBase {
   /**
    * Tests that a search page will be created if it does not exist.
    */
-  public function testUserSearchCreate() {
+  public function testUserSearchCreate(): void {
     $this->enableModules(['node']);
     $this->installConfig(['search']);
     /** @var \Drupal\search\Entity\SearchPage $search_page */

@@ -30,21 +30,6 @@ class BackendChain implements CacheBackendInterface, CacheTagsInvalidatorInterfa
   protected $backends = [];
 
   /**
-   * Constructs a new backend chain service instance.
-   *
-   * @param string|null $bin
-   *   (deprecated) The cache bin for which the object is created. The $bin
-   *   parameter is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0.
-   *
-   * @see https://www.drupal.org/node/3061125
-   */
-  public function __construct($bin = NULL) {
-    if ($bin) {
-      @trigger_error('The $bin parameter is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Omit the first parameter. See https://www.drupal.org/node/3061125', E_USER_DEPRECATED);
-    }
-  }
-
-  /**
    * Appends a cache backend to the cache chain.
    *
    * @param CacheBackendInterface $backend
@@ -203,6 +188,7 @@ class BackendChain implements CacheBackendInterface, CacheTagsInvalidatorInterfa
    * {@inheritdoc}
    */
   public function invalidateAll() {
+    @trigger_error("CacheBackendInterface::invalidateAll() is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. Use CacheBackendInterface::deleteAll() or cache tag invalidation instead. See https://www.drupal.org/node/3500622", E_USER_DEPRECATED);
     foreach ($this->backends as $backend) {
       $backend->invalidateAll();
     }

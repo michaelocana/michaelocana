@@ -31,7 +31,7 @@ class TranslateEditForm extends TranslateFormBase {
     $this->languageManager->reset();
     $languages = $this->languageManager->getLanguages();
 
-    $langname = isset($langcode) ? $languages[$langcode]->getName() : "- None -";
+    $language_name = isset($langcode) ? $languages[$langcode]->getName() : "- None -";
 
     $form['#attached']['library'][] = 'locale/drupal.locale.admin';
 
@@ -43,10 +43,10 @@ class TranslateEditForm extends TranslateFormBase {
     $form['strings'] = [
       '#type' => 'table',
       '#tree' => TRUE,
-      '#language' => $langname,
+      '#language' => $language_name,
       '#header' => [
         $this->t('Source string'),
-        $this->t('Translation for @language', ['@language' => $langname]),
+        $this->t('Translation for @language', ['@language' => $language_name]),
       ],
       '#empty' => $this->t('No strings available.'),
       '#attributes' => ['class' => ['locale-translate-edit-table']],
@@ -71,7 +71,7 @@ class TranslateEditForm extends TranslateFormBase {
             '#title' => $this->t('Source string (@language)', ['@language' => $this->t('Built-in English')]),
             '#title_display' => 'invisible',
             '#plain_text' => $source_array[0],
-            '#preffix' => '<span lang="en">',
+            '#prefix' => '<span lang="en">',
             '#suffix' => '</span>',
           ];
         }
@@ -89,7 +89,7 @@ class TranslateEditForm extends TranslateFormBase {
             '#type' => 'item',
             '#title' => $this->t('Plural form'),
             '#plain_text' => $source_array[1],
-            '#preffix' => '<span lang="en">',
+            '#prefix' => '<span lang="en">',
             '#suffix' => '</span>',
           ];
           $form['strings'][$string->lid]['original'] = [
@@ -113,7 +113,7 @@ class TranslateEditForm extends TranslateFormBase {
         if (!$plural) {
           $form['strings'][$string->lid]['translations'][0] = [
             '#type' => 'textarea',
-            '#title' => $this->t('Translated string (@language)', ['@language' => $langname]),
+            '#title' => $this->t('Translated string (@language)', ['@language' => $language_name]),
             '#title_display' => 'invisible',
             '#rows' => $rows,
             '#default_value' => $translation_array[0],
@@ -128,9 +128,9 @@ class TranslateEditForm extends TranslateFormBase {
               // @todo Should use better labels https://www.drupal.org/node/2499639
               '#title' => ($i == 0 ? $this->t('Singular form') : $this->formatPlural($i, 'First plural form', '@count. plural form')),
               '#rows' => $rows,
-              '#default_value' => isset($translation_array[$i]) ? $translation_array[$i] : '',
+              '#default_value' => $translation_array[$i] ?? '',
               '#attributes' => ['lang' => $langcode],
-              '#prefix' => $i == 0 ? ('<span class="visually-hidden">' . $this->t('Translated string (@language)', ['@language' => $langname]) . '</span>') : '',
+              '#prefix' => $i == 0 ? ('<span class="visually-hidden">' . $this->t('Translated string (@language)', ['@language' => $language_name]) . '</span>') : '',
             ];
           }
           if ($plurals == 2) {
@@ -207,7 +207,7 @@ class TranslateEditForm extends TranslateFormBase {
 
       if ($is_changed) {
         // Only update or insert if we have a value to use.
-        $target = isset($existing_translation_objects[$lid]) ? $existing_translation_objects[$lid] : $this->localeStorage->createTranslation(['lid' => $lid, 'language' => $langcode]);
+        $target = $existing_translation_objects[$lid] ?? $this->localeStorage->createTranslation(['lid' => $lid, 'language' => $langcode]);
         $target->setPlurals($new_translation['translations'])
           ->setCustomized()
           ->save();

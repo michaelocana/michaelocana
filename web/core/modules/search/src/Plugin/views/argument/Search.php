@@ -2,8 +2,8 @@
 
 namespace Drupal\search\Plugin\views\argument;
 
-use Drupal\Core\Database\Query\Condition;
 use Drupal\search\ViewsSearchQuery;
+use Drupal\views\Attribute\ViewsArgument;
 use Drupal\views\Plugin\views\argument\ArgumentPluginBase;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
@@ -13,9 +13,10 @@ use Drupal\views\Views;
  * Argument handler for search keywords.
  *
  * @ingroup views_argument_handlers
- *
- * @ViewsArgument("search")
  */
+#[ViewsArgument(
+  id: 'search',
+)]
 class Search extends ArgumentPluginBase {
 
   /**
@@ -33,9 +34,15 @@ class Search extends ArgumentPluginBase {
   protected $searchType;
 
   /**
+   * The search score.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $search_score;
+
+  /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
     $this->searchType = $this->definition['search_type'];
@@ -78,9 +85,10 @@ class Search extends ArgumentPluginBase {
     else {
       $search_index = $this->ensureMyTable();
 
-      $search_condition = new Condition('AND');
+      $search_condition = $this->view->query->getConnection()->condition('AND');
 
-      // Create a new join to relate the 'search_total' table to our current 'search_index' table.
+      // Create a new join to relate the 'search_total' table to our current
+      // 'search_index' table.
       $definition = [
         'table' => 'search_total',
         'field' => 'word',
@@ -111,7 +119,7 @@ class Search extends ArgumentPluginBase {
       // Add the keyword conditions, as is done in
       // SearchQuery::prepareAndNormalize(), but simplified because we are
       // only concerned with relevance ranking so we do not need to normalize.
-      $or = new Condition('OR');
+      $or = $this->view->query->getConnection()->condition('OR');
       foreach ($words as $word) {
         $or->condition("$search_index.word", $word);
       }

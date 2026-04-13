@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Extension;
 
 use Drupal\Core\Extension\Extension;
@@ -21,7 +23,7 @@ class ExtensionDiscoveryTest extends UnitTestCase {
    *
    * @covers ::scan
    */
-  public function testExtensionDiscoveryVfs() {
+  public function testExtensionDiscoveryVfs(): void {
 
     // Set up the file system.
     $filesystem = [];
@@ -46,7 +48,7 @@ class ExtensionDiscoveryTest extends UnitTestCase {
       }
       if ($type === 'profile') {
         // Set profile directories for discovery of the other extension types.
-        $extension_discovery->setProfileDirectories(['myprofile' => 'profiles/myprofile']);
+        $extension_discovery->setProfileDirectories(['my_profile' => 'profiles/my_profile']);
       }
     }
 
@@ -64,15 +66,27 @@ class ExtensionDiscoveryTest extends UnitTestCase {
   }
 
   /**
+   * Tests finding modules that have a trailing comment on the type property.
+   *
+   * @covers ::scan
+   */
+  public function testExtensionDiscoveryTypeComment(): void {
+    $extension_discovery = new ExtensionDiscovery($this->root, TRUE, [], 'sites/default');
+    $modules = $extension_discovery->scan('module', TRUE);
+    $this->assertArrayHasKey('module_info_type_comment', $modules);
+  }
+
+  /**
    * Adds example files to the filesystem structure.
    *
    * @param array $filesystem_structure
+   *   An associative array where each key represents a directory.
    *
    * @return string[][]
    *   Format: $[$type][$name] = $yml_file
    *   E.g. $['module']['system'] = 'system.info.yml'
    */
-  protected function populateFilesystemStructure(array &$filesystem_structure) {
+  protected function populateFilesystemStructure(array &$filesystem_structure): array {
     $info_by_file = [
       'core/profiles/standard/standard.info.yml' => [
         'type' => 'profile',
@@ -80,27 +94,27 @@ class ExtensionDiscoveryTest extends UnitTestCase {
       'core/profiles/minimal/minimal.info.yml' => [
         'type' => 'profile',
       ],
+      'core/themes/test_theme/test_theme.info.yml' => [
+        'type' => 'theme',
+      ],
+      // Override the core instance of the 'test_theme' theme.
+      'sites/default/themes/test_theme/test_theme.info.yml' => [
+        'type' => 'theme',
+      ],
       // Override the core instance of the 'minimal' profile.
       'sites/default/profiles/minimal/minimal.info.yml' => [
         'type' => 'profile',
       ],
-      'profiles/myprofile/myprofile.info.yml' => [
+      'profiles/my_profile/my_profile.info.yml' => [
         'type' => 'profile',
       ],
-      'profiles/myprofile/modules/myprofile_nested_module/myprofile_nested_module.info.yml' => [],
-      'profiles/otherprofile/otherprofile.info.yml' => [
+      'profiles/my_profile/modules/my_profile_nested_module/my_profile_nested_module.info.yml' => [],
+      'profiles/other_profile/other_profile.info.yml' => [
         'type' => 'profile',
       ],
       'core/modules/user/user.info.yml' => [],
-      'profiles/otherprofile/modules/otherprofile_nested_module/otherprofile_nested_module.info.yml' => [],
+      'profiles/other_profile/modules/other_profile_nested_module/other_profile_nested_module.info.yml' => [],
       'core/modules/system/system.info.yml' => [],
-      'core/themes/seven/seven.info.yml' => [
-        'type' => 'theme',
-      ],
-      // Override the core instance of the 'seven' theme.
-      'sites/default/themes/seven/seven.info.yml' => [
-        'type' => 'theme',
-      ],
       'modules/devel/devel.info.yml' => [],
       'modules/poorly_placed_theme/poorly_placed_theme.info.yml' => [
         'type' => 'theme',
@@ -132,18 +146,20 @@ class ExtensionDiscoveryTest extends UnitTestCase {
       $this->addFileToFilesystemStructure($filesystem_structure, $pieces, $content);
     }
 
-    unset($files_by_type_and_name_expected['module']['otherprofile_nested_module']);
+    unset($files_by_type_and_name_expected['module']['other_profile_nested_module']);
 
     return $files_by_type_and_name_expected;
   }
 
   /**
    * @param array $filesystem_structure
+   *   An associative array where each key represents a directory.
    * @param string[] $pieces
    *   Fragments of the file path.
    * @param string $content
+   *   The contents of the file.
    */
-  protected function addFileToFilesystemStructure(array &$filesystem_structure, array $pieces, $content) {
+  protected function addFileToFilesystemStructure(array &$filesystem_structure, array $pieces, $content): void {
     $piece = array_shift($pieces);
     if ($pieces !== []) {
       $filesystem_structure += [$piece => []];

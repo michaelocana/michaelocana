@@ -1,3 +1,4 @@
+# cspell:ignore newnode
 id: d6_language_content_comment_settings
 label: Drupal 6 language content comment settings
 migration_tags:
@@ -58,4 +59,5 @@ destination:
   plugin: entity:language_content_settings
 migration_dependencies:
   required:
+    - language
     - d6_comment_type

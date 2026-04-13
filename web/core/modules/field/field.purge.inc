@@ -2,7 +2,6 @@
 
 /**
  * @file
- * Provides support for field data purge after mass deletion.
  */
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -71,23 +70,14 @@ use Drupal\Core\Field\FieldStorageDefinitionInterface;
  * @param string $field_storage_unique_id
  *   (optional) Limit the purge to a specific field storage. Defaults to NULL.
  */
-function field_purge_batch($batch_size, $field_storage_unique_id = NULL) {
+function field_purge_batch($batch_size, $field_storage_unique_id = NULL): void {
   /** @var \Drupal\Core\Field\DeletedFieldsRepositoryInterface $deleted_fields_repository */
   $deleted_fields_repository = \Drupal::service('entity_field.deleted_fields_repository');
 
   $fields = $deleted_fields_repository->getFieldDefinitions($field_storage_unique_id);
 
-  $info = \Drupal::entityTypeManager()->getDefinitions();
   foreach ($fields as $field) {
     $entity_type = $field->getTargetEntityTypeId();
-
-    // We cannot purge anything if the entity type is unknown (e.g. the
-    // providing module was uninstalled).
-    // @todo Revisit after https://www.drupal.org/node/2080823.
-    if (!isset($info[$entity_type])) {
-      \Drupal::logger('field')->warning("Cannot remove field @field_name because the entity type is unknown: %entity_type", ['@field_name' => $field->getName(), '%entity_type' => $entity_type]);
-      continue;
-    }
 
     $count_purged = \Drupal::entityTypeManager()->getStorage($entity_type)->purgeFieldData($field, $batch_size);
     if ($count_purged < $batch_size || $count_purged == 0) {
@@ -108,13 +98,6 @@ function field_purge_batch($batch_size, $field_storage_unique_id = NULL) {
       continue;
     }
 
-    // We cannot purge anything if the entity type is unknown (e.g. the
-    // providing module was uninstalled).
-    // @todo Revisit after https://www.drupal.org/node/2080823.
-    if (!isset($info[$field_storage->getTargetEntityTypeId()])) {
-      continue;
-    }
-
     $fields = $deleted_fields_repository->getFieldDefinitions($field_storage->getUniqueStorageIdentifier());
     if (empty($fields)) {
       field_purge_field_storage($field_storage);
@@ -131,7 +114,7 @@ function field_purge_batch($batch_size, $field_storage_unique_id = NULL) {
  * @param \Drupal\Core\Field\FieldDefinitionInterface $field
  *   The field to purge.
  */
-function field_purge_field(FieldDefinitionInterface $field) {
+function field_purge_field(FieldDefinitionInterface $field): void {
   /** @var \Drupal\Core\Field\DeletedFieldsRepositoryInterface $deleted_fields_repository */
   $deleted_fields_repository = \Drupal::service('entity_field.deleted_fields_repository');
   $deleted_fields_repository->removeFieldDefinition($field);
@@ -151,7 +134,7 @@ function field_purge_field(FieldDefinitionInterface $field) {
  *
  * @throws \Drupal\Core\Field\FieldException
  */
-function field_purge_field_storage(FieldStorageDefinitionInterface $field_storage) {
+function field_purge_field_storage(FieldStorageDefinitionInterface $field_storage): void {
   /** @var \Drupal\Core\Field\DeletedFieldsRepositoryInterface $deleted_fields_repository */
   $deleted_fields_repository = \Drupal::service('entity_field.deleted_fields_repository');
 

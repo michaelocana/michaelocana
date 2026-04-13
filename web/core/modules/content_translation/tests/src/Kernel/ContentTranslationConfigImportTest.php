@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_translation\Kernel;
 
 use Drupal\Core\Config\ConfigImporter;
@@ -21,11 +23,9 @@ class ContentTranslationConfigImportTest extends KernelTestBase {
   protected $configImporter;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'system',
     'user',
     'entity_test',
@@ -36,7 +36,7 @@ class ContentTranslationConfigImportTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installConfig(['system']);
@@ -58,14 +58,15 @@ class ContentTranslationConfigImportTest extends KernelTestBase {
       $this->container->get('module_installer'),
       $this->container->get('theme_handler'),
       $this->container->get('string_translation'),
-      $this->container->get('extension.list.module')
+      $this->container->get('extension.list.module'),
+      $this->container->get('extension.list.theme')
     );
   }
 
   /**
    * Tests config import updates.
    */
-  public function testConfigImportUpdates() {
+  public function testConfigImportUpdates(): void {
     $entity_type_id = 'entity_test_mul';
     $config_id = $entity_type_id . '.' . $entity_type_id;
     $config_name = 'language.content_settings.' . $config_id;
@@ -73,7 +74,7 @@ class ContentTranslationConfigImportTest extends KernelTestBase {
     $sync = $this->container->get('config.storage.sync');
 
     // Verify the configuration to create does not exist yet.
-    $this->assertIdentical($storage->exists($config_name), FALSE, $config_name . ' not found.');
+    $this->assertFalse($storage->exists($config_name), $config_name . ' not found.');
 
     // Create new config entity.
     $data = [
@@ -93,14 +94,14 @@ class ContentTranslationConfigImportTest extends KernelTestBase {
       ],
     ];
     $sync->write($config_name, $data);
-    $this->assertIdentical($sync->exists($config_name), TRUE, $config_name . ' found.');
+    $this->assertTrue($sync->exists($config_name), $config_name . ' found.');
 
     // Import.
     $this->configImporter->reset()->import();
 
     // Verify the values appeared.
     $config = $this->config($config_name);
-    $this->assertIdentical($config->get('id'), $config_id);
+    $this->assertSame($config_id, $config->get('id'));
 
     // Verify that updates were performed.
     $entity_type = $this->container->get('entity_type.manager')->getDefinition($entity_type_id);

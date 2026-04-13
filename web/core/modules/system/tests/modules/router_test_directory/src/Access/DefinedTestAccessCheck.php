@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\router_test\Access;
 
 use Drupal\Core\Access\AccessResult;
@@ -7,7 +9,7 @@ use Drupal\Core\Routing\Access\AccessInterface;
 use Symfony\Component\Routing\Route;
 
 /**
- * Defines an access checker similar to DefaultAccessCheck
+ * Defines an access checker similar to DefaultAccessCheck.
  */
 class DefinedTestAccessCheck implements AccessInterface {
 

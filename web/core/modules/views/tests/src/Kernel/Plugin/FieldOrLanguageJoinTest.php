@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel\Plugin;
 
 use Drupal\views\Plugin\views\join\FieldOrLanguageJoin;
 use Drupal\views\Views;
+use Drupal\views\ViewExecutable;
 
 /**
  * Tests the "field OR language" join plugin.
@@ -33,7 +36,7 @@ class FieldOrLanguageJoinTest extends RelationshipJoinTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp();
 
     // Add a join plugin manager which can be used in all of the tests.
@@ -47,7 +50,7 @@ class FieldOrLanguageJoinTest extends RelationshipJoinTestBase {
    * \Drupal\Tests\views\Kernel\Plugin\JoinTest::testBasePlugin() to ensure that
    * no functionality provided by the base join plugin is broken.
    */
-  public function testBase() {
+  public function testBase(): void {
     // Setup a simple join and test the result sql.
     $view = Views::getView('test_view');
     $view->initDisplay();
@@ -121,13 +124,16 @@ class FieldOrLanguageJoinTest extends RelationshipJoinTestBase {
     $this->assertStringContainsString('views_test_data.uid = users4.uid', $join_info['condition']);
     $this->assertStringContainsString('users4.name = :views_join_condition_0', $join_info['condition']);
     $this->assertStringContainsString('users4.name IN ( :views_join_condition_1[] )', $join_info['condition']);
-    $this->assertSame($join_info['arguments'][':views_join_condition_1[]'], [$random_name_2, $random_name_3, $random_name_4]);
+    $this->assertSame(
+      $join_info['arguments'][':views_join_condition_1[]'],
+      [$random_name_2, $random_name_3, $random_name_4]
+    );
   }
 
   /**
    * Tests the adding of conditions by the join plugin.
    */
-  public function testLanguageBundleConditions() {
+  public function testLanguageBundleConditions(): void {
     // Setup a simple join and test the result sql.
     $view = Views::getView('test_view');
     $view->initDisplay();
@@ -181,9 +187,9 @@ class FieldOrLanguageJoinTest extends RelationshipJoinTestBase {
    *
    * @param \Drupal\views\ViewExecutable $view
    *   The view used in this test.
-   * @param $configuration
+   * @param array $configuration
    *   The join plugin configuration.
-   * @param $table_alias
+   * @param string $table_alias
    *   The table alias to use for the join.
    *
    * @return array
@@ -191,7 +197,7 @@ class FieldOrLanguageJoinTest extends RelationshipJoinTestBase {
    *   \Drupal\Core\Database\Query\Select::$tables for more information on the
    *   structure of the array.
    */
-  protected function buildJoin($view, $configuration, $table_alias) {
+  protected function buildJoin(ViewExecutable $view, $configuration, $table_alias) {
     // Build the actual join values and read them back from the query object.
     $query = \Drupal::database()->select('node');
 

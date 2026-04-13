@@ -3,20 +3,20 @@
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
 use Drupal\Core\Entity\EntityMalformedException;
+use Drupal\Core\Field\Attribute\FieldType;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\DataDefinition;
 
 /**
  * Defines the 'password' entity field type.
- *
- * @FieldType(
- *   id = "password",
- *   label = @Translation("Password"),
- *   description = @Translation("An entity field containing a password value."),
- *   no_ui = TRUE,
- * )
  */
+#[FieldType(
+  id: "password",
+  label: new TranslatableMarkup("Password"),
+  description: new TranslatableMarkup("An entity field containing a password value."),
+  no_ui: TRUE,
+)]
 class PasswordItem extends StringItem {
 
   /**
@@ -46,23 +46,21 @@ class PasswordItem extends StringItem {
       // Reset the pre_hashed value since it has now been used.
       $this->pre_hashed = FALSE;
     }
-    elseif ($entity->isNew() || (strlen(trim($this->value)) > 0 && $this->value != $entity->original->{$this->getFieldDefinition()->getName()}->value)) {
+    elseif (!$entity->isNew() && empty($this->value)) {
+      // If the password is empty, that means it was not changed, so use the
+      // original password.
+      $this->value = $entity->getOriginal()->{$this->getFieldDefinition()->getName()}->value;
+    }
+    elseif ($entity->isNew() || (strlen(trim($this->value)) > 0 && $this->value != $entity->getOriginal()->{$this->getFieldDefinition()->getName()}->value)) {
       // Allow alternate password hashing schemes.
       $this->value = \Drupal::service('password')->hash(trim($this->value));
       // Abort if the hashing failed and returned FALSE.
       if (!$this->value) {
-        throw new EntityMalformedException('The entity does not have a password.');
+        throw new EntityMalformedException(sprintf("Failed to hash the %s password.", $entity->getEntityType()->getLabel()));
       }
     }
 
-    if (!$entity->isNew()) {
-      // If the password is empty, that means it was not changed, so use the
-      // original password.
-      if (empty($this->value)) {
-        $this->value = $entity->original->{$this->getFieldDefinition()->getName()}->value;
-      }
-    }
-    // Ensure that the existing password is unset to minimise risks of it
+    // Ensure that the existing password is unset to minimize risks of it
     // getting serialized and stored somewhere.
     $this->existing = NULL;
   }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\user\RoleInterface;
@@ -12,11 +14,9 @@ use Drupal\user\RoleInterface;
 class NodeAccessMenuLinkTest extends NodeTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['menu_ui', 'block'];
+  protected static $modules = ['menu_ui', 'block'];
 
   /**
    * {@inheritdoc}
@@ -30,7 +30,10 @@ class NodeAccessMenuLinkTest extends NodeTestBase {
    */
   protected $contentAdminUser;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalPlaceBlock('system_menu_block:main');
@@ -38,6 +41,7 @@ class NodeAccessMenuLinkTest extends NodeTestBase {
     $this->contentAdminUser = $this->drupalCreateUser([
       'access content',
       'administer content types',
+      'bypass node access',
       'administer menu',
     ]);
 
@@ -47,9 +51,9 @@ class NodeAccessMenuLinkTest extends NodeTestBase {
   /**
    * SA-CORE-2015-003: Tests menu links to nodes when node access is restricted.
    */
-  public function testNodeAccessMenuLink() {
+  public function testNodeAccessMenuLink(): void {
 
-    $menu_link_title = $this->randomString();
+    $menu_link_title = 'Test menu link title';
 
     $this->drupalLogin($this->contentAdminUser);
     $edit = [
@@ -58,7 +62,8 @@ class NodeAccessMenuLinkTest extends NodeTestBase {
       'menu[enabled]' => 1,
       'menu[title]' => $menu_link_title,
     ];
-    $this->drupalPostForm('node/add/page', $edit, t('Save'));
+    $this->drupalGet('node/add/page');
+    $this->submitForm($edit, 'Save');
     $this->assertSession()->linkExists($menu_link_title);
 
     // Ensure anonymous users without "access content" permission do not see

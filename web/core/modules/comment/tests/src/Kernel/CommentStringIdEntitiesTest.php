@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel;
 
 use Drupal\comment\Entity\CommentType;
@@ -14,11 +16,9 @@ use Drupal\field\Entity\FieldStorageConfig;
 class CommentStringIdEntitiesTest extends KernelTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'comment',
     'user',
     'field',
@@ -27,7 +27,10 @@ class CommentStringIdEntitiesTest extends KernelTestBase {
     'text',
   ];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('comment');
     $this->installEntitySchema('entity_test_string_id');
@@ -39,7 +42,7 @@ class CommentStringIdEntitiesTest extends KernelTestBase {
   /**
    * Tests that comment fields cannot be added entities with non-integer IDs.
    */
-  public function testCommentFieldNonStringId() {
+  public function testCommentFieldNonStringId(): void {
     $this->expectException(\UnexpectedValueException::class);
     $bundle = CommentType::create([
       'id' => 'foo',

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\field_normalization_test\Normalization;
 
 use Drupal\serialization\Normalizer\FieldItemNormalizer;
@@ -13,12 +15,7 @@ class TextItemSillyNormalizer extends FieldItemNormalizer {
   /**
    * {@inheritdoc}
    */
-  protected $supportedInterfaceOrClass = TextItemBase::class;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function normalize($object, $format = NULL, array $context = []) {
+  public function normalize($object, $format = NULL, array $context = []): array|string|int|float|bool|\ArrayObject|NULL {
     $data = parent::normalize($object, $format, $context);
     $data['value'] .= '::silly_suffix';
     return $data;
@@ -31,6 +28,13 @@ class TextItemSillyNormalizer extends FieldItemNormalizer {
     $value = parent::constructValue($data, $context);
     $value['value'] = str_replace('::silly_suffix', '', $value['value']);
     return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [TextItemBase::class => TRUE];
   }
 
 }

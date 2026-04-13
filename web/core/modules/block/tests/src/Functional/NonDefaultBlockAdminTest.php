@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,11 +14,9 @@ use Drupal\Tests\BrowserTestBase;
 class NonDefaultBlockAdminTest extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['block'];
+  protected static $modules = ['block'];
 
   /**
    * {@inheritdoc}
@@ -26,25 +26,26 @@ class NonDefaultBlockAdminTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalPlaceBlock('local_tasks_block');
   }
 
   /**
-   * Test non-default theme admin.
+   * Tests non-default theme admin.
    */
-  public function testNonDefaultBlockAdmin() {
+  public function testNonDefaultBlockAdmin(): void {
     $admin_user = $this->drupalCreateUser([
       'administer blocks',
       'administer themes',
     ]);
     $this->drupalLogin($admin_user);
-    $new_theme = 'bartik';
+    $new_theme = 'olivero';
     \Drupal::service('theme_installer')->install([$new_theme]);
+    // Ensure that the Olivero tab is shown.
     $this->drupalGet('admin/structure/block/list/' . $new_theme);
-    $this->assertText('Bartik(' . t('active tab') . ')', 'Tab for non-default theme found.');
+    $this->assertSession()->pageTextContains('Olivero');
   }
 
 }

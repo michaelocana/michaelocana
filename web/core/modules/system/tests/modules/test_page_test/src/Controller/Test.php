@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\test_page_test\Controller;
 
 use Drupal\Core\Render\Markup;
@@ -84,7 +86,7 @@ class Test {
    * @param int $code
    *   The status code.
    */
-  public function httpResponseException($code) {
+  public function httpResponseException(int $code) {
     throw new HttpException($code);
   }
 
@@ -93,28 +95,6 @@ class Test {
     return [
       '#markup' => 'Content',
     ];
-  }
-
-  /**
-   * Renders a page with encoded markup.
-   *
-   * @return array
-   *   A render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
-   */
-  public function renderEncodedMarkup() {
-    return ['#plain_text' => 'Bad html <script>alert(123);</script>'];
-  }
-
-  /**
-   * Renders a page with pipe character in link test.
-   *
-   * @return array
-   *   A render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
-   */
-  public function renderPipeInLink() {
-    return ['#markup' => '<a href="http://example.com">foo|bar|baz</a>'];
   }
 
   public function escapedCharacters() {
@@ -161,7 +141,9 @@ class Test {
   public function deprecations() {
     // Create 2 identical deprecation messages. This should only trigger a
     // single response header.
+    // phpcs:ignore Drupal.Semantics.FunctionTriggerError
     @trigger_error('Test deprecation message', E_USER_DEPRECATED);
+    // phpcs:ignore Drupal.Semantics.FunctionTriggerError
     @trigger_error('Test deprecation message', E_USER_DEPRECATED);
     return [
       '#markup' => 'Content that triggers deprecation messages',

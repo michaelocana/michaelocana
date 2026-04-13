@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\TempStore;
 
 use Drupal\KernelTests\KernelTestBase;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Tests the PrivateTempStore for anonymous users.
@@ -13,11 +14,9 @@ use Symfony\Component\HttpFoundation\Request;
 class AnonymousPrivateTempStoreTest extends KernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['system'];
+  protected static $modules = ['system'];
 
   /**
    * The private temp store.
@@ -29,25 +28,15 @@ class AnonymousPrivateTempStoreTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-
-    // Install system tables to test the key/value storage without installing a
-    // full Drupal environment.
-    $this->installSchema('system', ['key_value_expire']);
-
-    $request = Request::create('/');
-    $stack = $this->container->get('request_stack');
-    $stack->pop();
-    $stack->push($request);
-
     $this->tempStore = $this->container->get('tempstore.private')->get('anonymous_private_temp_store');
   }
 
   /**
    * Tests anonymous can get without a previous set.
    */
-  public function testAnonymousCanUsePrivateTempStoreGet() {
+  public function testAnonymousCanUsePrivateTempStoreGet(): void {
     $actual = $this->tempStore->get('foo');
     $this->assertNull($actual);
   }
@@ -55,7 +44,7 @@ class AnonymousPrivateTempStoreTest extends KernelTestBase {
   /**
    * Tests anonymous can use the PrivateTempStore.
    */
-  public function testAnonymousCanUsePrivateTempStoreSet() {
+  public function testAnonymousCanUsePrivateTempStoreSet(): void {
     $this->tempStore->set('foo', 'bar');
     $metadata1 = $this->tempStore->getMetadata('foo');
 

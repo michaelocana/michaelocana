@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel\Migrate\d7;
 
 use Drupal\node\NodeInterface;
@@ -18,17 +20,18 @@ class MigrateNodeRevisionTest extends MigrateDrupal7TestBase {
   /**
    * The entity storage for node.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var \Drupal\Core\Entity\RevisionableStorageInterface
    */
   protected $nodeStorage;
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_translation',
     'comment',
     'datetime',
+    'datetime_range',
     'file',
     'filter',
     'image',
@@ -44,7 +47,7 @@ class MigrateNodeRevisionTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->fileMigrationSetup();
@@ -73,10 +76,10 @@ class MigrateNodeRevisionTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getFileMigrationInfo() {
+  protected function getFileMigrationInfo(): array {
     return [
       'path' => 'public://sites/default/files/cube.jpeg',
-      'size' => '3620',
+      'size' => 3620,
       'base_path' => 'public://',
       'plugin_id' => 'd7_file',
     ];
@@ -91,30 +94,32 @@ class MigrateNodeRevisionTest extends MigrateDrupal7TestBase {
    *   The revision language.
    * @param string $title
    *   The expected title.
-   * @param string $log
+   * @param string|null $log
    *   The revision log message.
    * @param int $timestamp
    *   The revision's time stamp.
+   *
+   * @internal
    */
-  protected function assertRevision($id, $langcode, $title, $log, $timestamp) {
+  protected function assertRevision(int $id, string $langcode, string $title, ?string $log, int $timestamp): void {
     $revision = $this->nodeStorage->loadRevision($id);
     $this->assertInstanceOf(NodeInterface::class, $revision);
     $this->assertSame($title, $revision->getTitle());
     $this->assertSame($langcode, $revision->language()->getId());
     $this->assertSame($log, $revision->revision_log->value);
-    $this->assertIdentical($timestamp, $revision->getRevisionCreationTime());
+    $this->assertSame($timestamp, (int) $revision->getRevisionCreationTime());
   }
 
   /**
    * Tests the migration of node revisions with translated nodes.
    */
-  public function testNodeRevisions() {
-    $this->assertRevision(1, 'en', 'An English Node', NULL, '1441032132');
-    $this->assertRevision(2, 'en', 'The thing about Deep Space 9 (1st rev)', 'DS9 1st rev', '1564543588');
-    $this->assertRevision(4, 'is', 'is - The thing about Firefly (1st rev)', 'is - Firefly 1st rev', '1478755274');
-    $this->assertRevision(6, 'en', 'Comments are closed :-(', NULL, '1504715414');
-    $this->assertRevision(7, 'en', 'Comments are open :-)', NULL, '1504715432');
-    $this->assertRevision(8, 'en', 'The number 47', NULL, '1552126363');
+  public function testNodeRevisions(): void {
+    $this->assertRevision(1, 'en', 'An English Node', NULL, 1441032132);
+    $this->assertRevision(2, 'en', 'The thing about Deep Space 9 (1st rev)', 'DS9 1st rev', 1564543588);
+    $this->assertRevision(4, 'is', 'is - The thing about Firefly (1st rev)', 'is - Firefly 1st rev', 1478755274);
+    $this->assertRevision(6, 'en', 'Comments are closed :-(', NULL, 1504715414);
+    $this->assertRevision(7, 'en', 'Comments are open :-)', NULL, 1504715432);
+    $this->assertRevision(8, 'en', 'The number 47', NULL, 1552126363);
 
     // Test that the revision translation are not migrated and there should not
     // be a revision with id of 9.
@@ -122,6 +127,14 @@ class MigrateNodeRevisionTest extends MigrateDrupal7TestBase {
     foreach ($ids as $id) {
       $this->assertNull($this->nodeStorage->loadRevision($id));
     }
+
+    // Test the migration of node and user reference fields.
+    $revision = $this->nodeStorage->loadRevision(2);
+    $this->assertCount(1, $revision->field_node_reference);
+    $this->assertSame('5', $revision->field_node_reference->target_id);
+
+    $this->assertCount(1, $revision->field_user_reference);
+    $this->assertSame('Bob', $revision->field_user_reference[0]->entity->getAccountName());
   }
 
 }

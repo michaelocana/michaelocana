@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\theme_test\Theme;
 
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -21,7 +23,7 @@ class HighPriorityThemeNegotiator implements ThemeNegotiatorInterface {
    * {@inheritdoc}
    */
   public function determineActiveTheme(RouteMatchInterface $route_match) {
-    return 'classy';
+    return 'starterkit_theme';
   }
 
 }

@@ -47,7 +47,7 @@ class PreExistingConfigException extends ConfigException {
   /**
    * Creates an exception for an extension and a list of configuration objects.
    *
-   * @param $extension
+   * @param string $extension
    *   The name of the extension that is being installed.
    * @param array $config_objects
    *   A list of configuration objects that already exist in active
@@ -88,9 +88,9 @@ class PreExistingConfigException extends ConfigException {
         }
         return $config_name;
       }, $config_names);
-      $flat_config_objects = array_merge($flat_config_objects, $config_names);
+      $flat_config_objects[] = $config_names;
     }
-    return $flat_config_objects;
+    return array_merge(...$flat_config_objects);
   }
 
 }

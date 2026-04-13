@@ -22,6 +22,7 @@ use Drupal\jsonapi\ResourceType\ResourceType;
 use Drupal\jsonapi\ResourceType\ResourceTypeRelationship;
 use Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface;
 use Drupal\Core\Http\Exception\CacheableBadRequestHttpException;
+use Drupal\Core\Session\AccountInterface;
 
 /**
  * A service that evaluates external path expressions against Drupal fields.
@@ -32,37 +33,34 @@ use Drupal\Core\Http\Exception\CacheableBadRequestHttpException;
  * Path resolution:
  * Path resolution refers to the ability to map a set of external field names to
  * their internal counterparts. This is necessary because a resource type can
- * provide aliases for its field names. For example, the resource type @code
- * node--article @endcode might "alias" the internal field name @code
- * uid @endcode to the external field name @code author @endcode. This permits
- * an API consumer to request @code
- * /jsonapi/node/article?include=author @endcode for a better developer
- * experience.
+ * provide aliases for its field names. For example, the resource type
+ * "node--article" might "alias" the internal field name "uid" to the external
+ * field name "author". This permits an API consumer to request
+ * "/jsonapi/node/article?include=author" for a better developer experience.
  *
  * Path validation:
  * Path validation refers to the ability to ensure that a requested path
  * corresponds to a valid set of internal fields. For example, if an API
- * consumer may send a @code GET @endcode request to @code
- * /jsonapi/node/article?sort=author.field_first_name @endcode. The field
- * resolver ensures that @code uid @endcode (which would have been resolved
- * from @code author @endcode) exists on article nodes and that @code
- * field_first_name @endcode exists on user entities. However, in the case of
- * an @code include @endcode path, the field resolver would raise a client error
- * because @code field_first_name @endcode is not an entity reference field,
- * meaning it does not identify any related resources that can be included in a
- * compound document.
+ * consumer may send a GET request to
+ * "/jsonapi/node/article?sort=author.field_first_name". The field resolver
+ * ensures that "uid" (which would have been resolved from "author") exists on
+ * article nodes and that "field_first_name" exists on user entities. However,
+ * in the case of an "include" path, the field resolver would raise a client
+ * error because "field_first_name" is not an entity reference field, meaning it
+ * does not identify any related resources that can be included in a compound
+ * document.
  *
  * Path expansion:
  * Path expansion refers to the ability to expand a path to an entity query
  * compatible field expression. For example, a request URL might have a query
- * string like @code ?filter[field_tags.name]=aviation @endcode, before
- * constructing the appropriate entity query, the entity query system needs the
- * path expression to be "expanded" into @code field_tags.entity.name @endcode.
- * In some rare cases, the entity query system needs this to be expanded to
- * @code field_tags.entity:taxonomy_term.name @endcode; the field resolver
- * simply does this by default for every path.
+ * string like "?filter[field_tags.name]=aviation", before constructing the
+ * appropriate entity query, the entity query system needs the path expression
+ * to be "expanded" into "field_tags.entity.name". In some rare cases, the
+ * entity query system needs this to be expanded to
+ * "field_tags.entity:taxonomy_term.name"; the field resolver simply does this
+ * by default for every path.
  *
- * *Note:* path expansion is *not* performed for @code include @endcode paths.
+ * *Note:* path expansion is *not* performed for "include" paths.
  *
  * @internal JSON:API maintains no PHP API. The API is the HTTP API. This class
  *   may change at any time and could break any dependencies on it.
@@ -108,6 +106,13 @@ class FieldResolver {
   protected $moduleHandler;
 
   /**
+   * The current user account.
+   *
+   * @var \Drupal\Core\Session\AccountInterface
+   */
+  protected $currentUser;
+
+  /**
    * Creates a FieldResolver instance.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
@@ -120,8 +125,11 @@ class FieldResolver {
    *   The resource type repository.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
+   * @param \Drupal\Core\Session\AccountInterface $current_user
+   *   The current user account.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $field_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info, ResourceTypeRepositoryInterface $resource_type_repository, ModuleHandlerInterface $module_handler) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $field_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info, ResourceTypeRepositoryInterface $resource_type_repository, ModuleHandlerInterface $module_handler, AccountInterface $current_user) {
+    $this->currentUser = $current_user;
     $this->entityTypeManager = $entity_type_manager;
     $this->fieldManager = $field_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
@@ -144,25 +152,23 @@ class FieldResolver {
    * Example 1:
    * An installation may have three comment types for three different entity
    * types, two of which have a file field and one of which does not. In that
-   * case, a path like @code field_comments.entity_id.media @endcode might be
-   * resolved to both @code field_comments.entity_id.field_audio @endcode
-   * and @code field_comments.entity_id.field_image @endcode.
+   * case, a path like "field_comments.entity_id.media" might be resolved to
+   * both "field_comments.entity_id.field_audio" and
+   * "field_comments.entity_id.field_image".
    *
    * Example 2:
-   * A path of @code field_author_profile.account @endcode might
-   * resolve to @code field_author_profile.uid @endcode and @code
-   * field_author_profile.field_user @endcode if @code
-   * field_author_profile @endcode can relate to two different JSON:API resource
-   * types (like `node--profile` and `node--migrated_profile`) which have the
-   * external field name @code account @endcode aliased to different internal
-   * field names.
+   * A path of "field_author_profile.account" might resolve to
+   * "field_author_profile.uid" and "field_author_profile.field_user" if
+   * "field_author_profile" can relate to two different JSON:API resource types
+   * (like `node--profile` and `node--migrated_profile`) which have the external
+   * field name "account" aliased to different internal field names.
    *
    * @param \Drupal\jsonapi\ResourceType\ResourceType $resource_type
    *   The resource type for which the path should be validated.
    * @param string[] $path_parts
    *   The include path as an array of strings. For example, the include query
-   *   parameter string of @code field_tags.uid @endcode should be given
-   *   as @code ['field_tags', 'uid'] @endcode.
+   *   parameter string of "field_tags.uid" should be given
+   *   as "['field_tags', 'uid']".
    * @param int $depth
    *   (internal) Used to track recursion depth in order to generate better
    *   exception messages.
@@ -265,20 +271,7 @@ class FieldResolver {
    *
    * @throws \Drupal\Core\Http\Exception\CacheableBadRequestHttpException
    */
-  public function resolveInternalEntityQueryPath($resource_type, $external_field_name, $operator = NULL) {
-    $function_args = func_get_args();
-    // @todo Remove this conditional block in drupal:9.0.0 and add a type hint
-    // to the first argument of this method.
-    // @see https://www.drupal.org/project/drupal/issues/3078045
-    if (count($function_args) === 3 && is_string($resource_type)) {
-      @trigger_error('Passing the entity type ID and bundle to ' . __METHOD__ . ' is deprecated in drupal:8.8.0 and will throw a fatal error in drupal:9.0.0. Pass a JSON:API resource type instead. See https://www.drupal.org/node/3078036', E_USER_DEPRECATED);
-      list($entity_type_id, $bundle, $external_field_name) = $function_args;
-      $resource_type = $this->resourceTypeRepository->get($entity_type_id, $bundle);
-    }
-    elseif (!$resource_type instanceof ResourceType) {
-      throw new \InvalidArgumentException("The first argument to " . __METHOD__ . " should be an instance of \Drupal\jsonapi\ResourceType\ResourceType, " . gettype($resource_type) . " given.");
-    }
-
+  public function resolveInternalEntityQueryPath(ResourceType $resource_type, $external_field_name, $operator = NULL) {
     $cacheability = (new CacheableMetadata())->addCacheContexts(['url.query_args:filter', 'url.query_args:sort']);
     if (empty($external_field_name)) {
       throw new CacheableBadRequestHttpException($cacheability, 'No field name was provided for the filter.');
@@ -290,7 +283,7 @@ class FieldResolver {
     $parts = explode('.', $external_field_name);
     $unresolved_path_parts = $parts;
     $reference_breadcrumbs = [];
-    /* @var \Drupal\jsonapi\ResourceType\ResourceType[] $resource_types */
+    /** @var \Drupal\jsonapi\ResourceType\ResourceType[] $resource_types */
     $resource_types = [$resource_type];
     // This complex expression is needed to handle the string, "0", which would
     // otherwise be evaluated as FALSE.
@@ -350,13 +343,13 @@ class FieldResolver {
           $is_data_reference_definition = $property_definition instanceof DataReferenceTargetDefinition;
           if (!$property_definition->isInternal()) {
             // Entity reference fields are special: their reference property
-            // (usually `target_id`) is never exposed in the JSON:API
-            // representation. Hence it must also not be exposed in 400
-            // responses' error messages.
+            // (usually `target_id`) is exposed in the JSON:API representation
+            // with a prefix.
             $property_names[] = $is_data_reference_definition ? 'id' : $property_name;
           }
           if ($is_data_reference_definition) {
             $at_least_one_entity_reference_field = TRUE;
+            $property_names[] = "drupal_internal__$property_name";
           }
           return $property_names;
         }, []);
@@ -460,7 +453,9 @@ class FieldResolver {
    */
   protected function constructInternalPath(array $references, array $property_path = []) {
     // Reconstruct the path parts that are referencing sub-properties.
-    $field_path = implode('.', $property_path);
+    $field_path = implode('.', array_map(function ($part) {
+      return str_replace('drupal_internal__', '', $part);
+    }, $property_path));
 
     // This rebuilds the path from the real, internal field names that have
     // been traversed so far. It joins them with the "entity" keyword as
@@ -484,7 +479,7 @@ class FieldResolver {
    */
   protected function getFieldItemDefinitions(array $resource_types, $field_name) {
     return array_reduce($resource_types, function ($result, ResourceType $resource_type) use ($field_name) {
-      /* @var \Drupal\jsonapi\ResourceType\ResourceType $resource_type */
+      /** @var \Drupal\jsonapi\ResourceType\ResourceType $resource_type */
       $entity_type = $resource_type->getEntityTypeId();
       $bundle = $resource_type->getBundle();
       $definitions = $this->fieldManager->getFieldDefinitions($entity_type, $bundle);
@@ -544,7 +539,8 @@ class FieldResolver {
    */
   protected function isMemberFilterable($external_name, array $resource_types) {
     return array_reduce($resource_types, function ($carry, ResourceType $resource_type) use ($external_name) {
-      // @todo: remove the next line and uncomment the following one in https://www.drupal.org/project/drupal/issues/3017047.
+      // @todo Remove the next line and uncomment the following one in
+      //   https://www.drupal.org/project/drupal/issues/3017047.
       return $carry ?: $external_name === 'id' || $resource_type->isFieldEnabled($resource_type->getInternalName($external_name));
       /*return $carry ?: in_array($external_name, ['id', 'type']) || $resource_type->isFieldEnabled($resource_type->getInternalName($external_name));*/
     }, FALSE);
@@ -683,8 +679,15 @@ class FieldResolver {
   protected static function isCandidateDefinitionProperty($part, array $candidate_definitions) {
     $part = static::getPathPartPropertyName($part);
     foreach ($candidate_definitions as $definition) {
-      if ($definition->getPropertyDefinition($part)) {
-        return TRUE;
+      $property_definitions = $definition->getPropertyDefinitions();
+
+      foreach ($property_definitions as $property_name => $property_definition) {
+        $property_name = $property_definition instanceof DataReferenceTargetDefinition
+          ? "drupal_internal__$property_name"
+          : $property_name;
+        if ($part === $property_name) {
+          return TRUE;
+        }
       }
     }
     return FALSE;
@@ -729,7 +732,7 @@ class FieldResolver {
    *   The property name from a path part.
    */
   protected static function getPathPartPropertyName($part) {
-    return strpos($part, ':') !== FALSE ? explode(':', $part)[0] : $part;
+    return str_contains($part, ':') ? explode(':', $part)[0] : $part;
   }
 
   /**
@@ -747,7 +750,7 @@ class FieldResolver {
     $definitions = $this->fieldManager->getFieldDefinitions($resource_type->getEntityTypeId(), $resource_type->getBundle());
     assert(isset($definitions[$internal_field_name]), 'The field name should have already been validated.');
     $field_definition = $definitions[$internal_field_name];
-    $filter_access_results = $this->moduleHandler->invokeAll('jsonapi_entity_field_filter_access', [$field_definition, \Drupal::currentUser()]);
+    $filter_access_results = $this->moduleHandler->invokeAll('jsonapi_entity_field_filter_access', [$field_definition, $this->currentUser]);
     $filter_access_result = array_reduce($filter_access_results, function (AccessResultInterface $combined_result, AccessResultInterface $result) {
       return $combined_result->orIf($result);
     }, AccessResult::neutral());

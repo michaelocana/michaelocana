@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Theme;
 
 use Drupal\Tests\BrowserTestBase;
@@ -19,11 +21,12 @@ class ClaroLayoutBuilderTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'views',
     'layout_builder',
     'layout_builder_views_test',
     'layout_test',
+    'field_ui',
     'block',
     'block_test',
     'node',
@@ -33,7 +36,7 @@ class ClaroLayoutBuilderTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalPlaceBlock('local_tasks_block', ['region' => 'header']);
@@ -68,7 +71,7 @@ class ClaroLayoutBuilderTest extends BrowserTestBase {
    *
    * @see claro.theme
    */
-  public function testContextualLinks() {
+  public function testContextualLinks(): void {
     $assert_session = $this->assertSession();
     $page = $this->getSession()->getPage();
 
@@ -86,7 +89,7 @@ class ClaroLayoutBuilderTest extends BrowserTestBase {
     $assert_session->linkNotExists('Manage layout');
     $assert_session->fieldDisabled('layout[allow_custom]');
 
-    $this->drupalPostForm(NULL, ['layout[enabled]' => TRUE], 'Save');
+    $this->submitForm(['layout[enabled]' => TRUE], 'Save');
     $assert_session->linkExists('Manage layout');
     $this->clickLink('Manage layout');
 

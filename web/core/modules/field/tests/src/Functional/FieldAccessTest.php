@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Functional;
 
 use Drupal\field\Entity\FieldConfig;
@@ -13,11 +15,9 @@ use Drupal\field\Entity\FieldStorageConfig;
 class FieldAccessTest extends FieldTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'field_test'];
+  protected static $modules = ['node', 'field_test'];
 
   /**
    * {@inheritdoc}
@@ -38,7 +38,10 @@ class FieldAccessTest extends FieldTestBase {
    */
   protected $testViewFieldValue;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $web_user = $this->drupalCreateUser(['view test_view_field content']);
@@ -79,20 +82,20 @@ class FieldAccessTest extends FieldTestBase {
   }
 
   /**
-   * Test that hook_entity_field_access() is called.
+   * Tests that hook_entity_field_access() is called.
    */
-  public function testFieldAccess() {
+  public function testFieldAccess(): void {
 
     // Assert the text is visible.
     $this->drupalGet('node/' . $this->node->id());
-    $this->assertText($this->testViewFieldValue);
+    $this->assertSession()->pageTextContains($this->testViewFieldValue);
 
     // Assert the text is not visible for anonymous users.
     // The field_test module implements hook_entity_field_access() which will
     // specifically target the 'test_view_field' field.
     $this->drupalLogout();
     $this->drupalGet('node/' . $this->node->id());
-    $this->assertNoText($this->testViewFieldValue);
+    $this->assertSession()->pageTextNotContains($this->testViewFieldValue);
   }
 
 }

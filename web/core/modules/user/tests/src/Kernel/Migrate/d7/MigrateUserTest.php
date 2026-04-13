@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Migrate\d7;
 
 use Drupal\Core\Database\Database;
@@ -18,15 +20,17 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'comment',
     'content_translation',
     'datetime',
+    'datetime_range',
     'image',
     'language',
     'link',
     'menu_ui',
     'node',
+    'phpass',
     'taxonomy',
     'telephone',
     'text',
@@ -35,7 +39,7 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installEntitySchema('comment');
@@ -78,24 +82,26 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
    *   The user's initial email address.
    * @param string[] $roles
    *   Role IDs the user account is expected to have.
-   * @param int $field_integer
+   * @param array|null $field_integer
    *   The value of the integer field.
    * @param int|false $field_file_target_id
    *   (optional) The target ID of the file field.
    * @param bool $has_picture
    *   (optional) Whether the user is expected to have a picture attached.
+   *
+   * @internal
    */
-  protected function assertEntity($id, $label, $mail, $password, $created, $access, $login, $blocked, $entity_langcode, $prefered_langcode, $timezone, $init, $roles, $field_integer, $field_file_target_id = FALSE, $has_picture = FALSE) {
+  protected function assertEntity(string $id, string $label, string $mail, string $password, int $created, int $access, int $login, bool $blocked, string $entity_langcode, string $prefered_langcode, string $timezone, string $init, array $roles, ?array $field_integer, $field_file_target_id = FALSE, bool $has_picture = FALSE): void {
     /** @var \Drupal\user\UserInterface $user */
     $user = User::load($id);
     $this->assertInstanceOf(UserInterface::class, $user);
     $this->assertSame($label, $user->label());
     $this->assertSame($mail, $user->getEmail());
     $this->assertSame($password, $user->getPassword());
-    $this->assertSame($created, $user->getCreatedTime());
-    $this->assertSame($access, $user->getLastAccessedTime());
-    $this->assertSame($login, $user->getLastLoginTime());
-    $this->assertNotSame($blocked, $user->isBlocked());
+    $this->assertSame($created, (int) $user->getCreatedTime());
+    $this->assertSame($access, (int) $user->getLastAccessedTime());
+    $this->assertSame($login, (int) $user->getLastLoginTime());
+    $this->assertNotSame($blocked, (bool) $user->isBlocked());
 
     // Ensure the user's langcode, preferred_langcode and
     // preferred_admin_langcode are valid.
@@ -137,7 +143,7 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
   /**
    * Tests the Drupal 7 user to Drupal 8 migration.
    */
-  public function testUser() {
+  public function testUser(): void {
     $users = Database::getConnection('default', 'migrate')
       ->select('users', 'u')
       ->fields('u')
@@ -190,10 +196,10 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
         $source->name,
         $source->mail,
         $source->pass,
-        $source->created,
-        $source->access,
-        $source->login,
-        $source->status,
+        (int) $source->created,
+        (int) $source->access,
+        (int) $source->login,
+        (bool) $source->status,
         $entity_language,
         $source->language,
         $source->timezone,
@@ -217,12 +223,8 @@ class MigrateUserTest extends MigrateDrupal7TestBase {
       $user = User::load($source->uid);
       $this->assertEquals($rehash, $user->getPassword());
     }
-  }
 
-  /**
-   * Tests the Drupal 7 user entity translations to Drupal 8 migration.
-   */
-  public function testUserEntityTranslations() {
+    // Tests the Drupal 7 user entity translations to Drupal 8 migration.
     $manager = $this->container->get('content_translation.manager');
 
     // Get the user and its translations.

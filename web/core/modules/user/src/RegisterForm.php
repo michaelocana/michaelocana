@@ -15,7 +15,6 @@ class RegisterForm extends AccountForm {
    * {@inheritdoc}
    */
   public function form(array $form, FormStateInterface $form_state) {
-    $user = $this->currentUser();
     /** @var \Drupal\user\UserInterface $account */
     $account = $this->entity;
 
@@ -36,12 +35,6 @@ class RegisterForm extends AccountForm {
 
     $form['#attached']['library'][] = 'core/drupal.form';
 
-    // For non-admin users, populate the form fields using data from the
-    // browser.
-    if (!$admin) {
-      $form['#attributes']['data-user-info-from-browser'] = TRUE;
-    }
-
     // Because the user status has security implications, users are blocked by
     // default when created programmatically and need to be actively activated
     // if needed. When administrators create users from the user interface,
@@ -51,7 +44,7 @@ class RegisterForm extends AccountForm {
     }
 
     // Start with the default user account fields.
-    $form = parent::form($form, $form_state, $account);
+    $form = parent::form($form, $form_state);
 
     return $form;
   }
@@ -75,7 +68,7 @@ class RegisterForm extends AccountForm {
       $pass = $form_state->getValue('pass');
     }
     else {
-      $pass = user_password();
+      $pass = \Drupal::service('password_generator')->generate();
     }
 
     // Remove unneeded values.
@@ -103,7 +96,7 @@ class RegisterForm extends AccountForm {
     $form_state->set('user', $account);
     $form_state->setValue('uid', $account->id());
 
-    $this->logger('user')->notice('New user: %name %email.', ['%name' => $form_state->getValue('name'), '%email' => '<' . $form_state->getValue('mail') . '>', 'type' => $account->toLink($this->t('Edit'), 'edit-form')->toString()]);
+    $this->logger('user')->info('New user: %name %email.', ['%name' => $form_state->getValue('name'), '%email' => '<' . $form_state->getValue('mail') . '>', 'type' => $account->toLink($this->t('Edit'), 'edit-form')->toString()]);
 
     // Add plain text password into user account to generate mail tokens.
     $account->password = $pass;

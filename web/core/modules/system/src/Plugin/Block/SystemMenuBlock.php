@@ -2,6 +2,7 @@
 
 namespace Drupal\system\Plugin\Block;
 
+use Drupal\Core\Block\Attribute\Block;
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Form\FormStateInterface;
@@ -9,21 +10,23 @@ use Drupal\Core\Menu\MenuActiveTrailInterface;
 use Drupal\Core\Menu\MenuLinkTreeInterface;
 use Drupal\Core\Menu\MenuTreeParameters;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\system\Form\SystemMenuOffCanvasForm;
+use Drupal\system\Plugin\Derivative\SystemMenuBlock as SystemMenuBlockDeriver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides a generic Menu block.
- *
- * @Block(
- *   id = "system_menu_block",
- *   admin_label = @Translation("Menu"),
- *   category = @Translation("Menus"),
- *   deriver = "Drupal\system\Plugin\Derivative\SystemMenuBlock",
- *   forms = {
- *     "settings_tray" = "\Drupal\system\Form\SystemMenuOffCanvasForm",
- *   },
- * )
  */
+#[Block(
+  id: "system_menu_block",
+  admin_label: new TranslatableMarkup("Menu"),
+  category: new TranslatableMarkup("Menus"),
+  deriver: SystemMenuBlockDeriver::class,
+  forms: [
+    'settings_tray' => SystemMenuOffCanvasForm::class,
+  ]
+)]
 class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterface {
 
   /**
@@ -46,7 +49,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param array $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Menu\MenuLinkTreeInterface $menu_tree
@@ -54,13 +57,9 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
    * @param \Drupal\Core\Menu\MenuActiveTrailInterface $menu_active_trail
    *   The active menu trail service.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, MenuLinkTreeInterface $menu_tree, MenuActiveTrailInterface $menu_active_trail = NULL) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, MenuLinkTreeInterface $menu_tree, MenuActiveTrailInterface $menu_active_trail) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->menuTree = $menu_tree;
-    if ($menu_active_trail === NULL) {
-      @trigger_error('The menu.active_trail service must be passed to SystemMenuBlock::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2669550.', E_USER_DEPRECATED);
-      $menu_active_trail = \Drupal::service('menu.active_trail');
-    }
     $this->menuActiveTrail = $menu_active_trail;
   }
 
@@ -89,7 +88,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
       '#title' => $this->t('Menu levels'),
       // Open if not set to defaults.
       '#open' => $defaults['level'] !== $config['level'] || $defaults['depth'] !== $config['depth'],
-      '#process' => [[get_class(), 'processMenuLevelParents']],
+      '#process' => [[self::class, 'processMenuLevelParents']],
     ];
 
     $options = range(0, $this->menuTree->maxDepth());
@@ -100,7 +99,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
       '#title' => $this->t('Initial visibility level'),
       '#default_value' => $config['level'],
       '#options' => $options,
-      '#description' => $this->t('The menu is only visible if the menu item for the current page is at this level or below it. Use level 1 to always display this menu.'),
+      '#description' => $this->t('The menu is only visible if the menu link for the current page is at this level or below it. Use level 1 to always display this menu.'),
       '#required' => TRUE,
     ];
 
@@ -109,7 +108,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
     $form['menu_levels']['depth'] = [
       '#type' => 'select',
       '#title' => $this->t('Number of levels to display'),
-      '#default_value' => $config['depth'],
+      '#default_value' => $config['depth'] ?? 0,
       '#options' => $options,
       '#description' => $this->t('This maximum number includes the initial level.'),
       '#required' => TRUE,
@@ -117,7 +116,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
 
     $form['menu_levels']['expand_all_items'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Expand all menu items'),
+      '#title' => $this->t('Expand all menu links'),
       '#default_value' => !empty($config['expand_all_items']),
       '#description' => $this->t('Override the option found on each menu link used for expanding children and instead display the whole menu tree as expanded.'),
     ];
@@ -140,7 +139,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
    */
   public function blockSubmit($form, FormStateInterface $form_state) {
     $this->configuration['level'] = $form_state->getValue('level');
-    $this->configuration['depth'] = $form_state->getValue('depth');
+    $this->configuration['depth'] = $form_state->getValue('depth') ?: NULL;
     $this->configuration['expand_all_items'] = $form_state->getValue('expand_all_items');
   }
 
@@ -204,7 +203,7 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
   public function defaultConfiguration() {
     return [
       'level' => 1,
-      'depth' => 0,
+      'depth' => NULL,
       'expand_all_items' => FALSE,
     ];
   }
@@ -234,6 +233,13 @@ class SystemMenuBlock extends BlockBase implements ContainerFactoryPluginInterfa
     // accessibility of a menu, will be bubbled automatically.
     $menu_name = $this->getDerivativeId();
     return Cache::mergeContexts(parent::getCacheContexts(), ['route.menu_active_trails:' . $menu_name]);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function createPlaceholder(): bool {
+    return TRUE;
   }
 
 }

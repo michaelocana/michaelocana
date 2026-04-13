@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_translation\Functional;
 
-use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\Tests\language\Traits\LanguageTestTrait;
 use Drupal\Tests\node\Functional\NodeTestBase;
 use Drupal\user\Entity\Role;
 
@@ -12,6 +14,8 @@ use Drupal\user\Entity\Role;
  * @group content_translation
  */
 class ContentTranslationOperationsTest extends NodeTestBase {
+
+  use LanguageTestTrait;
 
   /**
    * A base user.
@@ -33,11 +37,9 @@ class ContentTranslationOperationsTest extends NodeTestBase {
   protected $baseUser2;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'content_translation',
     'node',
@@ -48,20 +50,18 @@ class ContentTranslationOperationsTest extends NodeTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Enable additional languages.
     $langcodes = ['es', 'ast'];
     foreach ($langcodes as $langcode) {
-      ConfigurableLanguage::createFromLangcode($langcode)->save();
+      static::createLanguageFromLangcode($langcode);
     }
 
     // Enable translation for the current entity type and ensure the change is
     // picked up.
     \Drupal::service('content_translation.manager')->setEnabled('node', 'article', TRUE);
-
-    \Drupal::service('router.builder')->rebuild();
 
     $this->baseUser1 = $this->drupalCreateUser(['access content overview']);
     $this->baseUser2 = $this->drupalCreateUser([
@@ -73,21 +73,21 @@ class ContentTranslationOperationsTest extends NodeTestBase {
   }
 
   /**
-   * Test that the operation "Translate" is displayed in the content listing.
+   * Tests that the operation "Translate" is displayed in the content listing.
    */
-  public function testOperationTranslateLink() {
+  public function testOperationTranslateLink(): void {
     $node = $this->drupalCreateNode(['type' => 'article', 'langcode' => 'es']);
     // Verify no translation operation links are displayed for users without
     // permission.
     $this->drupalLogin($this->baseUser1);
     $this->drupalGet('admin/content');
-    $this->assertNoLinkByHref('node/' . $node->id() . '/translations');
+    $this->assertSession()->linkByHrefNotExists('node/' . $node->id() . '/translations');
     $this->drupalLogout();
     // Verify there's a translation operation link for users with enough
     // permissions.
     $this->drupalLogin($this->baseUser2);
     $this->drupalGet('admin/content');
-    $this->assertLinkByHref('node/' . $node->id() . '/translations');
+    $this->assertSession()->linkByHrefExists('node/' . $node->id() . '/translations');
 
     // Ensure that an unintended misconfiguration of permissions does not open
     // access to the translation form, see https://www.drupal.org/node/2558905.
@@ -130,10 +130,10 @@ class ContentTranslationOperationsTest extends NodeTestBase {
     $this->drupalPlaceBlock('local_tasks_block');
     $this->drupalLogin($this->baseUser2);
     $this->drupalGet('node/' . $node->id());
-    $this->assertLinkByHref('node/' . $node->id() . '/translations');
-    $this->drupalPostForm('admin/config/regional/content-language', ['settings[node][article][translatable]' => FALSE], t('Save configuration'));
+    $this->assertSession()->linkByHrefExists('node/' . $node->id() . '/translations');
+    static::disableBundleTranslation('node', 'article');
     $this->drupalGet('node/' . $node->id());
-    $this->assertNoLinkByHref('node/' . $node->id() . '/translations');
+    $this->assertSession()->linkByHrefNotExists('node/' . $node->id() . '/translations');
   }
 
   /**
@@ -141,7 +141,7 @@ class ContentTranslationOperationsTest extends NodeTestBase {
    *
    * @see content_translation_translate_access()
    */
-  public function testContentTranslationOverviewAccess() {
+  public function testContentTranslationOverviewAccess(): void {
     $access_control_handler = \Drupal::entityTypeManager()->getAccessControlHandler('node');
     $user = $this->createUser(['create content translations', 'access content']);
     $this->drupalLogin($user);

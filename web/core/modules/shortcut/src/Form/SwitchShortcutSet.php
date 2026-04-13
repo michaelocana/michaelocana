@@ -60,7 +60,7 @@ class SwitchShortcutSet extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, UserInterface $user = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?UserInterface $user = NULL) {
     $account = $this->currentUser();
 
     $this->user = $user;
@@ -70,7 +70,7 @@ class SwitchShortcutSet extends FormBase {
       return $set->label();
     }, $this->shortcutSetStorage->loadMultiple());
 
-    $current_set = shortcut_current_displayed_set($this->user);
+    $current_set = $this->shortcutSetStorage->getDisplayedToUser($this->user);
 
     // Only administrators can add shortcut sets.
     $add_access = $account->hasPermission('administer shortcuts');
@@ -90,7 +90,7 @@ class SwitchShortcutSet extends FormBase {
       $form['label'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Label'),
-        '#description' => $this->t('The new set is created by copying items from your default shortcut set.'),
+        '#description' => $this->t('The new set is created by copying links from your default shortcut set.'),
         '#access' => $add_access,
         '#states' => [
           'visible' => [
@@ -120,7 +120,7 @@ class SwitchShortcutSet extends FormBase {
 
       if (!$account_is_user) {
         $default_set = $this->shortcutSetStorage->getDefaultSet($this->user);
-        $form['new']['#description'] = $this->t('The new set is created by copying items from the %default set.', ['%default' => $default_set->label()]);
+        $form['new']['#description'] = $this->t('The new set is created by copying links from the %default set.', ['%default' => $default_set->label()]);
       }
 
       $form['actions'] = ['#type' => 'actions'];
@@ -175,7 +175,7 @@ class SwitchShortcutSet extends FormBase {
     $account_is_user = $this->user->id() == $account->id();
     if ($form_state->getValue('set') == 'new') {
       // Save a new shortcut set with links copied from the user's default set.
-      /* @var \Drupal\shortcut\Entity\ShortcutSet $set */
+      /** @var \Drupal\shortcut\Entity\ShortcutSet $set */
       $set = $this->shortcutSetStorage->create([
         'id' => $form_state->getValue('id'),
         'label' => $form_state->getValue('label'),
@@ -187,8 +187,8 @@ class SwitchShortcutSet extends FormBase {
         ':switch-url' => Url::fromRoute('<current>')->toString(),
       ];
       if ($account_is_user) {
-        // Only administrators can create new shortcut sets, so we know they have
-        // access to switch back.
+        // Only administrators can create new shortcut sets, so we know they
+        // have access to switch back.
         $this->messenger()->addStatus($this->t('You are now using the new %set_name shortcut set. You can edit it from this page or <a href=":switch-url">switch back to a different one.</a>', $replacements));
       }
       else {
@@ -201,7 +201,7 @@ class SwitchShortcutSet extends FormBase {
     }
     else {
       // Switch to a different shortcut set.
-      /* @var \Drupal\shortcut\Entity\ShortcutSet $set */
+      /** @var \Drupal\shortcut\Entity\ShortcutSet $set */
       $set = $this->shortcutSetStorage->load($form_state->getValue('set'));
       $replacements = [
         '%user' => $this->user->getDisplayName(),
@@ -223,7 +223,7 @@ class SwitchShortcutSet extends FormBase {
    * @return \Drupal\Core\Access\AccessResultInterface
    *   The access result.
    */
-  public function checkAccess(UserInterface $user = NULL) {
+  public function checkAccess(?UserInterface $user = NULL) {
     return shortcut_set_switch_access($user);
   }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\node\NodeInterface;
@@ -12,11 +14,9 @@ use Drupal\node\NodeInterface;
 class NodeLinksTest extends NodeTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['views'];
+  protected static $modules = ['views'];
 
   /**
    * {@inheritdoc}
@@ -26,7 +26,7 @@ class NodeLinksTest extends NodeTestBase {
   /**
    * Tests that the links can be hidden in the view display settings.
    */
-  public function testHideLinks() {
+  public function testHideLinks(): void {
     $node = $this->drupalCreateNode([
       'type' => 'article',
       'promote' => NodeInterface::PROMOTED,
@@ -34,7 +34,7 @@ class NodeLinksTest extends NodeTestBase {
 
     // Links are displayed by default.
     $this->drupalGet('node');
-    $this->assertText($node->getTitle());
+    $this->assertSession()->pageTextContains($node->getTitle());
     $this->assertSession()->linkExists('Read more');
 
     // Hide links.
@@ -44,7 +44,7 @@ class NodeLinksTest extends NodeTestBase {
       ->save();
 
     $this->drupalGet('node');
-    $this->assertText($node->getTitle());
+    $this->assertSession()->pageTextContains($node->getTitle());
     $this->assertSession()->linkNotExists('Read more');
   }
 

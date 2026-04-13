@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\trusted_hosts_test\Controller;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -15,6 +17,14 @@ class TrustedHostsTestController {
   public function fakeRequestHost() {
     $request = Request::create('/');
     return ['#markup' => 'Host: ' . $request->getHost()];
+  }
+
+  /**
+   * Creates a fake request and prints out the class name of the specified bag.
+   */
+  public function bagType($bag) {
+    $request = Request::create('/');
+    return ['#markup' => 'Type: ' . get_class($request->$bag)];
   }
 
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel;
 
 use Drupal\user\Entity\User;
@@ -13,16 +15,14 @@ use Drupal\KernelTests\KernelTestBase;
 class UserFieldsTest extends KernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['user', 'system'];
+  protected static $modules = ['user', 'system'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('user');
 
@@ -36,7 +36,7 @@ class UserFieldsTest extends KernelTestBase {
   /**
    * Tests account's available fields.
    */
-  public function testUserFields() {
+  public function testUserFields(): void {
     // Create the user to test the user fields.
     $user = User::create([
       'name' => 'foobar',

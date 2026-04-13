@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional\Entity;
 
 use Drupal\Core\Language\Language;
@@ -16,7 +18,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'locale',
     'content_translation',
@@ -26,12 +28,12 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'starterkit_theme';
 
   /**
    * {@inheritdoc}
    */
-  public static $testViews = ['test_entity_field_renderered_entity'];
+  public static $testViews = ['test_entity_field_rendered_entity'];
 
   /**
    * The entity type manager service.
@@ -43,14 +45,14 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp($import_test_views);
+  protected function setUp($import_test_views = TRUE, $modules = ['views_test_config']): void {
+    parent::setUp($import_test_views, $modules);
 
     $this->entityTypeManager = $this->container->get('entity_type.manager');
 
     $node_type = $this->entityTypeManager->getStorage('node_type')->create([
       'type' => 'article',
-      'label' => 'Article',
+      'name' => 'Article',
     ]);
     $node_type->save();
 
@@ -71,7 +73,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
   /**
    * Tests that different translation mechanisms can be used for base fields.
    */
-  public function testTranslationRows() {
+  public function testTranslationRows(): void {
     // First, an EN node with an ES translation.
     /** @var \Drupal\node\NodeInterface $node */
     $node = $this->entityTypeManager->getStorage('node')->create([
@@ -117,7 +119,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
 
     // Views are sorted first by node id ascending, and then title ascending.
     // Confirm each node and node translation renders in its own language.
-    $this->drupalGet('test_entity_field_renderered_entity/entity_translation');
+    $this->drupalGet('test_entity_field_rendered_entity/entity_translation');
     $this->assertRows([
       [
         'title' => 'example EN default',
@@ -141,7 +143,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
 
     // Confirm each node and node translation renders in the default language of
     // the node.
-    $this->drupalGet('test_entity_field_renderered_entity/entity_default');
+    $this->drupalGet('test_entity_field_rendered_entity/entity_default');
     $this->assertRows([
       [
         'title' => 'example EN default',
@@ -165,7 +167,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
 
     // Confirm each node and node translation renders in the site's default
     // language (en), with fallback if node does not have en content.
-    $this->drupalGet('test_entity_field_renderered_entity/site_default');
+    $this->drupalGet('test_entity_field_rendered_entity/site_default');
     $this->assertRows([
       [
         'title' => 'example EN default',
@@ -189,7 +191,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
 
     // Confirm each node and node translation renders in the site interface
     // language (en), with fallback if node does not have en content.
-    $this->drupalGet('test_entity_field_renderered_entity/language_interface');
+    $this->drupalGet('test_entity_field_rendered_entity/language_interface');
     $this->assertRows([
       [
         'title' => 'example EN default',
@@ -213,7 +215,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
 
     // Confirm each node and node translation renders in the site interface
     // language (es), with fallback if node does not have es content.
-    $this->drupalGet('test_entity_field_renderered_entity/language_interface', ['language' => new Language(['id' => 'es'])]);
+    $this->drupalGet('test_entity_field_rendered_entity/language_interface', ['language' => new Language(['id' => 'es'])]);
     $this->assertRows([
       [
         'title' => 'example ES translation',
@@ -236,7 +238,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
     ]);
 
     // Confirm each node and node translation renders in specified language en.
-    $this->drupalGet('test_entity_field_renderered_entity/en');
+    $this->drupalGet('test_entity_field_rendered_entity/en');
     $this->assertRows([
       [
         'title' => 'example EN default',
@@ -259,7 +261,7 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
     ]);
 
     // Confirm each node and node translation renders in specified language es.
-    $this->drupalGet('test_entity_field_renderered_entity/es');
+    $this->drupalGet('test_entity_field_rendered_entity/es');
     $this->assertRows([
       [
         'title' => 'example ES translation',
@@ -287,8 +289,10 @@ class FieldRenderedEntityTranslationTest extends ViewTestBase {
    *
    * @param array $expected
    *   The expected rows of the result.
+   *
+   * @internal
    */
-  protected function assertRows(array $expected = []) {
+  protected function assertRows(array $expected = []): void {
     $actual = [];
     $rows = $this->cssSelect('div.views-row');
     foreach ($rows as $row) {

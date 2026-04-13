@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate_drupal\Kernel\d6;
 
-use Drupal\Tests\DeprecatedModulesTestTrait;
 use Drupal\Tests\migrate_drupal\Traits\ValidateMigrationStateTestTrait;
 
 /**
@@ -12,13 +13,12 @@ use Drupal\Tests\migrate_drupal\Traits\ValidateMigrationStateTestTrait;
  */
 class ValidateMigrationStateTest extends MigrateDrupal6TestBase {
 
-  use DeprecatedModulesTestTrait;
   use ValidateMigrationStateTestTrait;
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     // Test migrations states.
     'migrate_state_finished_test',
     'migrate_state_not_finished_test',

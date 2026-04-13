@@ -2,6 +2,7 @@
 
 namespace Drupal\Core\Session;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\PrivateKey;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -13,100 +14,71 @@ use Drupal\Core\Site\Settings;
 class PermissionsHashGenerator implements PermissionsHashGeneratorInterface {
 
   /**
-   * The private key service.
-   *
-   * @var \Drupal\Core\PrivateKey
-   */
-  protected $privateKey;
-
-  /**
-   * The cache backend interface to use for the persistent cache.
-   *
-   * @var \Drupal\Core\Cache\CacheBackendInterface
-   */
-  protected $cache;
-
-  /**
-   * The cache backend interface to use for the static cache.
-   *
-   * @var \Drupal\Core\Cache\CacheBackendInterface
-   */
-  protected $static;
-
-  /**
    * Constructs a PermissionsHashGenerator object.
    *
-   * @param \Drupal\Core\PrivateKey $private_key
+   * @param \Drupal\Core\PrivateKey $privateKey
    *   The private key service.
-   * @param \Drupal\Core\Cache\CacheBackendInterface $cache
-   *   The cache backend interface to use for the persistent cache.
    * @param \Drupal\Core\Cache\CacheBackendInterface $static
    *   The cache backend interface to use for the static cache.
+   * @param \Drupal\Core\Session\AccessPolicyProcessorInterface $processor
+   *   The access policy processor.
    */
-  public function __construct(PrivateKey $private_key, CacheBackendInterface $cache, CacheBackendInterface $static) {
-    $this->privateKey = $private_key;
-    $this->cache = $cache;
-    $this->static = $static;
+  public function __construct(
+    protected PrivateKey $privateKey,
+    protected CacheBackendInterface $static,
+    protected AccessPolicyProcessorInterface $processor,
+  ) {
   }
 
   /**
    * {@inheritdoc}
-   *
-   * Cached by role, invalidated whenever permissions change.
    */
   public function generate(AccountInterface $account) {
-    // User 1 is the super user, and can always access all permissions. Use a
-    // different, unique identifier for the hash.
-    if ($account->id() == 1) {
-      return $this->hash('is-super-user');
-    }
+    // We can use a simple per-user static cache here because we already cache
+    // the permissions more efficiently in the access policy processor. On top
+    // of that, there is only a tiny chance of a hash being generated for more
+    // than one account during a single request.
+    $cid = 'permissions_hash_' . $account->id();
 
-    $sorted_roles = $account->getRoles();
-    sort($sorted_roles);
-    $role_list = implode(',', $sorted_roles);
-    $cid = "user_permissions_hash:$role_list";
+    // Retrieve the hash from the static cache if available.
     if ($static_cache = $this->static->get($cid)) {
       return $static_cache->data;
     }
+
+    // Otherwise hash the permissions and store them in the static cache.
+    $calculated_permissions = $this->processor->processAccessPolicies($account);
+    $item = $calculated_permissions->getItem();
+
+    // This should never happen, but in case nothing defined permissions for the
+    // current user, even if empty, we need to have _some_ hash too.
+    if ($item === FALSE) {
+      $hash = 'no-access-policies';
+    }
+    // If the calculated permissions item grants admin rights, we can simplify
+    // the entry by setting it to 'is-admin' rather than calculating an actual
+    // hash. This is because admin flagged calculated permissions
+    // automatically empty out the permissions array.
+    elseif ($item->isAdmin()) {
+      $hash = 'is-admin';
+    }
+    // Sort the permissions by name to ensure we don't get mismatching hashes
+    // for people with the same permissions, just because the order of the
+    // permissions happened to differ.
     else {
-      $tags = Cache::buildTags('config:user.role', $sorted_roles, '.');
-      if ($cache = $this->cache->get($cid)) {
-        $permissions_hash = $cache->data;
-      }
-      else {
-        $permissions_hash = $this->doGenerate($sorted_roles);
-        $this->cache->set($cid, $permissions_hash, Cache::PERMANENT, $tags);
-      }
-      $this->static->set($cid, $permissions_hash, Cache::PERMANENT, $tags);
+      $permissions = $item->getPermissions();
+      sort($permissions);
+      $hash = $this->hash(serialize($permissions));
     }
 
-    return $permissions_hash;
+    $this->static->set($cid, $hash, Cache::PERMANENT, $calculated_permissions->getCacheTags());
+    return $hash;
   }
 
   /**
-   * Generates a hash that uniquely identifies the user's permissions.
-   *
-   * @param string[] $roles
-   *   The user's roles.
-   *
-   * @return string
-   *   The permissions hash.
+   * {@inheritdoc}
    */
-  protected function doGenerate(array $roles) {
-    // @todo Once Drupal gets rid of user_role_permissions(), we should be able
-    // to inject the user role controller and call a method on that instead.
-    $permissions_by_role = user_role_permissions($roles);
-    foreach ($permissions_by_role as $role => $permissions) {
-      sort($permissions);
-      // Note that for admin roles (\Drupal\user\RoleInterface::isAdmin()), the
-      // permissions returned will be empty ($permissions = []). Therefore the
-      // presence of the role ID as a key in $permissions_by_role is essential
-      // to ensure that the hash correctly recognizes admin roles. (If the hash
-      // was based solely on the union of $permissions, the admin roles would
-      // effectively be no-ops, allowing for hash collisions.)
-      $permissions_by_role[$role] = $permissions;
-    }
-    return $this->hash(serialize($permissions_by_role));
+  public function getCacheableMetadata(AccountInterface $account): CacheableMetadata {
+    return CacheableMetadata::createFromObject($this->processor->processAccessPolicies($account));
   }
 
   /**

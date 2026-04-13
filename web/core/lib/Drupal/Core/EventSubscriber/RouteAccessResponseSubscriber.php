@@ -4,7 +4,7 @@ namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Routing\AccessAwareRouterInterface;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -26,11 +26,11 @@ class RouteAccessResponseSubscriber implements EventSubscriberInterface {
   /**
    * Bubbles the route's access result' cacheability metadata.
    *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
+   * @param \Symfony\Component\HttpKernel\Event\ResponseEvent $event
    *   The event to process.
    */
-  public function onRespond(FilterResponseEvent $event) {
-    if (!$event->isMasterRequest()) {
+  public function onRespond(ResponseEvent $event) {
+    if (!$event->isMainRequest()) {
       return;
     }
 
@@ -40,14 +40,19 @@ class RouteAccessResponseSubscriber implements EventSubscriberInterface {
     }
 
     $request = $event->getRequest();
-    $access_result = $request->attributes->get(AccessAwareRouterInterface::ACCESS_RESULT);
-    $response->addCacheableDependency($access_result);
+    // It is possible that route access checking did not occur, for example,
+    // when an exception was thrown during route matching. This could happen in
+    // an implementation of \Drupal\Core\Routing\EnhancerInterface.
+    // @see \Drupal\jsonapi\Revisions\ResourceVersionRouteEnhancer::enhance()
+    if ($request->attributes->has(AccessAwareRouterInterface::ACCESS_RESULT)) {
+      $response->addCacheableDependency($request->attributes->get(AccessAwareRouterInterface::ACCESS_RESULT));
+    }
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     // Priority 10, so that it runs before FinishResponseSubscriber, which will
     // expose the cacheability metadata in the form of headers.
     $events[KernelEvents::RESPONSE][] = ['onRespond', 10];

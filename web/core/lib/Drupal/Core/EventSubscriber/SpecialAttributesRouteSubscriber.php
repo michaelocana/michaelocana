@@ -4,7 +4,7 @@ namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Routing\RouteBuildEvent;
 use Drupal\Core\Routing\RouteSubscriberBase;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
+use Drupal\Core\Routing\RouteObjectInterface;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
@@ -29,7 +29,7 @@ class SpecialAttributesRouteSubscriber extends RouteSubscriberBase {
     foreach ($collection->all() as $name => $route) {
       if ($not_allowed_variables = array_intersect($route->compile()->getVariables(), $special_variables)) {
         $reserved = implode(', ', $not_allowed_variables);
-        trigger_error(sprintf('Route %s uses reserved variable names: %s', $name, $reserved), E_USER_WARNING);
+        throw new \InvalidArgumentException(sprintf('Route %s uses reserved variable names: %s', $name, $reserved));
       }
     }
   }

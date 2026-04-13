@@ -1,31 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests;
 
 use Drupal\Component\FileCache\FileCacheFactory;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Component\Utility\Random;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\StringTranslation\PluralTranslatableMarkup;
+use Drupal\TestTools\Extension\DeprecationBridge\ExpectDeprecationTrait;
+use Drupal\TestTools\Extension\Dump\DebugDump;
+use PHPUnit\Framework\Attributes\BeforeClass;
 use PHPUnit\Framework\TestCase;
+use Prophecy\PhpUnit\ProphecyTrait;
+use Symfony\Component\VarDumper\VarDumper;
 
 /**
  * Provides a base class and helpers for Drupal unit tests.
+ *
+ * Module tests extending UnitTestCase must exist in the
+ * Drupal\Tests\your_module\Unit namespace and live in the
+ * modules/your_module/tests/src/Unit directory.
+ *
+ * Tests for core/lib/Drupal classes extending UnitTestCase must exist in the
+ * \Drupal\Tests\Core namespace and live in the core/lib/tests/Drupal/Tests/Core
+ * directory.
+ *
+ * Using Symfony's dump() function in Unit tests will produce output on the
+ * command line.
  *
  * @ingroup testing
  */
 abstract class UnitTestCase extends TestCase {
 
-  use PhpunitCompatibilityTrait;
-
-  /**
-   * The random generator.
-   *
-   * @var \Drupal\Component\Utility\Random
-   */
-  protected $randomGenerator;
+  use PhpUnitCompatibilityTrait;
+  use ProphecyTrait;
+  use ExpectDeprecationTrait;
+  use RandomGeneratorTrait;
 
   /**
    * The app root.
@@ -35,9 +48,19 @@ abstract class UnitTestCase extends TestCase {
   protected $root;
 
   /**
+   * Registers the dumper CLI handler when the DebugDump extension is enabled.
+   */
+  #[BeforeClass]
+  public static function setDebugDumpHandler(): void {
+    if (DebugDump::isEnabled()) {
+      VarDumper::setHandler(DebugDump::class . '::cliHandler');
+    }
+  }
+
+  /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     // Ensure that an instantiated container in the global state of \Drupal from
     // a previous test does not leak into this test.
@@ -49,48 +72,8 @@ abstract class UnitTestCase extends TestCase {
     // Ensure that FileCacheFactory has a prefix.
     FileCacheFactory::setPrefix('prefix');
 
-    $this->root = dirname(dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__))));
-  }
-
-  /**
-   * Generates a unique random string containing letters and numbers.
-   *
-   * @param int $length
-   *   Length of random string to generate.
-   *
-   * @return string
-   *   Randomly generated unique string.
-   *
-   * @see \Drupal\Component\Utility\Random::name()
-   */
-  public function randomMachineName($length = 8) {
-    return $this->getRandomGenerator()->name($length, TRUE);
-  }
-
-  /**
-   * Gets the random generator for the utility methods.
-   *
-   * @return \Drupal\Component\Utility\Random
-   *   The random generator
-   */
-  protected function getRandomGenerator() {
-    if (!is_object($this->randomGenerator)) {
-      $this->randomGenerator = new Random();
-    }
-    return $this->randomGenerator;
-  }
-
-  /**
-   * Asserts if two arrays are equal by sorting them first.
-   *
-   * @param array $expected
-   * @param array $actual
-   * @param string $message
-   */
-  protected function assertArrayEquals(array $expected, array $actual, $message = NULL) {
-    ksort($expected);
-    ksort($actual);
-    $this->assertEquals($expected, $actual, !empty($message) ? $message : '');
+    $this->root = dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__)), 2);
+    chdir($this->root);
   }
 
   /**
@@ -104,9 +87,8 @@ abstract class UnitTestCase extends TestCase {
    *   configuration object names and whose values are key => value arrays for
    *   the configuration object in question. Defaults to an empty array.
    *
-   * @return \PHPUnit\Framework\MockObject\MockBuilder
-   *   A MockBuilder object for the ConfigFactory with the desired return
-   *   values.
+   * @return \PHPUnit\Framework\MockObject\MockObject|\Drupal\Core\Config\ConfigFactoryInterface
+   *   A mock configuration factory object.
    */
   public function getConfigFactoryStub(array $configs = []) {
     $config_get_map = [];
@@ -136,7 +118,7 @@ abstract class UnitTestCase extends TestCase {
         ->getMock();
       $immutable_config_object->expects($this->any())
         ->method('get')
-        ->will($this->returnCallback($config_get));
+        ->willReturnCallback($config_get);
       $config_get_map[] = [$config_name, $immutable_config_object];
 
       $mutable_config_object = $this->getMockBuilder('Drupal\Core\Config\Config')
@@ -144,7 +126,7 @@ abstract class UnitTestCase extends TestCase {
         ->getMock();
       $mutable_config_object->expects($this->any())
         ->method('get')
-        ->will($this->returnCallback($config_get));
+        ->willReturnCallback($config_get);
       $config_editable_map[] = [$config_name, $mutable_config_object];
     }
     // Construct a config factory with the array of configuration object stubs
@@ -152,70 +134,11 @@ abstract class UnitTestCase extends TestCase {
     $config_factory = $this->createMock('Drupal\Core\Config\ConfigFactoryInterface');
     $config_factory->expects($this->any())
       ->method('get')
-      ->will($this->returnValueMap($config_get_map));
+      ->willReturnMap($config_get_map);
     $config_factory->expects($this->any())
       ->method('getEditable')
-      ->will($this->returnValueMap($config_editable_map));
+      ->willReturnMap($config_editable_map);
     return $config_factory;
-  }
-
-  /**
-   * Returns a stub config storage that returns the supplied configuration.
-   *
-   * @param array $configs
-   *   An associative array of configuration settings whose keys are
-   *   configuration object names and whose values are key => value arrays
-   *   for the configuration object in question.
-   *
-   * @return \Drupal\Core\Config\StorageInterface
-   *   A mocked config storage.
-   */
-  public function getConfigStorageStub(array $configs) {
-    $config_storage = $this->createMock('Drupal\Core\Config\NullStorage');
-    $config_storage->expects($this->any())
-      ->method('listAll')
-      ->will($this->returnValue(array_keys($configs)));
-
-    foreach ($configs as $name => $config) {
-      $config_storage->expects($this->any())
-        ->method('read')
-        ->with($this->equalTo($name))
-        ->will($this->returnValue($config));
-    }
-    return $config_storage;
-  }
-
-  /**
-   * Mocks a block with a block plugin.
-   *
-   * @param string $machine_name
-   *   The machine name of the block plugin.
-   *
-   * @return \Drupal\block\BlockInterface|\PHPUnit\Framework\MockObject\MockObject
-   *   The mocked block.
-   *
-   * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0. Unit test
-   *   base classes should not have dependencies on extensions. Set up mocks in
-   *   individual tests.
-   *
-   * @see https://www.drupal.org/node/2896072
-   */
-  protected function getBlockMockWithMachineName($machine_name) {
-    $plugin = $this->getMockBuilder('Drupal\Core\Block\BlockBase')
-      ->disableOriginalConstructor()
-      ->getMock();
-    $plugin->expects($this->any())
-      ->method('getMachineNameSuggestion')
-      ->will($this->returnValue($machine_name));
-
-    $block = $this->getMockBuilder('Drupal\block\Entity\Block')
-      ->disableOriginalConstructor()
-      ->getMock();
-    $block->expects($this->any())
-      ->method('getPlugin')
-      ->will($this->returnValue($plugin));
-    @trigger_error(__METHOD__ . ' is deprecated in Drupal 8.5.x, will be removed before Drupal 9.0.0. Unit test base classes should not have dependencies on extensions. Set up mocks in individual tests.', E_USER_DEPRECATED);
-    return $block;
   }
 
   /**
@@ -229,6 +152,7 @@ abstract class UnitTestCase extends TestCase {
     $translation->expects($this->any())
       ->method('translate')
       ->willReturnCallback(function ($string, array $args = [], array $options = []) use ($translation) {
+        // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
         return new TranslatableMarkup($string, $args, $options, $translation);
       });
     $translation->expects($this->any())
@@ -259,7 +183,7 @@ abstract class UnitTestCase extends TestCase {
     $container->expects($this->any())
       ->method('get')
       ->with('cache_tags.invalidator')
-      ->will($this->returnValue($cache_tags_validator));
+      ->willReturn($cache_tags_validator);
 
     \Drupal::setContainer($container);
     return $container;
@@ -275,14 +199,14 @@ abstract class UnitTestCase extends TestCase {
     $class_resolver = $this->createMock('Drupal\Core\DependencyInjection\ClassResolverInterface');
     $class_resolver->expects($this->any())
       ->method('getInstanceFromDefinition')
-      ->will($this->returnCallback(function ($class) {
+      ->willReturnCallback(function ($class) {
         if (is_subclass_of($class, 'Drupal\Core\DependencyInjection\ContainerInjectionInterface')) {
           return $class::create(new ContainerBuilder());
         }
         else {
           return new $class();
         }
-      }));
+      });
     return $class_resolver;
   }
 

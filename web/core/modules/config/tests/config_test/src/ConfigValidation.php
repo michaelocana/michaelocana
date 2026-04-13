@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\config_test;
 
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+
+// cspell:ignore nyans
 
 /**
  * Provides a collection of validation callbacks for testing purposes.
@@ -60,7 +64,7 @@ class ConfigValidation {
    *   The validation execution context.
    */
   public static function validateGiraffes($string, ExecutionContextInterface $context) {
-    if (strpos($string, 'hum') !== 0) {
+    if (!str_starts_with($string, 'hum')) {
       $context->addViolation('Giraffes just hum');
     }
   }

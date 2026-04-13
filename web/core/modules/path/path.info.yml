@@ -1,9 +1,8 @@
 name: Path
 type: module
-description: 'Allows users to rename URLs.'
+description: 'Allows users to create custom URLs for existing paths on the site.'
 package: Core
 version: VERSION
-core: 8.x
 configure: entity.path_alias.collection
 dependencies:
   - drupal:path_alias

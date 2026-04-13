@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Render\Element;
 
-use Drupal\Component\Utility\Html;
 use Drupal\Core\Utility\TableSort;
 use Drupal\KernelTests\KernelTestBase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 /**
  * Tests table sorting.
@@ -17,13 +20,13 @@ class TableSortExtenderTest extends KernelTestBase {
   /**
    * Tests \Drupal\Core\Utility\TableSort::getContextFromRequest().
    */
-  public function testTableSortInit() {
+  public function testTableSortInit(): void {
 
     // Test simple table headers.
 
     $headers = ['foo', 'bar', 'baz'];
-    // Reset $request->query to prevent parameters from Simpletest and Batch API
-    // ending up in $ts['query'].
+    // Reset $request->query to prevent parameters from Batch API ending up in
+    // $ts['query'].
     $expected_ts = [
       'name' => 'foo',
       'sql' => '',
@@ -32,10 +35,10 @@ class TableSortExtenderTest extends KernelTestBase {
     ];
     $request = Request::createFromGlobals();
     $request->query->replace([]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
-    $this->assertEqual($ts, $expected_ts, 'Simple table headers sorted correctly.');
+    $this->assertEquals($expected_ts, $ts, 'Simple table headers sorted correctly.');
 
     // Test with simple table headers plus $_GET parameters that should _not_
     // override the default.
@@ -45,10 +48,10 @@ class TableSortExtenderTest extends KernelTestBase {
       // headers are overridable.
       'order' => 'bar',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
-    $this->assertEqual($ts, $expected_ts, 'Simple table headers plus non-overriding $_GET parameters sorted correctly.');
+    $this->assertEquals($expected_ts, $ts, 'Simple table headers plus non-overriding $_GET parameters sorted correctly.');
 
     // Test with simple table headers plus $_GET parameters that _should_
     // override the default.
@@ -59,12 +62,12 @@ class TableSortExtenderTest extends KernelTestBase {
       // it in the links that it creates.
       'alpha' => 'beta',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $expected_ts['sort'] = 'desc';
     $expected_ts['query'] = ['alpha' => 'beta'];
     $ts = TableSort::getContextFromRequest($headers, $request);
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
-    $this->assertEqual($ts, $expected_ts, 'Simple table headers plus $_GET parameters sorted correctly.');
+    $this->assertEquals($expected_ts, $ts, 'Simple table headers plus $_GET parameters sorted correctly.');
 
     // Test complex table headers.
 
@@ -87,6 +90,7 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '2',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -95,8 +99,7 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'desc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
-    $this->assertEqual($ts, $expected_ts, 'Complex table headers sorted correctly.');
+    $this->assertEquals($expected_ts, $ts, 'Complex table headers sorted correctly.');
 
     // Test complex table headers plus $_GET parameters that should _not_
     // override the default.
@@ -106,6 +109,7 @@ class TableSortExtenderTest extends KernelTestBase {
       // exist.
       'order' => 'bar',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -114,8 +118,7 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'asc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
-    $this->assertEqual($ts, $expected_ts, 'Complex table headers plus non-overriding $_GET parameters sorted correctly.');
+    $this->assertEquals($expected_ts, $ts, 'Complex table headers plus non-overriding $_GET parameters sorted correctly.');
 
     // Test complex table headers plus $_GET parameters that _should_
     // override the default.
@@ -127,6 +130,7 @@ class TableSortExtenderTest extends KernelTestBase {
       // it in the links that it creates.
       'alpha' => 'beta',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $expected_ts = [
       'name' => '1',
@@ -135,7 +139,6 @@ class TableSortExtenderTest extends KernelTestBase {
       'query' => ['alpha' => 'beta'],
     ];
     $ts = TableSort::getContextFromRequest($headers, $request);
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers plus $_GET parameters sorted correctly.');
 
     // Test the initial_click_sort parameter.
@@ -172,16 +175,15 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '1',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $expected_ts = [
       'name' => '1',
       'sql' => 'one',
       'sort' => 'desc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers using the initial_click_sort parameter are sorted correctly.');
 
     // Test that if the initial_click_sort parameter is not defined, the default
@@ -190,6 +192,7 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '2',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -198,7 +201,6 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'asc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers without using the initial_click_sort parameter are sorted correctly.');
 
     // Test that if the initial_click_sort parameter is defined, and the sort
@@ -207,6 +209,7 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '3',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -215,7 +218,6 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'asc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers using the initial_click_sort and sort parameters are sorted correctly.');
 
     // Test that if the initial_click_sort parameter is defined and the value
@@ -224,6 +226,7 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '4',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -232,7 +235,6 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'asc',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers with the initial_click_sort set as ASC are sorted correctly.');
 
     // Tests that if the initial_click_sort is defined with a non expected value
@@ -241,6 +243,7 @@ class TableSortExtenderTest extends KernelTestBase {
     $request->query->replace([
       'order' => '5',
     ]);
+    $request->setSession(new Session(new MockArraySessionStorage()));
     \Drupal::getContainer()->get('request_stack')->push($request);
     $ts = TableSort::getContextFromRequest($headers, $request);
     $expected_ts = [
@@ -249,7 +252,6 @@ class TableSortExtenderTest extends KernelTestBase {
       'sort' => 'foo',
       'query' => [],
     ];
-    $this->verbose(strtr('$ts: <pre>!ts</pre>', ['!ts' => Html::escape(var_export($ts, TRUE))]));
     $this->assertEquals($expected_ts, $ts, 'Complex table headers with the initial_click_sort set as foo are sorted correctly.');
   }
 

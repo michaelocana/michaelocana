@@ -2,7 +2,6 @@
 
 namespace Drupal\Core\Block;
 
-use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Component\Plugin\DerivativeInspectionInterface;
 use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
@@ -22,7 +21,7 @@ use Drupal\Core\Session\AccountInterface;
  *
  * @ingroup block_api
  */
-interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginFormInterface, PluginInspectionInterface, CacheableDependencyInterface, DerivativeInspectionInterface {
+interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInterface, PluginFormInterface, PluginInspectionInterface, CacheableDependencyInterface, DerivativeInspectionInterface {
 
   /**
    * Indicates the block label (title) should be displayed to end users.
@@ -76,6 +75,19 @@ interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInt
    * @see \Drupal\block\BlockViewBuilder
    */
   public function build();
+
+  /**
+   * Whether to render blocks in a placeholder.
+   *
+   * When blocks of this type are rendered, indicate whether they should be
+   * rendered in a placeholder or not. In general, blocks that attach libraries
+   * and/or render entities should be placeholdered to optimize various aspects
+   * of rendering performance.
+   *
+   * @return bool
+   *   Whether to placeholder blocks of this plugin type.
+   */
+  public function createPlaceholder(): bool;
 
   /**
    * Sets a particular value in the block settings.

@@ -7,7 +7,7 @@ use Symfony\Component\Routing\RouteCollection;
 /**
  * Defines an interface for displays that can collect routes.
  *
- * In addition to implementing the interface, specify 'uses_routes' in the
+ * In addition to implementing the interface, specify 'uses_route' in the
  * plugin definition.
  */
 interface DisplayRouterInterface extends DisplayPluginInterface {
@@ -27,6 +27,7 @@ interface DisplayRouterInterface extends DisplayPluginInterface {
    * the method can specify to break the search.
    *
    * @param \Symfony\Component\Routing\RouteCollection $collection
+   *   The route collection.
    *
    * @return array
    *   Returns a list of "$view_id.$display_id" elements which got overridden.

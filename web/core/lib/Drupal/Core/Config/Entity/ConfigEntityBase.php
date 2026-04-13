@@ -4,6 +4,7 @@ namespace Drupal\Core\Config\Entity;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Config\Action\Attribute\ActionMethod;
 use Drupal\Core\Config\Schema\SchemaIncompleteException;
 use Drupal\Core\Entity\EntityBase;
 use Drupal\Core\Config\ConfigDuplicateUUIDException;
@@ -12,12 +13,14 @@ use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityWithPluginCollectionInterface;
 use Drupal\Core\Entity\SynchronizableEntityTrait;
 use Drupal\Core\Plugin\PluginDependencyTrait;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
  * Defines a base configuration entity class.
  *
  * @ingroup entity_api
  */
+#[\AllowDynamicProperties]
 abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterface {
 
   use PluginDependencyTrait {
@@ -80,6 +83,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    *
    * @var array
    */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $third_party_settings = [];
 
   /**
@@ -91,6 +95,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    *
    * @var array
    */
+  // phpcs:ignore Drupal.Classes.PropertyDeclaration, Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
   protected $_core = [];
 
   /**
@@ -135,7 +140,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   }
 
   /**
-   * Overrides Entity::isNew().
+   * Overrides EntityBase::isNew().
    *
    * EntityInterface::enforceIsNew() is only supported for newly created
    * configuration entities but has no effect after saving, since each
@@ -149,14 +154,15 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function get($property_name) {
-    return isset($this->{$property_name}) ? $this->{$property_name} : NULL;
+    return $this->{$property_name} ?? NULL;
   }
 
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Set a value'), pluralize: 'setMultiple')]
   public function set($property_name, $value) {
-    if ($this instanceof EntityWithPluginCollectionInterface) {
+    if ($this instanceof EntityWithPluginCollectionInterface && !$this->isSyncing()) {
       $plugin_collections = $this->getPluginCollections();
       if (isset($plugin_collections[$property_name])) {
         // If external code updates the settings, pass it along to the plugin.
@@ -172,6 +178,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Enable'), pluralize: FALSE)]
   public function enable() {
     return $this->setStatus(TRUE);
   }
@@ -179,6 +186,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Disable'), pluralize: FALSE)]
   public function disable() {
     return $this->setStatus(FALSE);
   }
@@ -186,6 +194,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Set status'), pluralize: FALSE)]
   public function setStatus($status) {
     $this->status = (bool) $status;
     return $this;
@@ -224,17 +233,17 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   }
 
   /**
-   * Helper callback for uasort() to sort configuration entities by weight and label.
+   * Callback for uasort() to sort configuration entities by weight and label.
    */
   public static function sort(ConfigEntityInterface $a, ConfigEntityInterface $b) {
-    $a_weight = isset($a->weight) ? $a->weight : 0;
-    $b_weight = isset($b->weight) ? $b->weight : 0;
+    $a_weight = $a->weight ?? 0;
+    $b_weight = $b->weight ?? 0;
     if ($a_weight == $b_weight) {
-      $a_label = $a->label();
-      $b_label = $b->label();
+      $a_label = $a->label() ?? '';
+      $b_label = $b->label() ?? '';
       return strnatcasecmp($a_label, $b_label);
     }
-    return ($a_weight < $b_weight) ? -1 : 1;
+    return $a_weight <=> $b_weight;
   }
 
   /**
@@ -248,7 +257,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
     $id_key = $entity_type->getKey('id');
     $property_names = $entity_type->getPropertiesToExport($this->id());
     if (empty($property_names)) {
-      throw new SchemaIncompleteException(sprintf("Entity type '%s' is missing 'config_export' definition in its annotation", get_class($entity_type)));
+      throw new SchemaIncompleteException(sprintf("Entity type '%s' is missing 'config_export' definition in its annotation", $entity_type->getClass()));
     }
     foreach ($property_names as $property_name => $export_name) {
       // Special handling for IDs so that computed compound IDs work.
@@ -274,6 +283,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * Gets the typed config manager.
    *
    * @return \Drupal\Core\Config\TypedConfigManagerInterface
+   *   The typed configuration plugin manager.
    */
   protected function getTypedConfig() {
     return \Drupal::service('config.typed');
@@ -283,9 +293,10 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
+    /** @var \Drupal\Core\Config\Entity\ConfigEntityStorageInterface $storage */
     parent::preSave($storage);
 
-    if ($this instanceof EntityWithPluginCollectionInterface) {
+    if ($this instanceof EntityWithPluginCollectionInterface && !$this->isSyncing()) {
       // Any changes to the plugin configuration must be saved to the entity's
       // copy as well.
       foreach ($this->getPluginCollections() as $plugin_config_key => $plugin_collection) {
@@ -316,13 +327,28 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
       // being written during a configuration synchronization then there is no
       // need to recalculate the dependencies.
       $this->calculateDependencies();
+      // If the data is trusted we need to ensure that the dependencies are
+      // sorted as per their schema. If the save is not trusted then the
+      // configuration will be sorted by StorableConfigBase.
+      if ($this->trustedData) {
+        $mapping = ['config' => 0, 'content' => 1, 'module' => 2, 'theme' => 3, 'enforced' => 4];
+        $dependency_sort = function ($dependencies) use ($mapping) {
+          // Only sort the keys that exist.
+          $mapping_to_replace = array_intersect_key($mapping, $dependencies);
+          return array_replace($mapping_to_replace, $dependencies);
+        };
+        $this->dependencies = $dependency_sort($this->dependencies);
+        if (isset($this->dependencies['enforced'])) {
+          $this->dependencies['enforced'] = $dependency_sort($this->dependencies['enforced']);
+        }
+      }
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function __sleep() {
+  public function __sleep(): array {
     $keys_to_unset = [];
     if ($this instanceof EntityWithPluginCollectionInterface) {
       // Get the plugin collections first, so that the properties are
@@ -354,7 +380,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   public function calculateDependencies() {
     // All dependencies should be recalculated on every save apart from enforced
     // dependencies. This ensures stale dependencies are never saved.
-    $this->dependencies = array_intersect_key($this->dependencies, ['enforced' => '']);
+    $this->dependencies = array_intersect_key($this->dependencies ?? [], ['enforced' => '']);
     if ($this instanceof EntityWithPluginCollectionInterface) {
       // Configuration entities need to depend on the providers of any plugins
       // that they store the configuration for.
@@ -377,32 +403,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
-  public function urlInfo($rel = 'edit-form', array $options = []) {
-    // Unless language was already provided, avoid setting an explicit language.
-    $options += ['language' => NULL];
-    return parent::urlInfo($rel, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function url($rel = 'edit-form', $options = []) {
-    // Do not remove this override: the default value of $rel is different.
-    return parent::url($rel, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function link($text = NULL, $rel = 'edit-form', array $options = []) {
-    // Do not remove this override: the default value of $rel is different.
-    return parent::link($text, $rel, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function toUrl($rel = 'edit-form', array $options = []) {
+  public function toUrl($rel = NULL, array $options = []) {
     // Unless language was already provided, avoid setting an explicit language.
     $options += ['language' => NULL];
     return parent::toUrl($rel, $options);
@@ -509,6 +510,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Set third-party setting'))]
   public function setThirdPartySetting($module, $key, $value) {
     $this->third_party_settings[$module][$key] = $value;
     return $this;
@@ -530,7 +532,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function getThirdPartySettings($module) {
-    return isset($this->third_party_settings[$module]) ? $this->third_party_settings[$module] : [];
+    return $this->third_party_settings[$module] ?? [];
   }
 
   /**

@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\config_translation\Functional;
 
 use Drupal\FunctionalTests\Installer\InstallerTestBase;
+use Drupal\Tests\node\Traits\ContentTypeCreationTrait;
 
 /**
  * Installs the config translation module on a site installed in non english.
@@ -10,6 +13,8 @@ use Drupal\FunctionalTests\Installer\InstallerTestBase;
  * @group config_translation
  */
 class ConfigTranslationInstallTest extends InstallerTestBase {
+
+  use ContentTypeCreationTrait;
 
   /**
    * {@inheritdoc}
@@ -19,12 +24,12 @@ class ConfigTranslationInstallTest extends InstallerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected $profile = 'standard';
+  protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
    */
-  protected function setUpLanguage() {
+  protected function setUpLanguage(): void {
     // Place custom local translations in the translations directory.
     mkdir(DRUPAL_ROOT . '/' . $this->siteDirectory . '/files/translations', 0777, TRUE);
     file_put_contents(DRUPAL_ROOT . '/' . $this->siteDirectory . '/files/translations/drupal-8.0.0.eo.po', $this->getPo('eo'));
@@ -43,8 +48,8 @@ class ConfigTranslationInstallTest extends InstallerTestBase {
    * @return string
    *   Contents for the test .po file.
    */
-  protected function getPo($langcode) {
-    return <<<ENDPO
+  protected function getPo($langcode): string {
+    return <<<PO
 msgid ""
 msgstr ""
 
@@ -56,17 +61,26 @@ msgstr "Anonymous $langcode"
 
 msgid "Language"
 msgstr "Language $langcode"
-ENDPO;
+PO;
   }
 
-  public function testConfigTranslation() {
-    $this->drupalPostForm('admin/config/regional/language/add', ['predefined_langcode' => 'en'], t('Add custom language'));
-    $this->drupalPostForm('admin/config/regional/language/add', ['predefined_langcode' => 'fr'], t('Add custom language'));
+  /**
+   * Tests install of Configuration Translation module.
+   */
+  public function testConfigTranslation(): void {
+    \Drupal::service('module_installer')->install(['node', 'field_ui']);
+    $this->createContentType(['type' => 'article']);
+
+    $this->drupalGet('admin/config/regional/language/add');
+    $this->submitForm(['predefined_langcode' => 'en'], 'Add custom language');
+    $this->drupalGet('admin/config/regional/language/add');
+    $this->submitForm(['predefined_langcode' => 'fr'], 'Add custom language');
 
     $edit = [
       'modules[config_translation][enable]' => TRUE,
     ];
-    $this->drupalPostForm('admin/modules', $edit, t('Install'));
+    $this->drupalGet('admin/modules');
+    $this->submitForm($edit, 'Install');
 
     $this->drupalGet('/admin/structure/types/manage/article/fields');
     $this->assertSession()->statusCodeEquals(200);

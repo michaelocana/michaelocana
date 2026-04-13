@@ -4,6 +4,7 @@ namespace Drupal\menu_ui;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Url;
 
 /**
  * Defines a class to build a listing of menu entities.
@@ -16,10 +17,15 @@ class MenuListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
+  protected const SORT_KEY = 'label';
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildHeader() {
-    $header['title'] = t('Title');
+    $header['title'] = $this->t('Title');
     $header['description'] = [
-      'data' => t('Description'),
+      'data' => $this->t('Description'),
       'class' => [RESPONSIVE_PRIORITY_MEDIUM],
     ];
     return $header + parent::buildHeader();
@@ -44,17 +50,30 @@ class MenuListBuilder extends ConfigEntityListBuilder {
     $operations = parent::getDefaultOperations($entity);
 
     if (isset($operations['edit'])) {
-      $operations['edit']['title'] = t('Edit menu');
+      $operations['edit']['title'] = $this->t('Edit menu');
       $operations['add'] = [
-        'title' => t('Add link'),
+        'title' => $this->t('Add link'),
         'weight' => 20,
         'url' => $entity->toUrl('add-link-form'),
+        'query' => [
+          'destination' => $entity->toUrl('edit-form')->toString(),
+        ],
       ];
     }
     if (isset($operations['delete'])) {
-      $operations['delete']['title'] = t('Delete menu');
+      $operations['delete']['title'] = $this->t('Delete menu');
     }
     return $operations;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function ensureDestination(Url $url) {
+    // We don't want to add the destination URL here, as it means we get
+    // redirected back to the list-builder after adding/deleting menu links from
+    // a menu.
+    return $url;
   }
 
   /**

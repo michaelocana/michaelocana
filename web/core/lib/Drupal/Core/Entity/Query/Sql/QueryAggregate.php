@@ -22,6 +22,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
    */
   public function execute() {
     return $this
+      ->alter()
       ->prepare()
       ->addAggregate()
       ->compile()
@@ -75,7 +76,8 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
     if ($this->aggregate) {
       foreach ($this->aggregate as $aggregate) {
         $sql_field = $this->getSqlField($aggregate['field'], $aggregate['langcode']);
-        $this->sqlExpressions[$aggregate['alias']] = $aggregate['function'] . "($sql_field)";
+        $sql_field_escaped = '[' . str_replace('.', '].[', $sql_field) . ']';
+        $this->sqlExpressions[$aggregate['alias']] = $aggregate['function'] . "($sql_field_escaped)";
       }
     }
     return $this;
@@ -93,7 +95,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   }
 
   /**
-   * Adds the groupby values to the actual query.
+   * Adds the group by values to the actual query.
    *
    * @return $this
    *   Returns the called object.
@@ -103,7 +105,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
       $field = $group_by['field'];
       $sql_field = $this->getSqlField($field, $group_by['langcode']);
       $this->sqlGroupBy[$sql_field] = $sql_field;
-      list($table, $real_sql_field) = explode('.', $sql_field);
+      [$table, $real_sql_field] = explode('.', $sql_field);
       $this->sqlFields[$sql_field] = [$table, $real_sql_field, $this->createSqlAlias($field, $real_sql_field)];
     }
 
@@ -153,7 +155,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   public function createSqlAlias($field, $sql_field) {
     $alias = str_replace('.', '_', $sql_field);
     // If the alias contains of field_*_value remove the _value at the end.
-    if (substr($alias, 0, 6) === 'field_' && substr($field, -6) !== '_value' && substr($alias, -6) === '_value') {
+    if (str_starts_with($alias, 'field_') && !str_ends_with($field, '_value') && str_ends_with($alias, '_value')) {
       $alias = substr($alias, 0, -6);
     }
     return $alias;

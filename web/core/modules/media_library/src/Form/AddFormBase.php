@@ -4,7 +4,9 @@ namespace Drupal\media_library\Form;
 
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\CloseDialogCommand;
+use Drupal\Core\Ajax\FocusFirstCommand;
 use Drupal\Core\Ajax\InvokeCommand;
+use Drupal\Core\Ajax\MessageCommand;
 use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Entity\Entity\EntityFormDisplay;
 use Drupal\Core\Entity\EntityStorageInterface;
@@ -12,6 +14,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\BaseFormIdInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\WorkspaceSafeFormInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\Url;
@@ -25,7 +28,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Provides a base class for creating media items from within the media library.
  */
-abstract class AddFormBase extends FormBase implements BaseFormIdInterface, TrustedCallbackInterface {
+abstract class AddFormBase extends FormBase implements BaseFormIdInterface, TrustedCallbackInterface, WorkspaceSafeFormInterface {
 
   /**
    * The entity type manager.
@@ -63,7 +66,7 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
   protected $openerResolver;
 
   /**
-   * Constructs a AddFormBase object.
+   * Constructs an AddFormBase object.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
@@ -72,14 +75,10 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
    * @param \Drupal\media_library\OpenerResolverInterface $opener_resolver
    *   The opener resolver.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, MediaLibraryUiBuilder $library_ui_builder, OpenerResolverInterface $opener_resolver = NULL) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, MediaLibraryUiBuilder $library_ui_builder, OpenerResolverInterface $opener_resolver) {
     $this->entityTypeManager = $entity_type_manager;
     $this->libraryUiBuilder = $library_ui_builder;
     $this->viewBuilder = $this->entityTypeManager->getViewBuilder('media');
-    if (!$opener_resolver) {
-      @trigger_error('The media_library.opener_resolver service must be passed to AddFormBase::__construct(), it is required before Drupal 9.0.0.', E_USER_DEPRECATED);
-      $opener_resolver = \Drupal::service('media_library.opener_resolver');
-    }
     $this->openerResolver = $opener_resolver;
   }
 
@@ -258,7 +257,7 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
     // triggering element is not set correctly and the wrong media item is
     // removed.
     // @see ::removeButtonSubmit()
-    $parents = isset($form['#parents']) ? $form['#parents'] : [];
+    $parents = $form['#parents'] ?? [];
     $id_suffix = $parents ? '-' . implode('-', $parents) : '';
 
     $element = [
@@ -612,7 +611,7 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
       // source field).
       if (empty($added_media)) {
         $response->addCommand(new ReplaceCommand('#media-library-add-form-wrapper', $this->buildMediaLibraryUi($form_state)));
-        $response->addCommand(new InvokeCommand('#media-library-add-form-wrapper :tabbable', 'focus'));
+        $response->addCommand(new FocusFirstCommand('#media-library-add-form-wrapper'));
       }
       // When there are still more items, update the form and shift the focus to
       // the next media item. If the last list item is removed, shift focus to
@@ -703,11 +702,22 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
       return $media->id();
     }, $this->getAddedMediaItems($form_state));
 
+    $selected_count = $this->getSelectedMediaItemCount($media_ids, $form_state);
+
     $response = new AjaxResponse();
     $response->addCommand(new UpdateSelectionCommand($media_ids));
     $media_id_to_focus = array_pop($media_ids);
     $response->addCommand(new ReplaceCommand('#media-library-add-form-wrapper', $this->buildMediaLibraryUi($form_state)));
     $response->addCommand(new InvokeCommand("#media-library-content [value=$media_id_to_focus]", 'focus'));
+    $available_slots = $this->getMediaLibraryState($form_state)->getAvailableSlots();
+    if ($available_slots > 0 && $selected_count > $available_slots) {
+      $warning = $this->formatPlural($selected_count - $available_slots, 'There are currently @total items selected. The maximum number of items for the field is @max. Remove @count item from the selection.', 'There are currently @total items selected. The maximum number of items for the field is @max. Remove @count items from the selection.', [
+        '@total' => $selected_count,
+        '@max' => $available_slots,
+      ]);
+      $response->addCommand(new MessageCommand($warning, '#media-library-messages', ['type' => 'warning']));
+    }
+
     return $response;
   }
 
@@ -742,7 +752,7 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
    *   The current form state.
    *
    * @return array|\Drupal\Core\Ajax\AjaxResponse
-   *   The form array when there are form errors or a AJAX response to select
+   *   The form array when there are form errors or an AJAX response to select
    *   the created items in the media library.
    */
   public function updateWidget(array &$form, FormStateInterface $form_state) {
@@ -753,15 +763,42 @@ abstract class AddFormBase extends FormBase implements BaseFormIdInterface, Trus
     // The added media items get an ID when they are saved in ::submitForm().
     // For that reason the added media items are keyed by delta in the form
     // state and we have to do an array map to get each media ID.
-    $current_media_ids = array_map(function (MediaInterface $media) {
+    $media_ids = array_map(function (MediaInterface $media) {
       return $media->id();
     }, $this->getCurrentMediaItems($form_state));
 
     // Allow the opener service to respond to the selection.
     $state = $this->getMediaLibraryState($form_state);
+    $selected_count = $this->getSelectedMediaItemCount($media_ids, $form_state);
+
+    $available_slots = $this->getMediaLibraryState($form_state)->getAvailableSlots();
+    if ($available_slots > 0 && $selected_count > $available_slots) {
+      // Return to library where we display a warning about the overage.
+      return $this->updateLibrary($form, $form_state);
+    }
+
     return $this->openerResolver->get($state)
-      ->getSelectionResponse($state, $current_media_ids)
+      ->getSelectionResponse($state, $media_ids)
       ->addCommand(new CloseDialogCommand());
+  }
+
+  /**
+   * Get the number of selected media.
+   *
+   * @param array $media_ids
+   *   Array with the media IDs.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current form state.
+   *
+   * @return int
+   *   The number of media currently selected.
+   */
+  private function getSelectedMediaItemCount(array $media_ids, FormStateInterface $form_state): int {
+    $selected_count = count($media_ids);
+    if ($current_selection = $form_state->getValue('current_selection')) {
+      $selected_count += count(explode(',', $current_selection));
+    }
+    return $selected_count;
   }
 
   /**

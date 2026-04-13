@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\language\Kernel\Migrate\d6;
 
 use Drupal\language\Entity\ContentLanguageSettings;
@@ -16,7 +18,7 @@ class MigrateLanguageContentTaxonomyVocabularySettingsTest extends MigrateDrupal
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'content_translation',
     'taxonomy',
@@ -25,7 +27,7 @@ class MigrateLanguageContentTaxonomyVocabularySettingsTest extends MigrateDrupal
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('taxonomy_term');
     $this->executeMigrations([
@@ -38,7 +40,7 @@ class MigrateLanguageContentTaxonomyVocabularySettingsTest extends MigrateDrupal
   /**
    * Tests migration of 18ntaxonomy vocabulary settings.
    */
-  public function testLanguageContentTaxonomy() {
+  public function testLanguageContentTaxonomy(): void {
     $target_entity = 'taxonomy_term';
     // Per Language.
     $this->assertLanguageContentSettings($target_entity, 'vocabulary_1_i_0_', LanguageInterface::LANGCODE_SITE_DEFAULT, TRUE, ['enabled' => FALSE]);
@@ -66,8 +68,10 @@ class MigrateLanguageContentTaxonomyVocabularySettingsTest extends MigrateDrupal
    *   The expected state of language alterable.
    * @param array $third_party_settings
    *   The content translation setting.
+   *
+   * @internal
    */
-  public function assertLanguageContentSettings($target_entity, $bundle, $default_langcode, $language_alterable, array $third_party_settings) {
+  public function assertLanguageContentSettings(string $target_entity, string $bundle, string $default_langcode, bool $language_alterable, array $third_party_settings): void {
     $config = ContentLanguageSettings::load($target_entity . "." . $bundle);
     $this->assertInstanceOf(ContentLanguageSettings::class, $config);
     $this->assertSame($target_entity, $config->getTargetEntityTypeId());

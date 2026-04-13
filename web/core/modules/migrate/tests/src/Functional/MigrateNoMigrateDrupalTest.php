@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Functional;
 
 use Drupal\node\Entity\Node;
@@ -35,18 +37,15 @@ class MigrateNoMigrateDrupalTest extends BrowserTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-    // Ensures that code from the migrate_drupal module can not be autoloaded
-    // while testing on DrupalCI.
-    $this->writeSettings(['settings' => ['deployment_identifier' => (object) ['value' => 'force-new-apcu-key', 'required' => TRUE]]]);
     $this->createContentType(['type' => 'no_migrate_drupal']);
   }
 
   /**
    * Tests execution of a migration.
    */
-  public function testExecutionNoMigrateDrupal() {
+  public function testExecutionNoMigrateDrupal(): void {
     $this->drupalGet('/migrate_no_migrate_drupal_test/execute');
     $this->assertSession()->pageTextContains('Migration was successful.');
     $node_1 = Node::load(1);

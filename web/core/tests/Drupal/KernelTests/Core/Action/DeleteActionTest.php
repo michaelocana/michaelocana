@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Action;
 
 use Drupal\Core\Action\Plugin\Action\Derivative\EntityDeleteActionDeriver;
@@ -13,21 +15,25 @@ use Drupal\user\Entity\User;
  */
 class DeleteActionTest extends KernelTestBase {
 
+  /**
+   * The test user.
+   *
+   * @var \Drupal\Core\Session\AccountInterface
+   */
   protected $testUser;
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['system', 'entity_test', 'user'];
+  protected static $modules = ['system', 'entity_test', 'user'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('entity_test_mulrevpub');
     $this->installEntitySchema('user');
-    $this->installSchema('system', ['sequences', 'key_value_expire']);
 
     $this->testUser = User::create([
       'name' => 'foobar',
@@ -40,7 +46,7 @@ class DeleteActionTest extends KernelTestBase {
   /**
    * @covers \Drupal\Core\Action\Plugin\Action\Derivative\EntityDeleteActionDeriver::getDerivativeDefinitions
    */
-  public function testGetDerivativeDefinitions() {
+  public function testGetDerivativeDefinitions(): void {
     $deriver = new EntityDeleteActionDeriver(\Drupal::entityTypeManager(), \Drupal::translation());
     $this->assertEquals([
       'entity_test_mulrevpub' => [
@@ -69,7 +75,7 @@ class DeleteActionTest extends KernelTestBase {
   /**
    * @covers \Drupal\Core\Action\Plugin\Action\DeleteAction::execute
    */
-  public function testDeleteAction() {
+  public function testDeleteAction(): void {
     $entity = EntityTestMulRevPub::create(['name' => 'test']);
     $entity->save();
 
@@ -80,12 +86,12 @@ class DeleteActionTest extends KernelTestBase {
     $action->save();
 
     $action->execute([$entity]);
-    $this->assertArraySubset(['module' => ['entity_test']], $action->getDependencies());
+    $this->assertSame(['module' => ['entity_test']], $action->getDependencies());
 
     /** @var \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store */
     $temp_store = \Drupal::service('tempstore.private');
     $store_entries = $temp_store->get('entity_delete_multiple_confirm')->get($this->testUser->id() . ':entity_test_mulrevpub');
-    $this->assertArraySubset([$this->testUser->id() => ['en' => 'en']], $store_entries);
+    $this->assertSame([$this->testUser->id() => ['en' => 'en']], $store_entries);
   }
 
 }

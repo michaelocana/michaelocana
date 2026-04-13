@@ -14,7 +14,9 @@ namespace Symfony\Component\Validator\Constraints;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
+use Symfony\Component\Validator\Exception\RuntimeException;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
+use Symfony\Component\Validator\Exception\UnexpectedValueException;
 
 /**
  * ChoiceValidator validates that the value is one of the expected values.
@@ -25,10 +27,7 @@ use Symfony\Component\Validator\Exception\UnexpectedTypeException;
  */
 class ChoiceValidator extends ConstraintValidator
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function validate($value, Constraint $constraint)
+    public function validate(mixed $value, Constraint $constraint): void
     {
         if (!$constraint instanceof Choice) {
             throw new UnexpectedTypeException($constraint, Choice::class);
@@ -43,7 +42,7 @@ class ChoiceValidator extends ConstraintValidator
         }
 
         if ($constraint->multiple && !\is_array($value)) {
-            throw new UnexpectedTypeException($value, 'array');
+            throw new UnexpectedValueException($value, 'array');
         }
 
         if ($constraint->callback) {
@@ -53,20 +52,24 @@ class ChoiceValidator extends ConstraintValidator
             ) {
                 throw new ConstraintDefinitionException('The Choice constraint expects a valid callback.');
             }
-            $choices = \call_user_func($choices);
+            $choices = $choices();
+            if (!\is_array($choices)) {
+                throw new ConstraintDefinitionException(\sprintf('The Choice constraint callback "%s" is expected to return an array, but returned "%s".', trim($this->formatValue($constraint->callback), '"'), get_debug_type($choices)));
+            }
         } else {
             $choices = $constraint->choices;
         }
 
         if (true !== $constraint->strict) {
-            @trigger_error('Not setting the strict option of the Choice constraint to true is deprecated since Symfony 3.4 and will throw an exception in 4.0.', E_USER_DEPRECATED);
+            throw new RuntimeException('The "strict" option of the Choice constraint should not be used.');
         }
 
         if ($constraint->multiple) {
             foreach ($value as $_value) {
-                if (!\in_array($_value, $choices, $constraint->strict)) {
+                if ($constraint->match xor \in_array($_value, $choices, true)) {
                     $this->context->buildViolation($constraint->multipleMessage)
                         ->setParameter('{{ value }}', $this->formatValue($_value))
+                        ->setParameter('{{ choices }}', $this->formatValues($choices))
                         ->setCode(Choice::NO_SUCH_CHOICE_ERROR)
                         ->setInvalidValue($_value)
                         ->addViolation();
@@ -80,7 +83,7 @@ class ChoiceValidator extends ConstraintValidator
             if (null !== $constraint->min && $count < $constraint->min) {
                 $this->context->buildViolation($constraint->minMessage)
                     ->setParameter('{{ limit }}', $constraint->min)
-                    ->setPlural((int) $constraint->min)
+                    ->setPlural($constraint->min)
                     ->setCode(Choice::TOO_FEW_ERROR)
                     ->addViolation();
 
@@ -90,15 +93,14 @@ class ChoiceValidator extends ConstraintValidator
             if (null !== $constraint->max && $count > $constraint->max) {
                 $this->context->buildViolation($constraint->maxMessage)
                     ->setParameter('{{ limit }}', $constraint->max)
-                    ->setPlural((int) $constraint->max)
+                    ->setPlural($constraint->max)
                     ->setCode(Choice::TOO_MANY_ERROR)
                     ->addViolation();
-
-                return;
             }
-        } elseif (!\in_array($value, $choices, $constraint->strict)) {
+        } elseif ($constraint->match xor \in_array($value, $choices, true)) {
             $this->context->buildViolation($constraint->message)
                 ->setParameter('{{ value }}', $this->formatValue($value))
+                ->setParameter('{{ choices }}', $this->formatValues($choices))
                 ->setCode(Choice::NO_SUCH_CHOICE_ERROR)
                 ->addViolation();
         }

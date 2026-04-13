@@ -9,6 +9,8 @@
  * the database structure expected in tests altogether.
  */
 
+declare(strict_types=1);
+
 $connection = \Drupal::database();
 // Update the default category to that it is not selected.
 $connection->update('contact')
@@ -25,10 +27,10 @@ $connection->insert('contact')->fields([
   'selected',
 ])
   ->values([
-  'category' => 'Upgrade test',
-  'recipients' => 'test1@example.com,test2@example.com',
-  'reply' => 'Test reply',
-  'weight' => 1,
-  'selected' => 1,
-])
+    'category' => 'Upgrade test',
+    'recipients' => 'test1@example.com,test2@example.com',
+    'reply' => 'Test reply',
+    'weight' => 1,
+    'selected' => 1,
+  ])
   ->execute();

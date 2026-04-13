@@ -69,7 +69,7 @@ class ViewsDataHelper {
         foreach ($table_data as $field => $info) {
           // Collect table data from this table
           if ($field == 'table') {
-            // calculate what tables this table can join to.
+            // Calculate what tables this table can join to.
             if (!empty($info['join'])) {
               $bases = array_keys($info['join']);
             }
@@ -148,7 +148,7 @@ class ViewsDataHelper {
           $strings += $this->fields[$base_table][$type];
         }
       }
-      uasort($strings, ['self', 'fetchedFieldSort']);
+      uasort($strings, [$this, 'fetchedFieldSort']);
       return $strings;
     }
 
@@ -163,8 +163,8 @@ class ViewsDataHelper {
    * Sort function for fetched fields.
    *
    * @param array $a
-   *   First item for comparison. The compared items should be associative arrays
-   *   that include a 'group' and a 'title' key.
+   *   First item for comparison. The compared items should be associative
+   *   arrays that include a 'group' and a 'title' key.
    * @param array $b
    *   Second item for comparison.
    *
@@ -176,16 +176,12 @@ class ViewsDataHelper {
     $a_group = mb_strtolower($a['group']);
     $b_group = mb_strtolower($b['group']);
     if ($a_group != $b_group) {
-      return $a_group < $b_group ? -1 : 1;
+      return $a_group <=> $b_group;
     }
 
     $a_title = mb_strtolower($a['title']);
     $b_title = mb_strtolower($b['title']);
-    if ($a_title != $b_title) {
-      return $a_title < $b_title ? -1 : 1;
-    }
-
-    return 0;
+    return $a_title <=> $b_title;
   }
 
 }

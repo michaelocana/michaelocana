@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel;
 
 use Drupal\comment\Entity\Comment;
@@ -24,7 +26,7 @@ class CommentIntegrationTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'comment',
     'field',
     'entity_test',
@@ -36,13 +38,12 @@ class CommentIntegrationTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('entity_test');
     $this->installEntitySchema('user');
     $this->installEntitySchema('comment');
     $this->installSchema('dblog', ['watchdog']);
-    $this->installSchema('system', ['sequences']);
 
     // Create a new 'comment' comment-type.
     CommentType::create([
@@ -58,13 +59,14 @@ class CommentIntegrationTest extends KernelTestBase {
    * @see comment_entity_view_display_presave()
    * @see CommentDefaultFormatter::calculateDependencies()
    */
-  public function testViewMode() {
-    $mode = mb_strtolower($this->randomMachineName());
+  public function testViewMode(): void {
+    $mode = $this->randomMachineName();
     // Create a new comment view mode and a view display entity.
     EntityViewMode::create([
       'id' => "comment.$mode",
       'targetEntityType' => 'comment',
       'settings' => ['comment_type' => 'comment'],
+      'label' => $mode,
     ])->save();
     EntityViewDisplay::create([
       'targetEntityType' => 'comment',
@@ -76,7 +78,7 @@ class CommentIntegrationTest extends KernelTestBase {
     FieldStorageConfig::create([
       'entity_type' => 'entity_test',
       'type' => 'comment',
-      'field_name' => $field_name = mb_strtolower($this->randomMachineName()),
+      'field_name' => $field_name = $this->randomMachineName(),
       'settings' => [
         'comment_type' => 'comment',
       ],
@@ -147,9 +149,9 @@ class CommentIntegrationTest extends KernelTestBase {
   }
 
   /**
-   * Test the default owner of comment entities.
+   * Tests the default owner of comment entities.
    */
-  public function testCommentDefaultOwner() {
+  public function testCommentDefaultOwner(): void {
     $comment = Comment::create([
       'comment_type' => 'comment',
     ]);

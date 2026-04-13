@@ -1,21 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Functional\Rest;
 
 use Drupal\Core\Url;
-use Drupal\Tests\rest\Functional\BcTimestampNormalizerUnixTestTrait;
 use Drupal\Tests\rest\Functional\EntityResource\EntityResourceTestBase;
 use Drupal\user\Entity\User;
 use GuzzleHttp\RequestOptions;
+use PHPUnit\Framework\Attributes\Before;
 
+/**
+ * Resource test base for the user entity.
+ */
 abstract class UserResourceTestBase extends EntityResourceTestBase {
-
-  use BcTimestampNormalizerUnixTestTrait;
 
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user'];
+  protected static $modules = ['user'];
 
   /**
    * {@inheritdoc}
@@ -48,6 +51,22 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
    * {@inheritdoc}
    */
   protected static $secondCreatedEntityId = 5;
+
+  /**
+   * Marks some tests as skipped because XML cannot be deserialized.
+   */
+  #[Before]
+  public function userResourceTestBaseSkipTests(): void {
+    if (in_array($this->name(), ['testPatchDxForSecuritySensitiveBaseFields', 'testPatchSecurityOtherUser'], TRUE)) {
+      if (static::$format === 'xml') {
+        $this->markTestSkipped('Deserialization of the XML format is not supported.');
+      }
+
+      if (static::$auth === FALSE) {
+        $this->markTestSkipped('The anonymous user is never allowed to modify itself.');
+      }
+    }
+  }
 
   /**
    * {@inheritdoc}
@@ -113,10 +132,16 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
         ],
       ],
       'created' => [
-        $this->formatExpectedTimestampItemValues(123456789),
+        [
+          'value' => (new \DateTime())->setTimestamp(123456789)->setTimezone(new \DateTimeZone('UTC'))->format(\DateTime::RFC3339),
+          'format' => \DateTime::RFC3339,
+        ],
       ],
       'changed' => [
-        $this->formatExpectedTimestampItemValues($this->entity->getChangedTime()),
+        [
+          'value' => (new \DateTime())->setTimestamp($this->entity->getChangedTime())->setTimezone(new \DateTimeZone('UTC'))->format(\DateTime::RFC3339),
+          'format' => \DateTime::RFC3339,
+        ],
       ],
       'default_langcode' => [
         [
@@ -133,7 +158,7 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
     return [
       'name' => [
         [
-          'value' => 'Dramallama',
+          'value' => 'Drama llama',
         ],
       ],
     ];
@@ -142,12 +167,7 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
   /**
    * Tests PATCHing security-sensitive base fields of the logged in account.
    */
-  public function testPatchDxForSecuritySensitiveBaseFields() {
-    // The anonymous user is never allowed to modify itself.
-    if (!static::$auth) {
-      $this->markTestSkipped();
-    }
-
+  public function testPatchDxForSecuritySensitiveBaseFields(): void {
     $this->initAuthentication();
     $this->provisionEntityResource();
 
@@ -258,12 +278,7 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
   /**
    * Tests PATCHing security-sensitive base fields to change other users.
    */
-  public function testPatchSecurityOtherUser() {
-    // The anonymous user is never allowed to modify other users.
-    if (!static::$auth) {
-      $this->markTestSkipped();
-    }
-
+  public function testPatchSecurityOtherUser(): void {
     $this->initAuthentication();
     $this->provisionEntityResource();
 
@@ -302,13 +317,9 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
    * {@inheritdoc}
    */
   protected function getExpectedUnauthorizedAccessMessage($method) {
-    if ($this->config('rest.settings')->get('bc_entity_resource_permissions')) {
-      return parent::getExpectedUnauthorizedAccessMessage($method);
-    }
-
     switch ($method) {
       case 'GET':
-        return "The 'access user profiles' permission is required and the user must be active.";
+        return "The 'access user profiles' permission is required.";
 
       case 'PATCH':
         return "Users can only update their own account, unless they have the 'administer users' permission.";
@@ -326,8 +337,13 @@ abstract class UserResourceTestBase extends EntityResourceTestBase {
    */
   protected function getExpectedUnauthorizedEntityAccessCacheability($is_authenticated) {
     // @see \Drupal\user\UserAccessControlHandler::checkAccess()
-    return parent::getExpectedUnauthorizedEntityAccessCacheability($is_authenticated)
-      ->addCacheTags(['user:3']);
+    $result = parent::getExpectedUnauthorizedEntityAccessCacheability($is_authenticated);
+
+    if (!\Drupal::currentUser()->hasPermission('access user profiles')) {
+      $result->addCacheContexts(['user']);
+    }
+
+    return $result;
   }
 
   /**

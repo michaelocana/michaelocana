@@ -22,44 +22,30 @@ use Symfony\Component\Console\Exception\CommandNotFoundException;
  */
 class ApplicationDescription
 {
-    const GLOBAL_NAMESPACE = '_global';
+    public const GLOBAL_NAMESPACE = '_global';
 
-    private $application;
-    private $namespace;
-    private $showHidden;
+    private array $namespaces;
 
     /**
-     * @var array
+     * @var array<string, Command>
      */
-    private $namespaces;
+    private array $commands;
 
     /**
-     * @var Command[]
+     * @var array<string, Command>
      */
-    private $commands;
+    private array $aliases = [];
 
-    /**
-     * @var Command[]
-     */
-    private $aliases;
-
-    /**
-     * @param string|null $namespace
-     * @param bool        $showHidden
-     */
-    public function __construct(Application $application, $namespace = null, $showHidden = false)
-    {
-        $this->application = $application;
-        $this->namespace = $namespace;
-        $this->showHidden = $showHidden;
+    public function __construct(
+        private Application $application,
+        private ?string $namespace = null,
+        private bool $showHidden = false,
+    ) {
     }
 
-    /**
-     * @return array
-     */
-    public function getNamespaces()
+    public function getNamespaces(): array
     {
-        if (null === $this->namespaces) {
+        if (!isset($this->namespaces)) {
             $this->inspectApplication();
         }
 
@@ -69,9 +55,9 @@ class ApplicationDescription
     /**
      * @return Command[]
      */
-    public function getCommands()
+    public function getCommands(): array
     {
-        if (null === $this->commands) {
+        if (!isset($this->commands)) {
             $this->inspectApplication();
         }
 
@@ -79,22 +65,18 @@ class ApplicationDescription
     }
 
     /**
-     * @param string $name
-     *
-     * @return Command
-     *
      * @throws CommandNotFoundException
      */
-    public function getCommand($name)
+    public function getCommand(string $name): Command
     {
         if (!isset($this->commands[$name]) && !isset($this->aliases[$name])) {
-            throw new CommandNotFoundException(sprintf('Command "%s" does not exist.', $name));
+            throw new CommandNotFoundException(\sprintf('Command "%s" does not exist.', $name));
         }
 
-        return isset($this->commands[$name]) ? $this->commands[$name] : $this->aliases[$name];
+        return $this->commands[$name] ?? $this->aliases[$name];
     }
 
-    private function inspectApplication()
+    private function inspectApplication(): void
     {
         $this->commands = [];
         $this->namespaces = [];
@@ -122,10 +104,7 @@ class ApplicationDescription
         }
     }
 
-    /**
-     * @return array
-     */
-    private function sortCommands(array $commands)
+    private function sortCommands(array $commands): array
     {
         $namespacedCommands = [];
         $globalCommands = [];
@@ -145,7 +124,7 @@ class ApplicationDescription
         }
 
         if ($namespacedCommands) {
-            ksort($namespacedCommands);
+            ksort($namespacedCommands, \SORT_STRING);
             foreach ($namespacedCommands as $key => $commandsSet) {
                 ksort($commandsSet);
                 $sortedCommands[$key] = $commandsSet;

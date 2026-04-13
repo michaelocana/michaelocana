@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\taxonomy\Functional;
 
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -14,18 +16,19 @@ use Drupal\taxonomy\Entity\Vocabulary;
 class EarlyDateTest extends TaxonomyTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'datetime'];
+  protected static $modules = ['node', 'datetime'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create a tags vocabulary for the 'article' content type.
@@ -59,9 +62,9 @@ class EarlyDateTest extends TaxonomyTestBase {
   }
 
   /**
-   * Test taxonomy functionality with nodes prior to 1970.
+   * Tests taxonomy functionality with nodes prior to 1970.
    */
-  public function testTaxonomyEarlyDateNode() {
+  public function testTaxonomyEarlyDateNode(): void {
     // Posts an article with a taxonomy term and a date prior to 1970.
     $date = new DrupalDateTime('1969-01-01 00:00:00');
     $edit = [];
@@ -70,10 +73,11 @@ class EarlyDateTest extends TaxonomyTestBase {
     $edit['created[0][value][time]'] = $date->format('H:i:s');
     $edit['body[0][value]'] = $this->randomMachineName();
     $edit['field_tags[target_id]'] = $this->randomMachineName();
-    $this->drupalPostForm('node/add/article', $edit, t('Save'));
+    $this->drupalGet('node/add/article');
+    $this->submitForm($edit, 'Save');
     // Checks that the node has been saved.
     $node = $this->drupalGetNodeByTitle($edit['title[0][value]']);
-    $this->assertEqual($node->getCreatedTime(), $date->getTimestamp(), 'Legacy node was saved with the right date.');
+    $this->assertEquals($date->getTimestamp(), $node->getCreatedTime(), 'Legacy node was saved with the right date.');
   }
 
 }

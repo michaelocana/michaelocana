@@ -2,6 +2,7 @@
 
 namespace Drupal\migrate\Plugin\migrate\source;
 
+use Drupal\migrate\Attribute\MigrateSource;
 use Drupal\migrate\Plugin\MigrationInterface;
 
 /**
@@ -12,11 +13,14 @@ use Drupal\migrate\Plugin\MigrationInterface;
  * imported, so that it can be referenced by other migrations. Another use case
  * is testing.
  *
- * Available configuration keys
- * - data_rows: The source data array.
- * - ids: The unique ID field of the data.
+ * Available configuration keys:
+ * - data_rows: The source data array. Each source row should be an associative
+ *   array of values keyed by field names.
+ * - ids: An associative array of fields uniquely identifying a source row.
+ *   See \Drupal\migrate\Plugin\MigrateSourceInterface::getIds() for more
+ *   information.
  *
- * Examples:
+ * Example:
  *
  * @code
  * source:
@@ -33,15 +37,12 @@ use Drupal\migrate\Plugin\MigrationInterface;
  *       type: string
  * @endcode
  *
- * This example migrates a channel vocabulary.
+ * This example migrates a channel vocabulary specified in the source section.
  *
- * @see \Drupal\migrate\Plugin\MigrateSourceInterface
- *
- * @MigrateSource(
- *   id = "embedded_data",
- *   source_module = "migrate"
- * )
+ * For additional configuration keys, refer to the parent class:
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  */
+#[MigrateSource('embedded_data')]
 class EmbeddedDataSource extends SourcePluginBase {
 
   /**
@@ -109,7 +110,9 @@ class EmbeddedDataSource extends SourcePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function count($refresh = FALSE) {
+  public function count($refresh = FALSE): int {
+    // We do not want this source plugin to have a cacheable count.
+    // @see \Drupal\migrate_cache_counts_test\Plugin\migrate\source\CacheableEmbeddedDataSource
     return count($this->dataRows);
   }
 

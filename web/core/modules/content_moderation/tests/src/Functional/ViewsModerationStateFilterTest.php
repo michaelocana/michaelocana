@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Functional;
 
-use Drupal\node\Entity\NodeType;
 use Drupal\Tests\content_moderation\Traits\ContentModerationTestTrait;
 use Drupal\Tests\views\Functional\ViewTestBase;
 use Drupal\views\Entity\View;
@@ -15,6 +16,7 @@ use Drupal\workflows\Entity\Workflow;
  * @coversDefaultClass \Drupal\content_moderation\Plugin\views\filter\ModerationStateFilter
  *
  * @group content_moderation
+ * @group #slow
  */
 class ViewsModerationStateFilterTest extends ViewTestBase {
 
@@ -23,7 +25,7 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'content_moderation',
     'workflows',
@@ -42,18 +44,18 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp(FALSE);
+  protected function setUp($import_test_views = TRUE, $modules = []): void {
+    parent::setUp(FALSE, $modules);
 
-    NodeType::create([
+    $this->drupalCreateContentType([
       'type' => 'example_a',
-    ])->save();
-    NodeType::create([
+    ]);
+    $this->drupalCreateContentType([
       'type' => 'example_b',
-    ])->save();
-    NodeType::create([
+    ]);
+    $this->drupalCreateContentType([
       'type' => 'example_c',
-    ])->save();
+    ]);
 
     $this->createEditorialWorkflow();
 
@@ -83,7 +85,7 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    * @covers ::calculateDependencies
    * @covers ::onDependencyRemoval
    */
-  public function testModerationStateFilterDependencyHandling() {
+  public function testModerationStateFilterDependencyHandling(): void {
     // First, check that the view doesn't have any config dependency when there
     // are no states configured in the filter.
     $view_id = 'test_content_moderation_state_filter_base_table';
@@ -95,35 +97,39 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
     // Configure the Editorial workflow for a node bundle, set the filter value
     // to use one of its states and check that the workflow is now a dependency
     // of the view.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/type/node', [
-      'bundles[example_a]' => TRUE,
-    ], 'Save');
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/type/node');
+    $this->submitForm(['bundles[example_a]' => TRUE], 'Save');
 
     $edit['options[value][]'] = ['editorial-published'];
-    $this->drupalPostForm("admin/structure/views/nojs/handler/$view_id/default/filter/moderation_state", $edit, 'Apply');
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/nojs/handler/{$view_id}/default/filter/moderation_state");
+    $this->submitForm($edit, 'Apply');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     $view = $this->loadViewUnchanged($view_id);
     $this->assertWorkflowDependencies(['editorial'], $view);
     $this->assertTrue($view->status());
 
     // Create another workflow and repeat the checks above.
-    $this->drupalPostForm('admin/config/workflow/workflows/add', [
+    $this->drupalGet('admin/config/workflow/workflows/add');
+    $this->submitForm([
       'label' => 'Translation',
       'id' => 'translation',
       'workflow_type' => 'content_moderation',
     ], 'Save');
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/translation/add_state', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/translation/add_state');
+    $this->submitForm([
       'label' => 'Needs Review',
       'id' => 'needs_review',
     ], 'Save');
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/translation/type/node', [
-      'bundles[example_b]' => TRUE,
-    ], 'Save');
+    $this->drupalGet('admin/config/workflow/workflows/manage/translation/type/node');
+    $this->submitForm(['bundles[example_b]' => TRUE], 'Save');
 
     $edit['options[value][]'] = ['editorial-published', 'translation-needs_review'];
-    $this->drupalPostForm("admin/structure/views/nojs/handler/$view_id/default/filter/moderation_state", $edit, 'Apply');
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/nojs/handler/{$view_id}/default/filter/moderation_state");
+    $this->submitForm($edit, 'Apply');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     $view = $this->loadViewUnchanged($view_id);
     $this->assertWorkflowDependencies(['editorial', 'translation'], $view);
@@ -131,14 +137,16 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
     $this->assertTrue($view->status());
 
     // Remove the 'Translation' workflow.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/translation/delete', [], 'Delete');
+    $this->drupalGet('admin/config/workflow/workflows/manage/translation/delete');
+    $this->submitForm([], 'Delete');
 
     // Check that the view has been disabled, the filter has been deleted, the
     // view can be saved and there are no more config dependencies.
     $view = $this->loadViewUnchanged($view_id);
     $this->assertFalse($view->status());
     $this->assertFalse(isset($view->getDisplay('default')['display_options']['filters']['moderation_state']));
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
     $this->assertWorkflowDependencies([], $view);
   }
 
@@ -162,9 +170,10 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    *
    * @dataProvider providerTestWorkflowChanges
    */
-  public function testWorkflowChanges($view_id) {
+  public function testWorkflowChanges($view_id): void {
     // First, apply the Editorial workflow to both of our content types.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/type/node', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/type/node');
+    $this->submitForm([
       'bundles[example_a]' => TRUE,
       'bundles[example_b]' => TRUE,
     ], 'Save');
@@ -173,8 +182,10 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
     // Update the view and make the default filter not exposed anymore,
     // otherwise all results will be shown when there are no more moderated
     // bundles left.
-    $this->drupalPostForm("admin/structure/views/nojs/handler/$view_id/default/filter/moderation_state", [], 'Hide filter');
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/nojs/handler/{$view_id}/default/filter/moderation_state");
+    $this->submitForm([], 'Hide filter');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     // Add a few nodes in various moderation states.
     $this->createNode(['type' => 'example_a', 'moderation_state' => 'published']);
@@ -184,8 +195,10 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
 
     // Configure the view to only show nodes in the 'archived' moderation state.
     $edit['options[value][]'] = ['editorial-archived'];
-    $this->drupalPostForm("admin/structure/views/nojs/handler/$view_id/default/filter/moderation_state", $edit, 'Apply');
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/nojs/handler/{$view_id}/default/filter/moderation_state");
+    $this->submitForm($edit, 'Apply');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     // Check that only the archived nodes from both bundles are displayed by the
     // view.
@@ -193,7 +206,8 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
     $this->executeAndAssertIdenticalResultset($view, [['nid' => $archived_node_a->id()], ['nid' => $archived_node_b->id()]], ['nid' => 'nid']);
 
     // Remove the Editorial workflow from one of the bundles.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/type/node', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/type/node');
+    $this->submitForm([
       'bundles[example_a]' => TRUE,
       'bundles[example_b]' => FALSE,
     ], 'Save');
@@ -204,10 +218,12 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
 
     // Check that the view can still be edited and saved without any
     // intervention.
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     // Remove the Editorial workflow from both bundles.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/type/node', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/type/node');
+    $this->submitForm([
       'bundles[example_a]' => FALSE,
       'bundles[example_b]' => FALSE,
     ], 'Save');
@@ -219,12 +235,13 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
 
     // Check that the view contains a broken filter, since the moderation_state
     // field was removed from the entity type.
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
     $this->assertSession()->pageTextContains("Broken/missing handler");
   }
 
   /**
-   * Execute a view and asssert the expected results.
+   * Execute a view and assert the expected results.
    *
    * @param \Drupal\views\ViewEntityInterface $view_entity
    *   A view configuration entity.
@@ -234,7 +251,7 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    *   An associative array mapping the columns of the result set from the view
    *   (as keys) and the expected result set (as values).
    */
-  protected function executeAndAssertIdenticalResultset(ViewEntityInterface $view_entity, $expected, $column_map) {
+  protected function executeAndAssertIdenticalResultset(ViewEntityInterface $view_entity, $expected, $column_map): void {
     $executable = $this->container->get('views.executable')->get($view_entity);
     $this->executeView($executable);
     $this->assertIdenticalResultset($executable, $expected, $column_map);
@@ -246,7 +263,7 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    * @return string[]
    *   An array of view IDs.
    */
-  public function providerTestWorkflowChanges() {
+  public static function providerTestWorkflowChanges() {
     return [
       'view on base table, filter on base table' => [
         'test_content_moderation_state_filter_base_table',
@@ -260,43 +277,46 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
   /**
    * Tests the content moderation state filter caching is correct.
    */
-  public function testFilterRenderCache() {
+  public function testFilterRenderCache(): void {
     // Initially all states of the workflow are displayed.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/type/node', [
-      'bundles[example_a]' => TRUE,
-    ], 'Save');
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/type/node');
+    $this->submitForm(['bundles[example_a]' => TRUE], 'Save');
     $this->assertFilterStates(['All', 'editorial-draft', 'editorial-published', 'editorial-archived']);
 
     // Adding a new state to the editorial workflow will display that state in
     // the list of filters.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/add_state', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/add_state');
+    $this->submitForm([
       'label' => 'Foo',
       'id' => 'foo',
     ], 'Save');
     $this->assertFilterStates(['All', 'editorial-draft', 'editorial-published', 'editorial-archived', 'editorial-foo']);
 
     // Adding a second workflow to nodes will also show new states.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/new_workflow/type/node', [
-      'bundles[example_b]' => TRUE,
-    ], 'Save');
+    $this->drupalGet('admin/config/workflow/workflows/manage/new_workflow/type/node');
+    $this->submitForm(['bundles[example_b]' => TRUE], 'Save');
     $this->assertFilterStates(['All', 'editorial-draft', 'editorial-published', 'editorial-archived', 'editorial-foo', 'new_workflow-draft', 'new_workflow-published', 'new_workflow-bar']);
 
     // Add a few more states and change the exposed filter to allow multiple
     // selections so we can check that the size of the select element does not
     // exceed 8 options.
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/add_state', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/add_state');
+    $this->submitForm([
       'label' => 'Foo 2',
       'id' => 'foo2',
     ], 'Save');
-    $this->drupalPostForm('admin/config/workflow/workflows/manage/editorial/add_state', [
+    $this->drupalGet('admin/config/workflow/workflows/manage/editorial/add_state');
+    $this->submitForm([
       'label' => 'Foo 3',
       'id' => 'foo3',
     ], 'Save');
 
     $view_id = 'test_content_moderation_state_filter_base_table';
     $edit['options[expose][multiple]'] = TRUE;
-    $this->drupalPostForm("admin/structure/views/nojs/handler/$view_id/default/filter/moderation_state", $edit, 'Apply');
-    $this->drupalPostForm("admin/structure/views/view/$view_id", [], 'Save');
+    $this->drupalGet("admin/structure/views/nojs/handler/{$view_id}/default/filter/moderation_state");
+    $this->submitForm($edit, 'Apply');
+    $this->drupalGet("admin/structure/views/view/{$view_id}");
+    $this->submitForm([], 'Save');
 
     $this->assertFilterStates(['editorial-draft', 'editorial-published', 'editorial-archived', 'editorial-foo', 'editorial-foo2', 'editorial-foo3', 'new_workflow-draft', 'new_workflow-published', 'new_workflow-bar'], TRUE);
   }
@@ -309,8 +329,10 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    * @param bool $check_size
    *   (optional) Whether to check that size of the select element is not
    *   greater than 8. Defaults to FALSE.
+   *
+   * @internal
    */
-  protected function assertFilterStates($states, $check_size = FALSE) {
+  protected function assertFilterStates(array $states, bool $check_size = FALSE): void {
     $this->drupalGet('/filter-test-path');
 
     $assert_session = $this->assertSession();
@@ -321,7 +343,7 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
     // Check that the size of the select element does not exceed 8 options.
     if ($check_size) {
       $this->assertGreaterThan(8, count($states));
-      $assert_session->elementAttributeContains('css', '#edit-default-revision-state', 'size', 8);
+      $assert_session->elementAttributeContains('css', '#edit-default-revision-state', 'size', '8');
     }
 
     // Check that an option exists for each of the expected states.
@@ -337,8 +359,10 @@ class ViewsModerationStateFilterTest extends ViewTestBase {
    *   An array of workflow IDs to check.
    * @param \Drupal\views\ViewEntityInterface $view
    *   A view configuration object.
+   *
+   * @internal
    */
-  protected function assertWorkflowDependencies(array $workflow_ids, ViewEntityInterface $view) {
+  protected function assertWorkflowDependencies(array $workflow_ids, ViewEntityInterface $view): void {
     $dependencies = $view->getDependencies();
 
     $expected = [];

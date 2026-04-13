@@ -1,5 +1,5 @@
 <?php
-// @codingStandardsIgnoreFile
+// phpcs:ignoreFile
 
 /**
  * This file was generated via php core/scripts/generate-proxy-class.php 'Drupal\Core\Render\BareHtmlPageRenderer' "core/lib/Drupal/Core".
@@ -74,6 +74,14 @@ namespace Drupal\Core\ProxyClass\Render {
         ))
         {
             return $this->lazyLoadItself()->renderBarePage($content, $title, $page_theme_property, $page_additions);
+        }
+
+        /**
+         * {@inheritdoc}
+         */
+        public function systemPageAttachments(array &$page): void
+        {
+            $this->lazyLoadItself()->systemPageAttachments($page);
         }
 
     }

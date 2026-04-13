@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\Kernel;
 
 use Drupal\Core\Plugin\Context\Context;
@@ -13,7 +15,6 @@ use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
 use Drupal\layout_builder\Plugin\SectionStorage\OverridesSectionStorage;
 use Drupal\layout_builder\Section;
 use Drupal\layout_builder\SectionComponent;
-use Drupal\layout_builder\SectionListInterface;
 use Drupal\Tests\user\Traits\UserCreationTrait;
 
 /**
@@ -48,11 +49,10 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->setUpCurrentUser();
-    $this->installSchema('system', ['key_value_expire']);
     $this->installEntitySchema('entity_test');
 
     $definition = $this->container->get('plugin.manager.layout_builder.section_storage')->getDefinition('overrides');
@@ -72,7 +72,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
    * @param string[] $permissions
    *   An array of permissions to grant to the user.
    */
-  public function testAccess($expected, $is_enabled, array $section_data, array $permissions) {
+  public function testAccess($expected, $is_enabled, array $section_data, array $permissions): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -110,18 +110,18 @@ class OverridesSectionStorageTest extends KernelTestBase {
     // Perform the same checks again but with a non default translation which
     // should always deny access.
     $result = $this->plugin->access('view');
-    $this->assertSame(FALSE, $result);
+    $this->assertFalse($result);
     $result = $this->plugin->access('view', $account);
-    $this->assertSame(FALSE, $result);
+    $this->assertFalse($result);
   }
 
   /**
    * Provides test data for ::testAccess().
    */
-  public function providerTestAccess() {
+  public static function providerTestAccess() {
     $section_data = [
       new Section('layout_onecol', [], [
-        'first-uuid' => new SectionComponent('first-uuid', 'content', ['id' => 'foo']),
+        '10000000-0000-1000-a000-000000000000' => new SectionComponent('10000000-0000-1000-a000-000000000000', 'content', ['id' => 'foo']),
       ]),
     ];
 
@@ -165,7 +165,13 @@ class OverridesSectionStorageTest extends KernelTestBase {
       TRUE, TRUE, [], ['configure editable entity_test entity_test layout overrides', 'administer entity_test content'],
     ];
     $data['enabled, data, bundle edit overrides, edit access'] = [
-      TRUE, TRUE, $section_data, ['configure editable entity_test entity_test layout overrides', 'administer entity_test content'],
+      TRUE,
+      TRUE,
+      $section_data,
+      [
+        'configure editable entity_test entity_test layout overrides',
+        'administer entity_test content',
+      ],
     ];
     return $data;
   }
@@ -173,7 +179,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::getContexts
    */
-  public function testGetContexts() {
+  public function testGetContexts(): void {
     $entity = EntityTest::create();
     $entity->save();
 
@@ -192,7 +198,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::getContextsDuringPreview
    */
-  public function testGetContextsDuringPreview() {
+  public function testGetContextsDuringPreview(): void {
     $entity = EntityTest::create();
     $entity->save();
 
@@ -209,22 +215,9 @@ class OverridesSectionStorageTest extends KernelTestBase {
   }
 
   /**
-   * @covers ::setSectionList
-   *
-   * @expectedDeprecation \Drupal\layout_builder\SectionStorageInterface::setSectionList() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. This method should no longer be used. The section list should be derived from context. See https://www.drupal.org/node/3016262.
-   * @group legacy
-   */
-  public function testSetSectionList() {
-    $section_list = $this->prophesize(SectionListInterface::class);
-    $this->expectException(\Exception::class);
-    $this->expectExceptionMessage('\Drupal\layout_builder\SectionStorageInterface::setSectionList() must no longer be called. The section list should be derived from context. See https://www.drupal.org/node/3016262.');
-    $this->plugin->setSectionList($section_list->reveal());
-  }
-
-  /**
    * @covers ::getDefaultSectionStorage
    */
-  public function testGetDefaultSectionStorage() {
+  public function testGetDefaultSectionStorage(): void {
     $entity = EntityTest::create();
     $entity->save();
     $this->plugin->setContext('entity', EntityContext::fromEntity($entity));
@@ -235,7 +228,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::getTempstoreKey
    */
-  public function testGetTempstoreKey() {
+  public function testGetTempstoreKey(): void {
     $entity = EntityTest::create();
     $entity->save();
     $this->plugin->setContext('entity', EntityContext::fromEntity($entity));
@@ -248,7 +241,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::deriveContextsFromRoute
    */
-  public function testDeriveContextsFromRoute() {
+  public function testDeriveContextsFromRoute(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',
@@ -273,7 +266,7 @@ class OverridesSectionStorageTest extends KernelTestBase {
   /**
    * @covers ::isOverridden
    */
-  public function testIsOverridden() {
+  public function testIsOverridden(): void {
     $display = LayoutBuilderEntityViewDisplay::create([
       'targetEntityType' => 'entity_test',
       'bundle' => 'entity_test',

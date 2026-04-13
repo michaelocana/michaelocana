@@ -45,21 +45,22 @@ class CompiledRoute extends SymfonyCompiledRoute {
    * @param int $num_parts
    *   The number of parts in the path.
    * @param string $staticPrefix
-   *   The static prefix of the compiled route
+   *   The static prefix of the compiled route.
    * @param string $regex
-   *   The regular expression to use to match this route
+   *   The regular expression to use to match this route.
    * @param array $tokens
-   *   An array of tokens to use to generate URL for this route
+   *   An array of tokens to use to generate URL for this route.
    * @param array $pathVariables
-   *   An array of path variables
+   *   An array of path variables.
    * @param string|null $hostRegex
-   *   Host regex
+   *   Host regex.
    * @param array $hostTokens
-   *   Host tokens
+   *   Host tokens.
    * @param array $hostVariables
-   *   An array of host variables
+   *   An array of host variables.
    * @param array $variables
-   *   An array of variables (variables defined in the path and in the host patterns)
+   *   An array of variables (variables defined in the path and in the host
+   *   patterns)
    */
   public function __construct($fit, $pattern_outline, $num_parts, $staticPrefix, $regex, array $tokens, array $pathVariables, $hostRegex = NULL, array $hostTokens = [], array $hostVariables = [], array $variables = []) {
     parent::__construct($staticPrefix, $regex, $tokens, $pathVariables, $hostRegex, $hostTokens, $hostVariables, $variables);
@@ -111,55 +112,24 @@ class CompiledRoute extends SymfonyCompiledRoute {
   }
 
   /**
-   * Returns the options.
-   *
-   * @return array
-   *   The options.
-   */
-  public function getOptions() {
-    return $this->route->getOptions();
-  }
-
-  /**
-   * Returns the defaults.
-   *
-   * @return array
-   *   The defaults.
-   */
-  public function getDefaults() {
-    return $this->route->getDefaults();
-  }
-
-  /**
-   * Returns the requirements.
-   *
-   * @return array
-   *   The requirements.
-   */
-  public function getRequirements() {
-    return $this->route->getRequirements();
-  }
-
-  /**
    * {@inheritdoc}
    */
-  public function serialize() {
+  public function __serialize(): array {
     // Calling the parent method is safer than trying to optimize out the extra
     // function calls.
-    $data = unserialize(parent::serialize());
+    $data = parent::__serialize();
     $data['fit'] = $this->fit;
     $data['patternOutline'] = $this->patternOutline;
     $data['numParts'] = $this->numParts;
 
-    return serialize($data);
+    return $data;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function unserialize($serialized) {
-    parent::unserialize($serialized);
-    $data = unserialize($serialized);
+  public function __unserialize(array $data): void {
+    parent::__unserialize($data);
 
     $this->fit = $data['fit'];
     $this->patternOutline = $data['patternOutline'];

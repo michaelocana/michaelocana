@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\EventSubscriber;
 
 use Drupal\Component\Utility\UrlHelper;
@@ -12,7 +14,7 @@ use Drupal\Core\Url;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Routing\RequestContext;
@@ -31,7 +33,7 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
   protected $kernel;
 
   /**
-   * The mocked config factory
+   * The mocked config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface|\PHPUnit\Framework\MockObject\MockObject
    */
@@ -54,7 +56,7 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
   /**
    * The tested custom page exception subscriber.
    *
-   * @var \Drupal\Core\EventSubscriber\CustomPageExceptionHtmlSubscriber|\Drupal\Tests\Core\EventSubscriber\TestCustomPageExceptionHtmlSubscriber
+   * @var \Drupal\Core\EventSubscriber\CustomPageExceptionHtmlSubscriber|\Drupal\Tests\Core\EventSubscriber\CustomPageExceptionHtmlSubscriberTest
    */
   protected $customPageSubscriber;
 
@@ -67,6 +69,7 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
 
   /**
    * The mocked access unaware router.
+   *
    * @var \Symfony\Component\Routing\Matcher\UrlMatcherInterface|\PHPUnit\Framework\MockObject\MockObject
    */
   protected $accessUnawareRouter;
@@ -81,7 +84,9 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
+    parent::setUp();
+
     $this->configFactory = $this->getConfigFactoryStub(['system.site' => ['page.403' => '/access-denied-page', 'page.404' => '/not-found-page']]);
 
     $this->kernel = $this->createMock('Symfony\Component\HttpKernel\HttpKernelInterface');
@@ -119,14 +124,14 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function tearDown() {
+  protected function tearDown(): void {
     ini_set('error_log', $this->errorLog);
   }
 
   /**
    * Tests onHandleException with a POST request.
    */
-  public function testHandleWithPostRequest() {
+  public function testHandleWithPostRequest(): void {
     $request = Request::create('/test', 'POST', ['name' => 'druplicon', 'pass' => '12345']);
 
     $request_context = new RequestContext();
@@ -135,11 +140,11 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
       ->method('getContext')
       ->willReturn($request_context);
 
-    $this->kernel->expects($this->once())->method('handle')->will($this->returnCallback(function (Request $request) {
+    $this->kernel->expects($this->once())->method('handle')->willReturnCallback(function (Request $request) {
       return new HtmlResponse($request->getMethod());
-    }));
+    });
 
-    $event = new GetResponseForExceptionEvent($this->kernel, $request, HttpKernelInterface::MASTER_REQUEST, new NotFoundHttpException('foo'));
+    $event = new ExceptionEvent($this->kernel, $request, HttpKernelInterface::MAIN_REQUEST, new NotFoundHttpException('foo'));
 
     $this->customPageSubscriber->onException($event);
 
@@ -152,7 +157,7 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
   /**
    * Tests onHandleException with a GET request.
    */
-  public function testHandleWithGetRequest() {
+  public function testHandleWithGetRequest(): void {
     $request = Request::create('/test', 'GET', ['name' => 'druplicon', 'pass' => '12345']);
     $request->attributes->set(AccessAwareRouterInterface::ACCESS_RESULT, AccessResult::forbidden()->addCacheTags(['druplicon']));
 
@@ -162,11 +167,11 @@ class CustomPageExceptionHtmlSubscriberTest extends UnitTestCase {
       ->method('getContext')
       ->willReturn($request_context);
 
-    $this->kernel->expects($this->once())->method('handle')->will($this->returnCallback(function (Request $request) {
+    $this->kernel->expects($this->once())->method('handle')->willReturnCallback(function (Request $request) {
       return new Response($request->getMethod() . ' ' . UrlHelper::buildQuery($request->query->all()));
-    }));
+    });
 
-    $event = new GetResponseForExceptionEvent($this->kernel, $request, HttpKernelInterface::MASTER_REQUEST, new NotFoundHttpException('foo'));
+    $event = new ExceptionEvent($this->kernel, $request, HttpKernelInterface::MAIN_REQUEST, new NotFoundHttpException('foo'));
     $this->customPageSubscriber->onException($event);
 
     $response = $event->getResponse();

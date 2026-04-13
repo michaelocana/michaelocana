@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Kernel\Plugin\migrate\source\d6;
 
 use Drupal\Tests\migrate\Kernel\MigrateSqlSourceTestBase;
+
+// cspell:ignore optionwidgets selectlist objectid objectindex plid
 
 /**
  * Tests the field option translation source plugin.
@@ -15,12 +19,12 @@ class FieldOptionTranslationTest extends MigrateSqlSourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['field', 'migrate_drupal'];
+  protected static $modules = ['field', 'migrate_drupal'];
 
   /**
    * {@inheritdoc}
    */
-  public function providerSource() {
+  public static function providerSource() {
     $test = [];
 
     // The source data.
@@ -154,7 +158,7 @@ class FieldOptionTranslationTest extends MigrateSqlSourceTestBase {
       ],
     ];
 
-    $test[0]['expected_results'] = [
+    $test[0]['expected_data'] = [
       [
         'field_name' => 'field_test_text_single_checkbox',
         'type' => 'text',

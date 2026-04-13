@@ -9,13 +9,15 @@ use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Replaces all services with a lazy flag.
+ *
+ * @see lazy_services
  */
 class ProxyServicesPass implements CompilerPassInterface {
 
   /**
    * {@inheritdoc}
    */
-  public function process(ContainerBuilder $container) {
+  public function process(ContainerBuilder $container): void {
     foreach ($container->getDefinitions() as $service_id => $definition) {
       if ($definition->isLazy()) {
         $proxy_class = ProxyBuilder::buildProxyClassName($definition->getClass());

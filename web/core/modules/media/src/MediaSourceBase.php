@@ -6,6 +6,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldTypePluginManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -60,7 +61,7 @@ abstract class MediaSourceBase extends PluginBase implements MediaSourceInterfac
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
@@ -258,7 +259,7 @@ abstract class MediaSourceBase extends PluginBase implements MediaSourceInterfac
       // Even if we do know the name of the source field, there's no
       // guarantee that it exists.
       $fields = $this->entityFieldManager->getFieldStorageDefinitions('media');
-      return isset($fields[$field]) ? $fields[$field] : NULL;
+      return $fields[$field] ?? NULL;
     }
     return NULL;
   }
@@ -273,7 +274,7 @@ abstract class MediaSourceBase extends PluginBase implements MediaSourceInterfac
       // Even if we do know the name of the source field, there is no
       // guarantee that it already exists.
       $fields = $this->entityFieldManager->getFieldDefinitions('media', $type->id());
-      return isset($fields[$field]) ? $fields[$field] : NULL;
+      return $fields[$field] ?? NULL;
     }
     return NULL;
   }
@@ -301,18 +302,30 @@ abstract class MediaSourceBase extends PluginBase implements MediaSourceInterfac
    *   returned. Otherwise, a new, unused one is generated.
    */
   protected function getSourceFieldName() {
+    // If the Field UI module is installed, and has a specific prefix
+    // configured, use that. Otherwise, just default to using 'field_' as
+    // a prefix, which is the default that Field UI ships with.
+    $prefix = $this->configFactory->get('field_ui.settings')
+      ->get('field_prefix') ?? 'field_';
     // Some media sources are using a deriver, so their plugin IDs may contain
     // a separator (usually ':') which is not allowed in field names.
-    $base_id = 'field_media_' . str_replace(static::DERIVATIVE_SEPARATOR, '_', $this->getPluginId());
+    $base_id = $prefix . 'media_' . str_replace(static::DERIVATIVE_SEPARATOR, '_', $this->getPluginId());
     $tries = 0;
     $storage = $this->entityTypeManager->getStorage('field_storage_config');
 
     // Iterate at least once, until no field with the generated ID is found.
     do {
-      $id = $base_id;
+      // Limit the base field name to the maximum allowed length.
+      $id = (strlen($base_id) > EntityTypeInterface::ID_MAX_LENGTH) ? substr($base_id, 0, EntityTypeInterface::ID_MAX_LENGTH) : $base_id;
       // If we've tried before, increment and append the suffix.
       if ($tries) {
         $id .= '_' . $tries;
+
+        // Ensure the suffixed field name does not exceed the maximum allowed
+        // length.
+        if (strlen($id) > EntityTypeInterface::ID_MAX_LENGTH) {
+          $id = substr($base_id, 0, (EntityTypeInterface::ID_MAX_LENGTH - strlen('_' . $tries))) . '_' . $tries;
+        }
       }
       $field = $storage->load('media.' . $id);
       $tries++;
@@ -352,7 +365,7 @@ abstract class MediaSourceBase extends PluginBase implements MediaSourceInterfac
    * {@inheritdoc}
    */
   public function prepareFormDisplay(MediaTypeInterface $type, EntityFormDisplayInterface $display) {
-    // Make sure the source field is placed just after the "name" basefield.
+    // Make sure the source field is placed just after the "name" base field.
     $name_component = $display->getComponent('name');
     $source_field_weight = ($name_component && isset($name_component['weight'])) ? $name_component['weight'] + 5 : -50;
     $display->setComponent($this->getSourceFieldDefinition($type)->getName(), [

@@ -6,12 +6,12 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
+use Drupal\jsonapi\CacheableResourceResponse;
 use Drupal\jsonapi\JsonApiResource\JsonApiDocumentTopLevel;
 use Drupal\jsonapi\JsonApiResource\LinkCollection;
 use Drupal\jsonapi\JsonApiResource\NullIncludedData;
 use Drupal\jsonapi\JsonApiResource\Link;
 use Drupal\jsonapi\JsonApiResource\ResourceObjectData;
-use Drupal\jsonapi\ResourceResponse;
 use Drupal\jsonapi\ResourceType\ResourceType;
 use Drupal\jsonapi\ResourceType\ResourceTypeRepositoryInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -94,7 +94,7 @@ class EntryPoint extends ControllerBase {
         // be used instead. Unfortunately, the `collection` link relation type
         // would not be semantically correct since it would imply that the
         // entrypoint is a *member* of the link target.
-        // @todo: implement an extension relation type to signal that this is a primary collection resource.
+        // @todo Implement an extension relation type to signal that this is a primary collection resource.
         $link_relation_type = $resource_type->getTypeName();
         return $carry->withLink($resource_type->getTypeName(), new Link(new CacheableMetadata(), $url, $link_relation_type));
       }
@@ -118,12 +118,12 @@ class EntryPoint extends ControllerBase {
         // itself and the currently authenticated user.
         $cacheability = $cacheability->merge($me_url);
       }
-      catch (RouteNotFoundException $e) {
+      catch (RouteNotFoundException) {
         // Do not add the link if the route is disabled or marked as internal.
       }
     }
 
-    $response = new ResourceResponse(new JsonApiDocumentTopLevel(new ResourceObjectData([]), new NullIncludedData(), $urls, $meta));
+    $response = new CacheableResourceResponse(new JsonApiDocumentTopLevel(new ResourceObjectData([]), new NullIncludedData(), $urls, $meta));
     return $response->addCacheableDependency($cacheability);
   }
 

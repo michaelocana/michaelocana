@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\image_test\Plugin\ImageToolkit\Operation\test;
 
 use Drupal\Core\ImageToolkit\ImageToolkitOperationBase;
@@ -21,6 +23,7 @@ abstract class OperationBase extends ImageToolkitOperationBase {
    */
   public function execute(array $arguments) {
     // Nothing to do.
+    return TRUE;
   }
 
 }

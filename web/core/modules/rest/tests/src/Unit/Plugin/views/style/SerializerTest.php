@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\rest\Unit\Plugin\views\style;
 
 use Drupal\rest\Plugin\views\display\RestExport;
@@ -32,7 +34,7 @@ class SerializerTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->view = $this->getMockBuilder(ViewExecutable::class)
@@ -57,18 +59,25 @@ class SerializerTest extends UnitTestCase {
    *
    * @covers ::render
    */
-  public function testSerializerReceivesOptions() {
+  public function testSerializerReceivesOptions(): void {
     $mock_serializer = $this->prophesize(SerializerInterface::class);
 
     // This is the main expectation of the test. We want to make sure the
     // serializer options are passed to the SerializerInterface object.
     $mock_serializer->serialize([], 'json', Argument::that(function ($argument) {
-      return isset($argument['views_style_plugin']) && $argument['views_style_plugin'] instanceof Serializer;
+      return isset($argument['views_style_plugin'])
+        && $argument['views_style_plugin'] instanceof Serializer;
     }))
-      ->willReturn()
+      ->willReturn('')
       ->shouldBeCalled();
 
-    $view_serializer_style = new Serializer([], 'dummy_serializer', [], $mock_serializer->reveal(), ['json', 'xml'], ['json' => 'serialization', 'xml' => 'serialization']);
+    $view_serializer_style = new Serializer(
+      [],
+      'dummy_serializer',
+      [],
+      $mock_serializer->reveal(),
+      ['json', 'xml'],
+      ['json' => 'serialization', 'xml' => 'serialization']);
     $view_serializer_style->options = ['formats' => ['xml', 'json']];
     $view_serializer_style->view = $this->view;
     $view_serializer_style->displayHandler = $this->displayHandler;

@@ -2,6 +2,9 @@
 
 namespace Drupal\block;
 
+/**
+ * Provides an interface for the block repository.
+ */
 interface BlockRepositoryInterface {
 
   /**
@@ -30,5 +33,18 @@ interface BlockRepositoryInterface {
    *   containing an array keyed by block ID, with block entities as the values.
    */
   public function getVisibleBlocksPerRegion(array &$cacheable_metadata = []);
+
+  /**
+   * Based on a suggested string generates a unique machine name for a block.
+   *
+   * @param string $suggestion
+   *   The suggested block ID.
+   * @param string $theme
+   *   The machine name of the theme.
+   *
+   * @return string
+   *   Returns the unique name.
+   */
+  public function getUniqueMachineName(string $suggestion, string $theme): string;
 
 }

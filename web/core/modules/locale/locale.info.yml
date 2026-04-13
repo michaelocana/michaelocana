@@ -1,10 +1,9 @@
 name: 'Interface Translation'
 type: module
-description: 'Translates the built-in user interface.'
+description: 'Allows users to translate interface text and to switch between interface languages.'
 configure: locale.translate_page
 package: Multilingual
 version: VERSION
-core: 8.x
 dependencies:
   - drupal:language
   - drupal:file

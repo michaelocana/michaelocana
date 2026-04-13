@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\common_test\Controller;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Extension\ExtensionList;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -10,6 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Controller routines for common_test routes.
  */
 class CommonTestController {
+
+  use StringTranslationTrait;
 
   /**
    * Returns links to the current page, with and without query strings.
@@ -21,7 +27,7 @@ class CommonTestController {
     return [
       'no_query' => [
         '#type' => 'link',
-        '#title' => t('Link with no query string'),
+        '#title' => $this->t('Link with no query string'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'set_active_class' => TRUE,
@@ -29,7 +35,7 @@ class CommonTestController {
       ],
       'with_query' => [
         '#type' => 'link',
-        '#title' => t('Link with a query string'),
+        '#title' => $this->t('Link with a query string'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'query' => [
@@ -41,7 +47,7 @@ class CommonTestController {
       ],
       'with_query_reversed' => [
         '#type' => 'link',
-        '#title' => t('Link with the same query string in reverse order'),
+        '#title' => $this->t('Link with the same query string in reverse order'),
         '#url' => Url::fromRoute('<current>'),
         '#options' => [
           'query' => [
@@ -61,15 +67,17 @@ class CommonTestController {
    *   An empty string.
    */
   public function jsAndCssQuerystring() {
+    $module_extension_list = \Drupal::service('extension.list.module');
+    assert($module_extension_list instanceof ExtensionList);
     $attached = [
       '#attached' => [
         'library' => [
           'node/drupal.node',
         ],
         'css' => [
-          drupal_get_path('module', 'node') . '/css/node.admin.css' => [],
+          $module_extension_list->getPath('node') . '/css/node.admin.css' => [],
           // A relative URI may have a query string.
-          '/' . drupal_get_path('module', 'node') . '/node-fake.css?arg1=value1&arg2=value2' => [],
+          '/' . $module_extension_list->getPath('node') . '/node-fake.css?arg1=value1&arg2=value2' => [],
         ],
       ],
     ];
@@ -87,6 +95,21 @@ class CommonTestController {
     $destination = \Drupal::destination()->getAsArray();
     $output = "The destination: " . Html::escape($destination['destination']);
     return new Response($output);
+  }
+
+  /**
+   * Returns a response with early rendering in common_test_page_attachments.
+   *
+   * @return \Symfony\Component\HttpFoundation\Response
+   *   A new Response object.
+   */
+  public function attachments() {
+    \Drupal::state()->set('common_test.hook_page_attachments.early_rendering', TRUE);
+    $build = [
+      '#title' => 'A title',
+      'content' => ['#markup' => 'Some content'],
+    ];
+    return \Drupal::service('main_content_renderer.html')->renderResponse($build, \Drupal::requestStack()->getCurrentRequest(), \Drupal::routeMatch());
   }
 
 }

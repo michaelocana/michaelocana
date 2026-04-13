@@ -1,11 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
 use Drupal\Core\Database\Database;
 use Drupal\Core\Url;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\Tests\UpdatePathTestTrait;
+use Drupal\user\Entity\User;
+
+// cspell:ignore postupdate
 
 /**
  * Tests hook_removed_post_updates().
@@ -21,22 +26,28 @@ class UpdateRemovedPostUpdateTest extends BrowserTestBase {
   protected $defaultTheme = 'stark';
 
   /**
+   * An user that can execute updates.
+   *
+   * @var \Drupal\Core\Url
+   */
+  protected Url $updateUrl;
+
+  /**
+   * An user that can execute updates.
+   *
+   * @var \Drupal\user\Entity\User
+   */
+  protected User $updateUser;
+
+  /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $connection = Database::getConnection();
 
     // Set the schema version.
-    $connection->merge('key_value')
-      ->condition('collection', 'system.schema')
-      ->condition('name', 'update_test_postupdate')
-      ->fields([
-        'collection' => 'system.schema',
-        'name' => 'update_test_postupdate',
-        'value' => 'i:8000;',
-      ])
-      ->execute();
+    \Drupal::service('update.update_hook_registry')->setInstalledVersion('update_test_postupdate', 8000);
 
     // Update core.extension.
     $extensions = $connection->select('config')
@@ -64,7 +75,7 @@ class UpdateRemovedPostUpdateTest extends BrowserTestBase {
   /**
    * Tests hook_post_update_NAME().
    */
-  public function testRemovedPostUpdate() {
+  public function testRemovedPostUpdate(): void {
     // Mimic the behavior of ModuleInstaller::install().
     $key_value = \Drupal::service('keyvalue');
     $existing_updates = $key_value->get('post_update')->get('existing_updates', []);

@@ -1,19 +1,31 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Unit;
 
 use Drupal\Component\Utility\Html;
+use Drupal\migrate\Plugin\MigrateDestinationInterface;
 use Drupal\migrate\Plugin\MigrateProcessInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\MigrateException;
 use Drupal\migrate\Row;
+use Prophecy\Argument;
+use Prophecy\Prophecy\ObjectProphecy;
 
 /**
  * @coversDefaultClass \Drupal\migrate\MigrateExecutable
  * @group migrate
  */
 class MigrateExecutableTest extends MigrateTestCase {
+
+  /**
+   * Stores ID map records of the ID map plugin from ::getTestRollbackIdMap.
+   *
+   * @var string[][]
+   */
+  protected static $idMapRecords;
 
   /**
    * The mocked migration entity.
@@ -37,6 +49,13 @@ class MigrateExecutableTest extends MigrateTestCase {
   protected $executable;
 
   /**
+   * A mocked event dispatcher.
+   *
+   * @var \Symfony\Contracts\EventDispatcher\EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject
+   */
+  protected $eventDispatcher;
+
+  /**
    * The migration's configuration values.
    *
    * @var array
@@ -48,19 +67,20 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
+    static::$idMapRecords = [];
     $this->migration = $this->getMigration();
     $this->message = $this->createMock('Drupal\migrate\MigrateMessageInterface');
-    $event_dispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-    $this->executable = new TestMigrateExecutable($this->migration, $this->message, $event_dispatcher);
+    $this->eventDispatcher = $this->createMock('Symfony\Contracts\EventDispatcher\EventDispatcherInterface');
+    $this->executable = new TestMigrateExecutable($this->migration, $this->message, $this->eventDispatcher);
     $this->executable->setStringTranslation($this->getStringTranslationStub());
   }
 
   /**
    * Tests an import with an incomplete rewinding.
    */
-  public function testImportWithFailingRewind() {
+  public function testImportWithFailingRewind(): void {
     $exception_message = $this->getRandomGenerator()->string();
     $source = $this->createMock('Drupal\migrate\Plugin\MigrateSourceInterface');
     $source->expects($this->once())
@@ -72,7 +92,7 @@ class MigrateExecutableTest extends MigrateTestCase {
 
     $this->migration->expects($this->any())
       ->method('getSourcePlugin')
-      ->will($this->returnValue($source));
+      ->willReturn($source);
 
     // Ensure that a message with the proper message was added.
     $exception_message .= " in " . __FILE__ . " line $line";
@@ -87,37 +107,16 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the import method with a valid row.
    */
-  public function testImportWithValidRow() {
+  public function testImportWithValidRow(): void {
     $source = $this->getMockSource();
-
-    $row = $this->getMockBuilder('Drupal\migrate\Row')
-      ->disableOriginalConstructor()
-      ->getMock();
-
-    $row->expects($this->once())
-      ->method('getSourceIdValues')
-      ->will($this->returnValue(['id' => 'test']));
-
-    $this->idMap->expects($this->once())
-      ->method('lookupDestinationIds')
-      ->with(['id' => 'test'])
-      ->will($this->returnValue([['test']]));
-
-    $source->expects($this->once())
-      ->method('current')
-      ->will($this->returnValue($row));
 
     $this->executable->setSource($source);
 
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
 
     $destination = $this->createMock('Drupal\migrate\Plugin\MigrateDestinationInterface');
-    $destination->expects($this->once())
-      ->method('import')
-      ->with($row, ['test'])
-      ->will($this->returnValue(['id' => 'test']));
 
     $this->migration
       ->method('getDestinationPlugin')
@@ -129,37 +128,16 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the import method with a valid row.
    */
-  public function testImportWithValidRowWithoutDestinationId() {
+  public function testImportWithValidRowWithoutDestinationId(): void {
     $source = $this->getMockSource();
-
-    $row = $this->getMockBuilder('Drupal\migrate\Row')
-      ->disableOriginalConstructor()
-      ->getMock();
-
-    $row->expects($this->once())
-      ->method('getSourceIdValues')
-      ->will($this->returnValue(['id' => 'test']));
-
-    $this->idMap->expects($this->once())
-      ->method('lookupDestinationIds')
-      ->with(['id' => 'test'])
-      ->will($this->returnValue([['test']]));
-
-    $source->expects($this->once())
-      ->method('current')
-      ->will($this->returnValue($row));
 
     $this->executable->setSource($source);
 
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
 
     $destination = $this->createMock('Drupal\migrate\Plugin\MigrateDestinationInterface');
-    $destination->expects($this->once())
-      ->method('import')
-      ->with($row, ['test'])
-      ->will($this->returnValue(TRUE));
 
     $this->migration
       ->method('getDestinationPlugin')
@@ -174,56 +152,20 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the import method with a valid row.
    */
-  public function testImportWithValidRowNoDestinationValues() {
+  public function testImportWithValidRowNoDestinationValues(): void {
     $source = $this->getMockSource();
-
-    $row = $this->getMockBuilder('Drupal\migrate\Row')
-      ->disableOriginalConstructor()
-      ->getMock();
-
-    $row->expects($this->once())
-      ->method('getSourceIdValues')
-      ->will($this->returnValue(['id' => 'test']));
-
-    $source->expects($this->once())
-      ->method('current')
-      ->will($this->returnValue($row));
 
     $this->executable->setSource($source);
 
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
 
     $destination = $this->createMock('Drupal\migrate\Plugin\MigrateDestinationInterface');
-    $destination->expects($this->once())
-      ->method('import')
-      ->with($row, ['test'])
-      ->will($this->returnValue([]));
 
     $this->migration
       ->method('getDestinationPlugin')
       ->willReturn($destination);
-
-    $this->idMap->expects($this->once())
-      ->method('saveIdMapping')
-      ->with($row, [], MigrateIdMapInterface::STATUS_FAILED, NULL);
-
-    $this->idMap->expects($this->once())
-      ->method('messageCount')
-      ->will($this->returnValue(0));
-
-    $this->idMap->expects($this->once())
-      ->method('saveMessage');
-
-    $this->idMap->expects($this->once())
-      ->method('lookupDestinationIds')
-      ->with(['id' => 'test'])
-      ->will($this->returnValue([['test']]));
-
-    $this->message->expects($this->once())
-      ->method('display')
-      ->with('New object was not saved, no error provided');
 
     $this->assertSame(MigrationInterface::RESULT_COMPLETED, $this->executable->import());
   }
@@ -233,49 +175,20 @@ class MigrateExecutableTest extends MigrateTestCase {
    *
    * The MigrationException in this case is being thrown from the destination.
    */
-  public function testImportWithValidRowWithDestinationMigrateException() {
-    $exception_message = $this->getRandomGenerator()->string();
+  public function testImportWithValidRowWithDestinationMigrateException(): void {
     $source = $this->getMockSource();
-
-    $row = $this->getMockBuilder('Drupal\migrate\Row')
-      ->disableOriginalConstructor()
-      ->getMock();
-
-    $row->expects($this->once())
-      ->method('getSourceIdValues')
-      ->will($this->returnValue(['id' => 'test']));
-
-    $source->expects($this->once())
-      ->method('current')
-      ->will($this->returnValue($row));
 
     $this->executable->setSource($source);
 
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
 
     $destination = $this->createMock('Drupal\migrate\Plugin\MigrateDestinationInterface');
-    $destination->expects($this->once())
-      ->method('import')
-      ->with($row, ['test'])
-      ->will($this->throwException(new MigrateException($exception_message)));
 
     $this->migration
       ->method('getDestinationPlugin')
       ->willReturn($destination);
-
-    $this->idMap->expects($this->once())
-      ->method('saveIdMapping')
-      ->with($row, [], MigrateIdMapInterface::STATUS_FAILED, NULL);
-
-    $this->idMap->expects($this->once())
-      ->method('saveMessage');
-
-    $this->idMap->expects($this->once())
-      ->method('lookupDestinationIds')
-      ->with(['id' => 'test'])
-      ->will($this->returnValue([['test']]));
 
     $this->assertSame(MigrationInterface::RESULT_COMPLETED, $this->executable->import());
   }
@@ -285,7 +198,7 @@ class MigrateExecutableTest extends MigrateTestCase {
    *
    * The MigrationException in this case is being thrown from a process plugin.
    */
-  public function testImportWithValidRowWithProcesMigrateException() {
+  public function testImportWithValidRowWithProcesMigrateException(): void {
     $exception_message = $this->getRandomGenerator()->string();
     $source = $this->getMockSource();
 
@@ -331,53 +244,20 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the import method with a regular Exception being thrown.
    */
-  public function testImportWithValidRowWithException() {
-    $exception_message = $this->getRandomGenerator()->string();
+  public function testImportWithValidRowWithException(): void {
     $source = $this->getMockSource();
-
-    $row = $this->getMockBuilder('Drupal\migrate\Row')
-      ->disableOriginalConstructor()
-      ->getMock();
-
-    $row->expects($this->once())
-      ->method('getSourceIdValues')
-      ->will($this->returnValue(['id' => 'test']));
-
-    $source->expects($this->once())
-      ->method('current')
-      ->will($this->returnValue($row));
 
     $this->executable->setSource($source);
 
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
-      ->will($this->returnValue([]));
+      ->willReturn([]);
 
     $destination = $this->createMock('Drupal\migrate\Plugin\MigrateDestinationInterface');
-    $destination->expects($this->once())
-      ->method('import')
-      ->with($row, ['test'])
-      ->will($this->throwException(new \Exception($exception_message)));
 
     $this->migration
       ->method('getDestinationPlugin')
       ->willReturn($destination);
-
-    $this->idMap->expects($this->once())
-      ->method('saveIdMapping')
-      ->with($row, [], MigrateIdMapInterface::STATUS_FAILED, NULL);
-
-    $this->idMap->expects($this->once())
-      ->method('saveMessage');
-
-    $this->idMap->expects($this->once())
-      ->method('lookupDestinationIds')
-      ->with(['id' => 'test'])
-      ->will($this->returnValue([['test']]));
-
-    $this->message->expects($this->once())
-      ->method('display')
-      ->with($exception_message);
 
     $this->assertSame(MigrationInterface::RESULT_COMPLETED, $this->executable->import());
   }
@@ -385,7 +265,7 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the processRow method.
    */
-  public function testProcessRow() {
+  public function testProcessRow(): void {
     $expected = [
       'test' => 'test destination',
       'test1' => 'test1 destination',
@@ -394,31 +274,31 @@ class MigrateExecutableTest extends MigrateTestCase {
       $plugins[$key][0] = $this->createMock('Drupal\migrate\Plugin\MigrateProcessInterface');
       $plugins[$key][0]->expects($this->once())
         ->method('getPluginDefinition')
-        ->will($this->returnValue([]));
+        ->willReturn([]);
       $plugins[$key][0]->expects($this->once())
         ->method('transform')
-        ->will($this->returnValue($value));
+        ->willReturn($value);
     }
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
       ->with(NULL)
-      ->will($this->returnValue($plugins));
+      ->willReturn($plugins);
     $row = new Row();
     $this->executable->processRow($row);
     foreach ($expected as $key => $value) {
       $this->assertSame($row->getDestinationProperty($key), $value);
     }
-    $this->assertSame(count($row->getDestination()), count($expected));
+    $this->assertSameSize($expected, $row->getDestination());
   }
 
   /**
    * Tests the processRow method with an empty pipeline.
    */
-  public function testProcessRowEmptyPipeline() {
+  public function testProcessRowEmptyPipeline(): void {
     $this->migration->expects($this->once())
       ->method('getProcessPlugins')
       ->with(NULL)
-      ->will($this->returnValue(['test' => []]));
+      ->willReturn(['test' => []]);
     $row = new Row();
     $this->executable->processRow($row);
     $this->assertSame($row->getDestination(), []);
@@ -427,7 +307,7 @@ class MigrateExecutableTest extends MigrateTestCase {
   /**
    * Tests the processRow pipeline exception.
    */
-  public function testProcessRowPipelineException() {
+  public function testProcessRowPipelineException(): void {
     $row = new Row();
     $plugin = $this->prophesize(MigrateProcessInterface::class);
     $plugin->getPluginDefinition()->willReturn(['handle_multiples' => FALSE]);
@@ -435,6 +315,8 @@ class MigrateExecutableTest extends MigrateTestCase {
       ->willReturn('transform_return_string');
     $plugin->multiple()->willReturn(TRUE);
     $plugin->getPluginId()->willReturn('plugin_id');
+    $plugin->reset()->shouldBeCalled();
+    $plugin->isPipelineStopped()->willReturn(FALSE);
     $plugin = $plugin->reveal();
     $plugins['destination_id'] = [$plugin, $plugin];
     $this->migration->method('getProcessPlugins')->willReturn($plugins);
@@ -445,9 +327,66 @@ class MigrateExecutableTest extends MigrateTestCase {
   }
 
   /**
+   * Tests a plugin which stops the pipeline.
+   */
+  public function testStopPipeline(): void {
+    $row = new Row();
+    // Prophesize a plugin that stops the pipeline and returns 'first_plugin'.
+    $stop_plugin = $this->prophesize(MigrateProcessInterface::class);
+    $stop_plugin->getPluginDefinition()->willReturn(['handle_multiples' => FALSE]);
+    $stop_plugin->transform(NULL, $this->executable, $row, 'destination_id')
+      ->willReturn('first_plugin');
+    $stop_plugin->multiple()->willReturn(FALSE);
+    $stop_plugin->reset()->shouldBeCalled();
+    $stop_plugin->isPipelineStopped()->willReturn(TRUE);
+
+    // Prophesize a plugin that transforms 'first_plugin' to 'final_plugin'.
+    $final_plugin = $this->prophesize(MigrateProcessInterface::class);
+    $final_plugin->getPluginDefinition()->willReturn(['handle_multiples' => FALSE]);
+    $final_plugin->transform('first_plugin', $this->executable, $row, 'destination_id')
+      ->willReturn('final_plugin');
+    $plugins['destination_id'] = [$stop_plugin->reveal(), $final_plugin->reveal()];
+    $this->migration->method('getProcessPlugins')->willReturn($plugins);
+
+    // Process the row and confirm that destination value is 'first_plugin'.
+    $this->executable->processRow($row);
+    $this->assertEquals('first_plugin', $row->getDestinationProperty('destination_id'));
+  }
+
+  /**
+   * Tests a plugin which does not stop the pipeline.
+   */
+  public function testContinuePipeline(): void {
+    $row = new Row();
+    // Prophesize a plugin that does not stop the pipeline.
+    $continue_plugin = $this->prophesize(MigrateProcessInterface::class);
+    $continue_plugin->getPluginDefinition()->willReturn(['handle_multiples' => FALSE]);
+    $continue_plugin->transform(NULL, $this->executable, $row, 'destination_id')
+      ->willReturn('first_plugin');
+    $continue_plugin->multiple()->willReturn(FALSE);
+    $continue_plugin->reset()->shouldBeCalled();
+    $continue_plugin->isPipelineStopped()->willReturn(FALSE);
+
+    // Prophesize a plugin that transforms 'first_plugin' to 'final_plugin'.
+    $final_plugin = $this->prophesize(MigrateProcessInterface::class);
+    $final_plugin->getPluginDefinition()->willReturn(['handle_multiples' => FALSE]);
+    $final_plugin->transform('first_plugin', $this->executable, $row, 'destination_id')
+      ->willReturn('final_plugin');
+    $final_plugin->multiple()->willReturn(FALSE);
+    $final_plugin->reset()->shouldBeCalled();
+    $final_plugin->isPipelineStopped()->willReturn(FALSE);
+    $plugins['destination_id'] = [$continue_plugin->reveal(), $final_plugin->reveal()];
+    $this->migration->method('getProcessPlugins')->willReturn($plugins);
+
+    // Process the row and confirm that the destination value is 'final_plugin'.
+    $this->executable->processRow($row);
+    $this->assertEquals('final_plugin', $row->getDestinationProperty('destination_id'));
+  }
+
+  /**
    * Tests the processRow method.
    */
-  public function testProcessRowEmptyDestination() {
+  public function testProcessRowEmptyDestination(): void {
     $expected = [
       'test' => 'test destination',
       'test1' => 'test1 destination',
@@ -460,6 +399,8 @@ class MigrateExecutableTest extends MigrateTestCase {
       $plugin->getPluginDefinition()->willReturn([]);
       $plugin->transform(NULL, $this->executable, $row, $key)->willReturn($value);
       $plugin->multiple()->willReturn(TRUE);
+      $plugin->reset()->shouldBeCalled();
+      $plugin->isPipelineStopped()->willReturn(FALSE);
       $plugins[$key][0] = $plugin->reveal();
     }
     $this->migration->method('getProcessPlugins')->willReturn($plugins);
@@ -478,24 +419,219 @@ class MigrateExecutableTest extends MigrateTestCase {
    *   The mocked migration source.
    */
   protected function getMockSource() {
-    $iterator = $this->createMock('\Iterator');
-
-    $class = 'Drupal\migrate\Plugin\migrate\source\SourcePluginBase';
-    $source = $this->getMockBuilder($class)
-      ->disableOriginalConstructor()
-      ->setMethods(get_class_methods($class))
-      ->getMockForAbstractClass();
+    $source = $this->createMock(StubSourcePlugin::class);
     $source->expects($this->once())
-      ->method('rewind')
-      ->will($this->returnValue(TRUE));
-    $source->expects($this->any())
-      ->method('initializeIterator')
-      ->will($this->returnValue([]));
+      ->method('rewind');
     $source->expects($this->any())
       ->method('valid')
-      ->will($this->onConsecutiveCalls(TRUE, FALSE));
+      ->willReturn(TRUE, FALSE);
 
     return $source;
+  }
+
+  /**
+   * Tests rollback.
+   *
+   * @param array[] $id_map_records
+   *   The ID map records to test with.
+   * @param bool $rollback_called
+   *   Sets an expectation that the destination's rollback() will or will not be
+   *   called.
+   * @param string[] $source_id_keys
+   *   The keys of the source IDs. The provided source ID keys must be defined
+   *   in the $id_map_records parameter. Optional, defaults to ['source'].
+   * @param string[] $destination_id_keys
+   *   The keys of the destination IDs. The provided keys must be defined in the
+   *   $id_map_records parameter. Optional, defaults to ['destination'].
+   * @param int $expected_result
+   *   The expected result of the rollback action. Optional, defaults to
+   *   MigrationInterface::RESULT_COMPLETED.
+   *
+   * @dataProvider providerTestRollback
+   *
+   * @covers ::rollback
+   */
+  public function testRollback(array $id_map_records, bool $rollback_called = TRUE, array $source_id_keys = ['source'], array $destination_id_keys = ['destination'], int $expected_result = MigrationInterface::RESULT_COMPLETED): void {
+    $id_map = $this
+      ->getTestRollbackIdMap($id_map_records, $source_id_keys, $destination_id_keys)
+      ->reveal();
+
+    $migration = $this->getMigration($id_map);
+    $destination = $this->prophesize(MigrateDestinationInterface::class);
+    if ($rollback_called) {
+      $destination->rollback($id_map->currentDestination())->shouldBeCalled();
+    }
+    else {
+      $destination->rollback()->shouldNotBeCalled();
+    }
+    $migration
+      ->method('getDestinationPlugin')
+      ->willReturn($destination->reveal());
+
+    $executable = new TestMigrateExecutable($migration, $this->message, $this->eventDispatcher);
+
+    $this->assertEquals($expected_result, $executable->rollback());
+  }
+
+  /**
+   * Data provider for ::testRollback.
+   *
+   * @return array
+   *   The test cases.
+   */
+  public static function providerTestRollback() {
+    return [
+      'Rollback delete' => [
+        'id_map_records' => [
+          [
+            'source' => '1',
+            'destination' => '1',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_DELETE,
+          ],
+        ],
+      ],
+      'Rollback preserve' => [
+        'id_map_records' => [
+          [
+            'source' => '1',
+            'destination' => '1',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_PRESERVE,
+          ],
+        ],
+        'rollback_called' => FALSE,
+      ],
+      'Rolling back a failed row' => [
+        'id_map_records' => [
+          [
+            'source' => '1',
+            'destination' => NULL,
+            'source_row_status' => '2',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_DELETE,
+          ],
+        ],
+        'rollback_called' => FALSE,
+      ],
+      'Rolling back with ID map having records with duplicated destination ID' => [
+        'id_map_records' => [
+          [
+            'source_1' => '1',
+            'source_2' => '1',
+            'destination' => '1',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_DELETE,
+          ],
+          [
+            'source_1' => '2',
+            'source_2' => '2',
+            'destination' => '2',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_PRESERVE,
+          ],
+          [
+            'source_1' => '3',
+            'source_2' => '3',
+            'destination' => '1',
+            'rollback_action' => MigrateIdMapInterface::ROLLBACK_DELETE,
+          ],
+        ],
+        'rollback_called' => TRUE,
+        'source_id_keys' => ['source_1', 'source_2'],
+      ],
+      'Rollback NULL' => [
+        'id_map_records' => [
+          [
+            'source' => '1',
+            'destination' => '1',
+            'rollback_action' => NULL,
+          ],
+        ],
+      ],
+      'Rollback missing' => [
+        'id_map_records' => [
+          [
+            'source' => '1',
+            'destination' => '1',
+          ],
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Returns an ID map object prophecy used in ::testRollback.
+   *
+   * @return \Prophecy\Prophecy\ObjectProphecy<\Drupal\migrate\Plugin\MigrateIdMapInterface>
+   *   An ID map object prophecy.
+   */
+  public function getTestRollbackIdMap(array $items, array $source_id_keys, array $destination_id_keys): ObjectProphecy {
+    static::$idMapRecords = array_map(function (array $item) {
+      return $item + [
+        'source_row_status' => '0',
+        'rollback_action' => '0',
+        'last_imported' => '0',
+        'hash' => '',
+      ];
+    }, $items);
+    $array_iterator = new \ArrayIterator(static::$idMapRecords);
+
+    $id_map = $this->prophesize(MigrateIdMapInterface::class);
+    $id_map->setMessage(Argument::cetera())->willReturn(NULL);
+    $id_map->rewind()->will(function () use ($array_iterator) {
+      $array_iterator->rewind();
+    });
+    $id_map->valid()->will(function () use ($array_iterator) {
+      return $array_iterator->valid();
+    });
+    $id_map->next()->will(function () use ($array_iterator) {
+      $array_iterator->next();
+    });
+    $id_map->currentDestination()->will(function () use ($array_iterator, $destination_id_keys) {
+      $current = $array_iterator->current();
+      $destination_values = array_filter($current, function ($key) use ($destination_id_keys) {
+        return in_array($key, $destination_id_keys, TRUE);
+      }, ARRAY_FILTER_USE_KEY);
+      return empty(array_filter($destination_values, 'is_null'))
+        ? array_combine($destination_id_keys, array_values($destination_values))
+        : NULL;
+    });
+    $id_map->currentSource()->will(function () use ($array_iterator, $source_id_keys) {
+      $current = $array_iterator->current();
+      $source_values = array_filter($current, function ($key) use ($source_id_keys) {
+        return in_array($key, $source_id_keys, TRUE);
+      }, ARRAY_FILTER_USE_KEY);
+      return empty(array_filter($source_values, 'is_null'))
+        ? array_combine($source_id_keys, array_values($source_values))
+        : NULL;
+    });
+    $id_map->getRowByDestination(Argument::type('array'))->will(function () {
+      $destination_ids = func_get_args()[0][0];
+      $return = array_reduce(self::$idMapRecords, function (array $carry, array $record) use ($destination_ids) {
+        if (array_merge($record, $destination_ids) === $record) {
+          $carry = $record;
+        }
+        return $carry;
+      }, []);
+
+      return $return;
+    });
+    $id_map->deleteDestination(Argument::type('array'))->will(function () {
+      $destination_ids = func_get_args()[0][0];
+      $matching_records = array_filter(self::$idMapRecords, function (array $record) use ($destination_ids) {
+        return array_merge($record, $destination_ids) === $record;
+      });
+      foreach (array_keys($matching_records) as $record_key) {
+        unset(self::$idMapRecords[$record_key]);
+      }
+    });
+    $id_map->delete(Argument::type('array'))->will(function () {
+      $source_ids = func_get_args()[0][0];
+      $matching_records = array_filter(self::$idMapRecords, function (array $record) use ($source_ids) {
+        return array_merge($record, $source_ids) === $record;
+      });
+      foreach (array_keys($matching_records) as $record_key) {
+        unset(self::$idMapRecords[$record_key]);
+      }
+    });
+
+    return $id_map;
   }
 
 }

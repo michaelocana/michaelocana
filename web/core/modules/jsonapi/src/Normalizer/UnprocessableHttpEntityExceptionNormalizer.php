@@ -24,17 +24,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 class UnprocessableHttpEntityExceptionNormalizer extends HttpExceptionNormalizer {
 
   /**
-   * The interface or class that this Normalizer supports.
-   *
-   * @var string
-   */
-  protected $supportedInterfaceOrClass = UnprocessableHttpEntityException::class;
-
-  /**
    * {@inheritdoc}
    */
   protected function buildErrorObjects(HttpException $exception) {
-    /* @var $exception \Drupal\jsonapi\Exception\UnprocessableHttpEntityException */
+    /** @var \Drupal\jsonapi\Exception\UnprocessableHttpEntityException $exception */
     $errors = parent::buildErrorObjects($exception);
     $error = $errors[0];
     unset($error['links']);
@@ -76,6 +69,15 @@ class UnprocessableHttpEntityExceptionNormalizer extends HttpExceptionNormalizer
     }
 
     return $errors;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSupportedTypes(?string $format): array {
+    return [
+      UnprocessableHttpEntityException::class => TRUE,
+    ];
   }
 
 }

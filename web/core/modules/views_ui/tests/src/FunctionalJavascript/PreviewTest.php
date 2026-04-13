@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views_ui\FunctionalJavascript;
 
 use Behat\Mink\Element\NodeElement;
@@ -24,7 +26,7 @@ class PreviewTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'node',
     'views',
     'views_ui',
@@ -34,12 +36,12 @@ class PreviewTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'stark';
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     ViewTestData::createTestViews(self::class, ['views_test_config']);
@@ -64,8 +66,9 @@ class PreviewTest extends WebDriverTestBase {
    * Because the schema of views_test_data.module is dependent on the test
    * using it, it cannot be enabled normally.
    */
-  protected function enableViewsTestModule() {
-    // Define the schema and views data variable before enabling the test module.
+  protected function enableViewsTestModule(): void {
+    // Define the schema and views data variable before enabling the test
+    // module.
     \Drupal::state()->set('views_test_data_schema', $this->schemaDefinition());
     \Drupal::state()->set('views_test_data_views_data', $this->viewsData());
 
@@ -114,7 +117,7 @@ class PreviewTest extends WebDriverTestBase {
    *
    * @see https://www.drupal.org/node/2452659
    */
-  public function testTaxonomyAJAX() {
+  public function testTaxonomyAJAX(): void {
     \Drupal::service('module_installer')->install(['taxonomy']);
     $this->getPreviewAJAX('taxonomy_term', 'page_1', 0);
   }
@@ -122,7 +125,7 @@ class PreviewTest extends WebDriverTestBase {
   /**
    * Tests pagers in the preview form.
    */
-  public function testPreviewWithPagersUI() {
+  public function testPreviewWithPagersUI(): void {
     // Create 11 nodes and make sure that everyone is returned.
     $this->drupalCreateContentType(['type' => 'page']);
     for ($i = 0; $i < 11; $i++) {
@@ -133,8 +136,8 @@ class PreviewTest extends WebDriverTestBase {
     $this->getPreviewAJAX('test_pager_full_ajax', 'default', 5);
 
     // Test that the pager is present and rendered.
-    $elements = $this->xpath('//ul[contains(@class, :class)]/li', [':class' => 'pager__items']);
-    $this->assertTrue(!empty($elements), 'Full pager found.');
+    $elements = $this->xpath('//ul[contains(@class, "pager__items")]/li');
+    $this->assertNotEmpty($elements);
 
     // Verify elements and links to pages.
     // We expect to find 5 elements: current page == 1, links to pages 2 and
@@ -155,12 +158,12 @@ class PreviewTest extends WebDriverTestBase {
     $this->assertNotEmpty($elements[4]->find('css', 'a'), 'Link to last page found.');
 
     // Navigate to next page.
-    $elements = $this->xpath('//li[contains(@class, :class)]/a', [':class' => 'pager__item--next']);
-    $this->clickPreviewLinkAJAX($elements[0], 5);
+    $element = $this->assertSession()->elementExists('xpath', '//li[contains(@class, "pager__item--next")]/a');
+    $this->clickPreviewLinkAJAX($element, 5);
 
     // Test that the pager is present and rendered.
-    $elements = $this->xpath('//ul[contains(@class, :class)]/li', [':class' => 'pager__items']);
-    $this->assertTrue(!empty($elements), 'Full pager found.');
+    $elements = $this->xpath('//ul[contains(@class, "pager__items")]/li');
+    $this->assertNotEmpty($elements);
 
     // Verify elements and links to pages.
     // We expect to find 7 elements: links to '<< first' and '< previous'
@@ -191,60 +194,60 @@ class PreviewTest extends WebDriverTestBase {
     $this->getPreviewAJAX('test_mini_pager_ajax', 'default', 3);
 
     // Test that the pager is present and rendered.
-    $elements = $this->xpath('//ul[contains(@class, :class)]/li', [':class' => 'pager__items']);
-    $this->assertTrue(!empty($elements), 'Mini pager found.');
+    $elements = $this->xpath('//ul[contains(@class, "pager__items")]/li');
+    $this->assertNotEmpty($elements);
 
     // Verify elements and links to pages.
     // We expect to find current pages element with no link, next page element
     // with a link, and not to find previous page element.
-    $this->assertClass($elements[0], 'is-active', 'Element for current page has .is-active class.');
+    $this->assertEquals('Page 1', trim($elements[0]->getHtml()), 'Element for current page is not a link.');
 
-    $this->assertClass($elements[1], 'pager__item--next', 'Element for next page has .pager__item--next class.');
-    $this->assertNotEmpty($elements[1]->find('css', 'a'), 'Link to next page found.');
+    $next_page_link = $elements[1]->find('css', 'a');
+    $this->assertNotEmpty($next_page_link, 'Link to next page found.');
+    $this->assertEquals('Go to next page', $next_page_link->getAttribute('title'));
 
     // Navigate to next page.
-    $elements = $this->xpath('//li[contains(@class, :class)]/a', [':class' => 'pager__item--next']);
-    $this->clickPreviewLinkAJAX($elements[0], 3);
+    $this->clickPreviewLinkAJAX($next_page_link, 3);
 
     // Test that the pager is present and rendered.
-    $elements = $this->xpath('//ul[contains(@class, :class)]/li', [':class' => 'pager__items']);
-    $this->assertTrue(!empty($elements), 'Mini pager found.');
+    $elements = $this->xpath('//ul[contains(@class, "pager__items")]/li');
+    $this->assertNotEmpty($elements);
 
     // Verify elements and links to pages.
     // We expect to find 3 elements: previous page with a link, current
     // page with no link, and next page with a link.
-    $this->assertClass($elements[0], 'pager__item--previous', 'Element for previous page has .pager__item--previous class.');
-    $this->assertNotEmpty($elements[0]->find('css', 'a'), 'Link to previous page found.');
+    $previous_page_link = $elements[0]->find('css', 'a');
+    $this->assertNotEmpty($previous_page_link, 'Link to previous page found.');
+    $this->assertEquals('Go to previous page', $previous_page_link->getAttribute('title'));
 
-    $this->assertClass($elements[1], 'is-active', 'Element for current page has .is-active class.');
-    $this->assertEmpty($elements[1]->find('css', 'a'), 'Element for current page has no link.');
+    $this->assertEquals('Page 2', trim($elements[1]->getHtml()), 'Element for current page is not a link.');
 
-    $this->assertClass($elements[2], 'pager__item--next', 'Element for next page has .pager__item--next class.');
-    $this->assertNotEmpty($elements[2]->find('css', 'a'), 'Link to next page found.');
+    $next_page_link = $elements[2]->find('css', 'a');
+    $this->assertNotEmpty($next_page_link, 'Link to next page found.');
+    $this->assertEquals('Go to next page', $next_page_link->getAttribute('title'));
   }
 
   /**
    * Tests the link to sort in the preview form.
    */
-  public function testPreviewSortLink() {
+  public function testPreviewSortLink(): void {
     // Get the preview.
     $this->getPreviewAJAX('test_click_sort_ajax', 'page_1', 0);
 
     // Test that the header label is present.
-    $elements = $this->xpath('//th[contains(@class, :class)]/a', [':class' => 'views-field views-field-name']);
-    $this->assertTrue(!empty($elements), 'The header label is present.');
+    $element = $this->assertSession()->elementExists('xpath', '//th[contains(@class, "views-field views-field-name")]/a');
 
     // Verify link.
-    $this->assertLinkByHref('preview/page_1?_wrapper_format=drupal_ajax&order=name&sort=desc', 0, 'The output URL is as expected.');
+    $this->assertSession()->linkByHrefExists('preview/page_1?_wrapper_format=drupal_ajax&order=name&sort=desc', 0, 'The output URL is as expected.');
 
     // Click link to sort.
-    $elements[0]->click();
+    $element->click();
     $sort_link = $this->assertSession()->waitForElement('xpath', '//th[contains(@class, \'views-field views-field-name is-active\')]/a');
 
     $this->assertNotEmpty($sort_link);
 
     // Verify link.
-    $this->assertLinkByHref('preview/page_1?_wrapper_format=drupal_ajax&order=name&sort=asc', 0, 'The output URL is as expected.');
+    $this->assertSession()->linkByHrefExists('preview/page_1?_wrapper_format=drupal_ajax&order=name&sort=asc', 0, 'The output URL is as expected.');
   }
 
   /**
@@ -257,7 +260,7 @@ class PreviewTest extends WebDriverTestBase {
    * @param int $row_count
    *   The expected number of rows in the preview.
    */
-  protected function getPreviewAJAX($view_name, $panel_id, $row_count) {
+  protected function getPreviewAJAX($view_name, $panel_id, $row_count): void {
     $this->drupalGet('admin/structure/views/view/' . $view_name . '/edit/' . $panel_id);
     $this->getSession()->getPage()->pressButton('Update preview');
     $this->assertSession()->assertWaitOnAjaxRequest();
@@ -272,7 +275,7 @@ class PreviewTest extends WebDriverTestBase {
    * @param int $row_count
    *   The expected number of rows in the preview.
    */
-  protected function clickPreviewLinkAJAX(NodeElement $element, $row_count) {
+  protected function clickPreviewLinkAJAX(NodeElement $element, $row_count): void {
     $element->click();
     $this->assertSession()->assertWaitOnAjaxRequest();
     $this->assertPreviewAJAX($row_count);
@@ -283,9 +286,11 @@ class PreviewTest extends WebDriverTestBase {
    *
    * @param int $row_count
    *   The expected number of rows in the preview.
+   *
+   * @internal
    */
-  protected function assertPreviewAJAX($row_count) {
-    $elements = $this->getSession()->getPage()->findAll('css', '.view-content .views-row');
+  protected function assertPreviewAJAX(int $row_count): void {
+    $elements = $this->getSession()->getPage()->findAll('css', '#views-live-preview .views-row');
     $this->assertCount($row_count, $elements, 'Expected items found on page.');
   }
 
@@ -298,8 +303,10 @@ class PreviewTest extends WebDriverTestBase {
    *   The class to assert.
    * @param string $message
    *   (optional) A verbose message to output.
+   *
+   * @internal
    */
-  protected function assertClass(NodeElement $element, $class, $message = NULL) {
+  protected function assertClass(NodeElement $element, string $class, string $message = ''): void {
     if (!isset($message)) {
       $message = "Class .$class found.";
     }

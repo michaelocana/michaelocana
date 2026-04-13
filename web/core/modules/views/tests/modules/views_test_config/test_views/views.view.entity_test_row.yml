@@ -2,7 +2,7 @@ langcode: en
 status: true
 dependencies: {  }
 id: entity_test_row
-label: ''
+label: entity_test_row
 module: views
 description: ''
 tag: ''
@@ -35,6 +35,6 @@ display:
       row:
         type: 'entity:entity_test'
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0

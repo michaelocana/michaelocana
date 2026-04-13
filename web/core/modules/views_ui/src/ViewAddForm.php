@@ -7,6 +7,7 @@ use Drupal\views\Plugin\views\wizard\WizardPluginBase;
 use Drupal\views\Plugin\views\wizard\WizardException;
 use Drupal\views\Plugin\ViewsPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 
 /**
  * Form controller for the Views add form.
@@ -23,13 +24,23 @@ class ViewAddForm extends ViewFormBase {
   protected $wizardManager;
 
   /**
+   * The module handler service.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * Constructs a new ViewAddForm object.
    *
    * @param \Drupal\views\Plugin\ViewsPluginManager $wizard_manager
    *   The wizard plugin manager.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
+   *   The module handler service.
    */
-  public function __construct(ViewsPluginManager $wizard_manager) {
+  public function __construct(ViewsPluginManager $wizard_manager, ModuleHandlerInterface $module_handler) {
     $this->wizardManager = $wizard_manager;
+    $this->moduleHandler = $module_handler;
   }
 
   /**
@@ -37,7 +48,8 @@ class ViewAddForm extends ViewFormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('plugin.manager.views.wizard')
+      $container->get('plugin.manager.views.wizard'),
+      $container->get('module_handler')
     );
   }
 
@@ -57,7 +69,7 @@ class ViewAddForm extends ViewFormBase {
 
     $form['name'] = [
       '#type' => 'fieldset',
-      '#title' => t('View basic information'),
+      '#title' => $this->t('View basic information'),
       '#attributes' => ['class' => ['fieldset-no-legend']],
     ];
 
@@ -107,7 +119,7 @@ class ViewAddForm extends ViewFormBase {
     // properties of what the view will display.
     $form['displays']['show'] = [
       '#type' => 'fieldset',
-      '#title' => t('View settings'),
+      '#title' => $this->t('View settings'),
       '#tree' => TRUE,
       '#attributes' => ['class' => ['container-inline']],
     ];
@@ -123,12 +135,13 @@ class ViewAddForm extends ViewFormBase {
       '#type' => 'select',
       '#title' => $this->t('Show'),
       '#options' => $options,
+      '#sort_options' => TRUE,
     ];
     $show_form = &$form['displays']['show'];
-    $default_value = \Drupal::moduleHandler()->moduleExists('node') ? 'node' : 'users';
+    $default_value = $this->moduleHandler->moduleExists('node') ? 'node' : 'users';
     $show_form['wizard_key']['#default_value'] = WizardPluginBase::getSelected($form_state, ['show', 'wizard_key'], $default_value, $show_form['wizard_key']);
-    // Changing this dropdown updates the entire content of $form['displays'] via
-    // AJAX.
+    // Changing this dropdown updates the entire content of $form['displays']
+    // via AJAX.
     views_ui_add_ajax_trigger($show_form, 'wizard_key', ['displays']);
 
     // Build the rest of the form based on the currently selected wizard plugin.
@@ -185,7 +198,7 @@ class ViewAddForm extends ViewFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     try {
-      /** @var $wizard \Drupal\views\Plugin\views\wizard\WizardInterface */
+      /** @var \Drupal\views\Plugin\views\wizard\WizardInterface $wizard */
       $wizard = $form_state->get('wizard_instance');
       $this->entity = $wizard->createView($form, $form_state);
     }

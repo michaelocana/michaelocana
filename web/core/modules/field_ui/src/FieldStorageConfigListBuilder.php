@@ -3,7 +3,6 @@
 namespace Drupal\field_ui;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -19,14 +18,6 @@ use Drupal\Core\Link;
  * @see field_ui_entity_type_build()
  */
 class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = [
-    'entityManager' => 'entity.manager',
-  ];
 
   /**
    * An array of information about field types.
@@ -62,9 +53,11 @@ class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *   The entity type definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity manager.
+   *   The entity type manager.
    * @param \Drupal\Core\Field\FieldTypePluginManagerInterface $field_type_manager
    *   The 'field type' plugin manager.
+   * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $bundle_info_service
+   *   The bundle info service.
    */
   public function __construct(EntityTypeInterface $entity_type, EntityTypeManagerInterface $entity_type_manager, FieldTypePluginManagerInterface $field_type_manager, EntityTypeBundleInfoInterface $bundle_info_service) {
     parent::__construct($entity_type, $entity_type_manager->getStorage($entity_type->id()));
@@ -73,6 +66,7 @@ class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
     $this->bundles = $bundle_info_service->getAllBundleInfo();
     $this->fieldTypeManager = $field_type_manager;
     $this->fieldTypes = $this->fieldTypeManager->getDefinitions();
+    $this->limit = FALSE;
   }
 
   /**
@@ -90,6 +84,15 @@ class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
+  public function render() {
+    $build = parent::render();
+    $build['#attached']['library'][] = 'field_ui/drupal.field_ui';
+    return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildHeader() {
     $header['id'] = $this->t('Field name');
     $header['entity_type'] = $this->t('Entity type');
@@ -98,6 +101,7 @@ class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
       'class' => [RESPONSIVE_PRIORITY_MEDIUM],
     ];
     $header['usage'] = $this->t('Used in');
+    $header['settings_summary'] = $this->t('Summary');
     return $header;
   }
 
@@ -133,6 +137,14 @@ class FieldStorageConfigListBuilder extends ConfigEntityListBuilder {
       '#theme' => 'item_list',
       '#items' => $usage,
       '#context' => ['list_style' => 'comma-list'],
+    ];
+    $summary = $this->fieldTypeManager->getStorageSettingsSummary($field_storage);
+    $row['data']['settings_summary'] = empty($summary) ? '' : [
+      'data' => [
+        '#theme' => 'item_list',
+        '#items' => $summary,
+      ],
+      'class' => ['storage-settings-summary-cell'],
     ];
     return $row;
   }

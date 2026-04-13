@@ -1,5 +1,6 @@
 <?php
-// @codingStandardsIgnoreFile
+
+declare(strict_types=1);
 
 // Some class named Entity in the global namespace
 /**

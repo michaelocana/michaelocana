@@ -2,6 +2,7 @@
 
 namespace Drupal\Component\DependencyInjection;
 
+use Symfony\Component\DependencyInjection\Argument\RewindableGenerator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
@@ -34,13 +35,10 @@ class PhpArrayContainer extends Container {
 
     // Do not call the parent's constructor as it would bail on the
     // machine-optimized format.
-    $this->aliases = isset($container_definition['aliases']) ? $container_definition['aliases'] : [];
-    $this->parameters = isset($container_definition['parameters']) ? $container_definition['parameters'] : [];
-    $this->serviceDefinitions = isset($container_definition['services']) ? $container_definition['services'] : [];
-    $this->frozen = isset($container_definition['frozen']) ? $container_definition['frozen'] : FALSE;
-
-    // Register the service_container with itself.
-    $this->services['service_container'] = $this;
+    $this->aliases = $container_definition['aliases'] ?? [];
+    $this->parameters = $container_definition['parameters'] ?? [];
+    $this->serviceDefinitions = $container_definition['services'] ?? [];
+    $this->frozen = $container_definition['frozen'] ?? FALSE;
   }
 
   /**
@@ -165,9 +163,25 @@ class PhpArrayContainer extends Container {
 
           continue;
         }
+        elseif ($type == 'service_closure') {
+          $arguments[$key] = function () use ($argument) {
+            return $this->get($argument->id, $argument->invalidBehavior);
+          };
+
+          continue;
+        }
         elseif ($type == 'raw') {
           $arguments[$key] = $argument->value;
 
+          continue;
+        }
+        elseif ($type == 'iterator') {
+          $services = $argument->value;
+          $arguments[$key] = new RewindableGenerator(function () use ($services) {
+            foreach ($services as $key => $service) {
+              yield $key => $this->resolveServicesAndParameters([$service])[0];
+            }
+          }, count($services));
           continue;
         }
 

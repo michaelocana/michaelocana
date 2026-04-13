@@ -2,9 +2,10 @@
 
 /**
  * @file
- * Code required only when fetching information about available updates.
  */
 
+use Drupal\Core\Hook\Attribute\ProceduralHookScanStop;
+use Drupal\Core\Extension\Requirement\RequirementSeverity;
 use Drupal\update\UpdateManagerInterface;
 
 /**
@@ -16,16 +17,24 @@ use Drupal\update\UpdateManagerInterface;
  *
  * @see update_requirements()
  */
-function _update_cron_notify() {
+#[ProceduralHookScanStop]
+function _update_cron_notify(): void {
   $update_config = \Drupal::config('update.settings');
-  module_load_install('update');
-  $status = update_requirements('runtime');
+  // This loadInclude() is to ensure that the install API is available.
+  // Since we're loading an include of type 'install', this will also
+  // include core/includes/install.inc for us, which is where the
+  // REQUIREMENTS* constants are currently defined.
+  // @todo Remove this once those constants live in a better place.
+  // @see https://www.drupal.org/project/drupal/issues/2909480
+  // @see https://www.drupal.org/project/drupal/issues/3410938
+  \Drupal::moduleHandler()->loadInclude('update', 'install');
+  $status = \Drupal::moduleHandler()->invoke('update', 'runtime_requirements');
   $params = [];
   $notify_all = ($update_config->get('notification.threshold') == 'all');
   foreach (['core', 'contrib'] as $report_type) {
     $type = 'update_' . $report_type;
     if (isset($status[$type]['severity'])
-        && ($status[$type]['severity'] == REQUIREMENT_ERROR || ($notify_all && $status[$type]['reason'] == UpdateManagerInterface::NOT_CURRENT))) {
+        && ($status[$type]['severity'] == RequirementSeverity::Error || ($notify_all && $status[$type]['reason'] == UpdateManagerInterface::NOT_CURRENT))) {
       $params[$report_type] = $status[$type]['reason'];
     }
   }
@@ -33,6 +42,7 @@ function _update_cron_notify() {
     $notify_list = $update_config->get('notification.emails');
     if (!empty($notify_list)) {
       $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
+      $request_time = \Drupal::time()->getRequestTime();
       foreach ($notify_list as $target) {
         if ($target_user = user_load_by_mail($target)) {
           $target_langcode = $target_user->getPreferredLangcode();
@@ -44,7 +54,7 @@ function _update_cron_notify() {
         // Track when the last mail was successfully sent to avoid sending
         // too many emails.
         if ($message['result']) {
-          \Drupal::state()->set('update.last_email_notification', REQUEST_TIME);
+          \Drupal::state()->set('update.last_email_notification', $request_time);
         }
       }
     }

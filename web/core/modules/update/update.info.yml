@@ -1,9 +1,6 @@
-name: 'Update Manager'
+name: 'Update Status'
 type: module
-description: 'Checks for available updates, and can securely install or update modules and themes via a web interface.'
+description: 'Checks for updates and can notify users if there are new releases available.'
 version: VERSION
 package: Core
-core: 8.x
 configure: update.settings
-dependencies:
-  - drupal:file

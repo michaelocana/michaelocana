@@ -5,6 +5,7 @@ namespace Drupal\node\Plugin\migrate;
 use Drupal\Component\Plugin\Derivative\DeriverBase;
 use Drupal\Core\Database\DatabaseExceptionWrapper;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\migrate\Exception\RequirementsException;
 use Drupal\migrate\Plugin\MigrationDeriverTrait;
 use Drupal\migrate_drupal\FieldDiscoveryInterface;
@@ -15,6 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class D6NodeDeriver extends DeriverBase implements ContainerDeriverInterface {
   use MigrationDeriverTrait;
+  use StringTranslationTrait;
 
   /**
    * The base plugin ID this derivative is for.
@@ -78,7 +80,7 @@ class D6NodeDeriver extends DeriverBase implements ContainerDeriverInterface {
     try {
       $node_types->checkRequirements();
     }
-    catch (RequirementsException $e) {
+    catch (RequirementsException) {
       // If the d6_node_type requirements failed, that means we do not have a
       // Drupal source database configured - there is nothing to generate.
       return $this->derivatives;
@@ -89,7 +91,7 @@ class D6NodeDeriver extends DeriverBase implements ContainerDeriverInterface {
         $node_type = $row->getSourceProperty('type');
         $values = $base_plugin_definition;
 
-        $values['label'] = t("@label (@type)", [
+        $values['label'] = $this->t("@label (@type)", [
           '@label' => $values['label'],
           '@type' => $node_type,
         ]);
@@ -109,7 +111,7 @@ class D6NodeDeriver extends DeriverBase implements ContainerDeriverInterface {
         $this->derivatives[$node_type] = $migration->getPluginDefinition();
       }
     }
-    catch (DatabaseExceptionWrapper $e) {
+    catch (DatabaseExceptionWrapper) {
       // Once we begin iterating the source plugin it is possible that the
       // source tables will not exist. This can happen when the
       // MigrationPluginManager gathers up the migration definitions but we do

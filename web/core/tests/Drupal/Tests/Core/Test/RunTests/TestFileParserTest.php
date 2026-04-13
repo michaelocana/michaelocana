@@ -1,18 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Test\RunTests;
 
 use Drupal\Core\Test\RunTests\TestFileParser;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 
 /**
- * @coversDefaultClass \Drupal\Core\Test\RunTests\TestFileParser
- * @group Test
- * @group RunTests
+ * Tests for the deprecated TestFileParser class.
  */
+#[CoversClass(TestFileParser::class)]
+#[Group('Test')]
+#[Group('RunTest')]
+#[IgnoreDeprecations]
 class TestFileParserTest extends UnitTestCase {
 
-  public function provideTestFileContents() {
+  public static function provideTestFileContents() {
     return [
       'empty' => [[], ''],
       'no-namespace' => [['ConcreteClass'],
@@ -64,35 +72,29 @@ COMPOUND
   }
 
   /**
-   * @covers ::parseContents
-   * @dataProvider provideTestFileContents
+   * @legacy-covers ::parseContents
    */
-  public function testParseContents($expected, $contents) {
+  #[DataProvider('provideTestFileContents')]
+  public function testParseContents($expected, $contents): void {
     $parser = new TestFileParser();
 
     $ref_parse = new \ReflectionMethod($parser, 'parseContents');
-    $ref_parse->setAccessible(TRUE);
 
     $this->assertSame($expected, $ref_parse->invoke($parser, $contents));
   }
 
   /**
-   * @covers ::getTestListFromFile
+   * @legacy-covers ::getTestListFromFile
    */
-  public function testGetTestListFromFile() {
+  public function testGetTestListFromFile(): void {
     $parser = new TestFileParser();
-    $this->assertArrayEquals(
+    $this->assertEquals(
       ['Drupal\Tests\Core\Test\RunTests\TestFileParserTest'],
       $parser->getTestListFromFile(__FILE__)
     );
-    // This WebTestBase test will eventually move, so we'll need to update it.
-    $this->assertArrayEquals(
-      ['Drupal\simpletest\Tests\TimeZoneTest'],
-      $parser->getTestListFromFile(__DIR__ . '/../../../../../../modules/simpletest/src/Tests/TimeZoneTest.php')
-    );
-    // Not a test.
-    $this->assertEmpty(
-      $parser->getTestListFromFile(__DIR__ . '/../../../AssertHelperTrait.php')
+    $this->assertEquals(
+      ['Drupal\KernelTests\Core\Datetime\Element\TimezoneTest'],
+      $parser->getTestListFromFile(__DIR__ . '/../../../../KernelTests/Core/Datetime/Element/TimezoneTest.php')
     );
   }
 

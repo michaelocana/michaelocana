@@ -3,12 +3,12 @@
 namespace Drupal\field_ui\Plugin\Derivative;
 
 use Drupal\Component\Plugin\Derivative\DeriverBase;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Component\Serialization\Json;
 
 /**
  * Provides local action definitions for all entity bundles.
@@ -16,12 +16,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class FieldUiLocalAction extends DeriverBase implements ContainerDeriverInterface {
 
   use StringTranslationTrait;
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
+   * The route provider to load routes by name.
    */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
+  protected RouteProviderInterface $routeProvider;
 
   /**
    * The entity type manager.
@@ -35,12 +34,12 @@ class FieldUiLocalAction extends DeriverBase implements ContainerDeriverInterfac
    *
    * @param \Drupal\Core\Routing\RouteProviderInterface $route_provider
    *   The route provider to load routes by name.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_manager
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
    */
-  public function __construct(RouteProviderInterface $route_provider, EntityTypeManagerInterface $entity_manager) {
+  public function __construct(RouteProviderInterface $route_provider, EntityTypeManagerInterface $entity_type_manager) {
     $this->routeProvider = $route_provider;
-    $this->entityTypeManager = $entity_manager;
+    $this->entityTypeManager = $entity_type_manager;
   }
 
   /**
@@ -63,8 +62,31 @@ class FieldUiLocalAction extends DeriverBase implements ContainerDeriverInterfac
       if ($entity_type->get('field_ui_base_route')) {
         $this->derivatives["field_storage_config_add_$entity_type_id"] = [
           'route_name' => "field_ui.field_storage_config_add_$entity_type_id",
-          'title' => $this->t('Add field'),
+          'title' => $this->t('Create a new field'),
           'appears_on' => ["entity.$entity_type_id.field_ui_fields"],
+          'options' => [
+            'attributes' => [
+              'class' => ['use-ajax', 'button'],
+              'data-dialog-type' => 'modal',
+              'data-dialog-options' => Json::encode([
+                'width' => '1100',
+              ]),
+            ],
+          ],
+        ];
+        $this->derivatives["field_storage_config_reuse_$entity_type_id"] = [
+          'route_name' => "field_ui.field_storage_config_reuse_$entity_type_id",
+          'title' => $this->t('Re-use an existing field'),
+          'appears_on' => ["entity.$entity_type_id.field_ui_fields"],
+          'options' => [
+            'attributes' => [
+              'class' => ['use-ajax', 'button'],
+              'data-dialog-type' => 'modal',
+              'data-dialog-options' => Json::encode([
+                'width' => '1100',
+              ]),
+            ],
+          ],
         ];
       }
     }

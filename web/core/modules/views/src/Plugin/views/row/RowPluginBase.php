@@ -21,7 +21,7 @@ use Drupal\views\Views;
  * more information.
  *
  * Row plugins extend \Drupal\views\Plugin\views\row\RowPluginBase. They must
- * be annotated with \Drupal\views\Annotation\ViewsRow annotation, and
+ * be attributed with \Drupal\views\Attribute\ViewsRow attribute, and
  * they must be in namespace directory Plugin\views\row.
  *
  * @ingroup views_plugins
@@ -50,9 +50,22 @@ abstract class RowPluginBase extends PluginBase {
   protected $usesFields = FALSE;
 
   /**
+   * The actual field used.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $base_field;
+
+  /**
+   * The field alias.
+   */
+  // phpcs:ignore Drupal.NamingConventions.ValidVariableName.LowerCamelName, Drupal.Commenting.VariableComment.Missing
+  public string $field_alias;
+
+  /**
    * Returns the usesFields property.
    *
    * @return bool
+   *   TRUE if fields are used by this row plugin, FALSE otherwise.
    */
   public function usesFields() {
     return $this->usesFields;
@@ -90,7 +103,7 @@ abstract class RowPluginBase extends PluginBase {
         $data = Views::viewsData()->get($relationship['table']);
         $base = $data[$relationship['field']]['relationship']['base'];
         if ($base == $this->base_table) {
-          $relationship_handler->init($executable, $relationship);
+          $relationship_handler->init($executable, $this->displayHandler, $relationship);
           $relationship_options[$relationship['id']] = $relationship_handler->adminLabel();
         }
       }
@@ -126,6 +139,7 @@ abstract class RowPluginBase extends PluginBase {
 
   /**
    * Perform any necessary changes to the form values prior to storage.
+   *
    * There is no need for this function to actually store the data.
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {}
@@ -148,14 +162,16 @@ abstract class RowPluginBase extends PluginBase {
   /**
    * Allow the style to do stuff before each row is rendered.
    *
-   * @param $result
+   * @param array $result
    *   The full array of results from the query.
    */
   public function preRender($result) {}
 
   /**
-   * Render a row object. This usually passes through to a theme template
-   * of some form, but not always.
+   * Renders a row object.
+   *
+   * This usually passes through to a theme template of some form, but not
+   * always.
    *
    * @param object $row
    *   A single row of the query result, so an element of $view->result.
@@ -169,7 +185,7 @@ abstract class RowPluginBase extends PluginBase {
       '#view' => $this->view,
       '#options' => $this->options,
       '#row' => $row,
-      '#field_alias' => isset($this->field_alias) ? $this->field_alias : '',
+      '#field_alias' => $this->field_alias ?? '',
     ];
   }
 

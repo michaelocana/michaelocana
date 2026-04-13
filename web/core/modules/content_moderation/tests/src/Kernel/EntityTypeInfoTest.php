@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\content_moderation\Kernel;
 
 use Drupal\content_moderation\Entity\Handler\ModerationHandler;
@@ -18,11 +20,9 @@ class EntityTypeInfoTest extends KernelTestBase {
   use ContentModerationTestTrait;
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_moderation',
     'workflows',
     'entity_test',
@@ -52,7 +52,7 @@ class EntityTypeInfoTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeInfo = $this->container->get('class_resolver')->getInstanceFromDefinition(EntityTypeInfo::class);
@@ -65,7 +65,7 @@ class EntityTypeInfoTest extends KernelTestBase {
   /**
    * @covers ::entityBaseFieldInfo
    */
-  public function testEntityBaseFieldInfo() {
+  public function testEntityBaseFieldInfo(): void {
     $definition = $this->entityTypeManager->getDefinition('entity_test');
     $definition->setHandlerClass('moderation', ModerationHandler::class);
 
@@ -78,13 +78,13 @@ class EntityTypeInfoTest extends KernelTestBase {
   }
 
   /**
-   * Test the correct entity types have moderation added.
+   * Tests the correct entity types have moderation added.
    *
    * @covers ::entityTypeAlter
    *
    * @dataProvider providerTestEntityTypeAlter
    */
-  public function testEntityTypeAlter($entity_type_id, $moderatable) {
+  public function testEntityTypeAlter($entity_type_id, $moderatable): void {
     $entity_types = $this->entityTypeManager->getDefinitions();
     $this->assertSame($moderatable, $entity_types[$entity_type_id]->hasHandlerClass('moderation'));
   }
@@ -98,7 +98,7 @@ class EntityTypeInfoTest extends KernelTestBase {
    *   - An entity type ID.
    *   - Whether the entity type is moderatable or not.
    */
-  public function providerTestEntityTypeAlter() {
+  public static function providerTestEntityTypeAlter() {
     $tests = [];
     $tests['non_internal_non_revisionable'] = ['entity_test', FALSE];
     $tests['non_internal_revisionable'] = ['entity_test_rev', TRUE];
@@ -110,7 +110,7 @@ class EntityTypeInfoTest extends KernelTestBase {
   /**
    * @covers ::entityBaseFieldInfo
    */
-  public function testBaseFieldOnlyAddedToModeratedEntityTypes() {
+  public function testBaseFieldOnlyAddedToModeratedEntityTypes(): void {
     $definition = $this->entityTypeManager->getDefinition('entity_test_with_bundle');
 
     EntityTestBundle::create([
@@ -129,9 +129,9 @@ class EntityTypeInfoTest extends KernelTestBase {
   }
 
   /**
-   * Test entity base field provider.
+   * Tests entity base field provider.
    */
-  public function testEntityBaseFieldProvider() {
+  public function testEntityBaseFieldProvider(): void {
     $this->enableModeration('entity_test_mulrev', 'entity_test_mulrev');
     $this->container->get('state')->set('entity_test.field_test_item', TRUE);
 
@@ -142,7 +142,7 @@ class EntityTypeInfoTest extends KernelTestBase {
   /**
    * Add moderation to an entity type and bundle.
    */
-  protected function enableModeration($entity_type_id, $bundle) {
+  protected function enableModeration($entity_type_id, $bundle): void {
     $workflow = $this->createEditorialWorkflow();
     $workflow->getTypePlugin()->addEntityTypeAndBundle($entity_type_id, $bundle);
     $workflow->save();

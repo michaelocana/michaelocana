@@ -13,7 +13,6 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -52,7 +51,7 @@ class CommentController extends ControllerBase {
   /**
    * The entity repository.
    *
-   * @var Drupal\Core\Entity\EntityRepositoryInterface
+   * @var \Drupal\Core\Entity\EntityRepositoryInterface
    */
   protected $entityRepository;
 
@@ -70,33 +69,12 @@ class CommentController extends ControllerBase {
    * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
    *   The entity repository service.
    */
-  public function __construct(HttpKernelInterface $http_kernel, CommentManagerInterface $comment_manager, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager = NULL, EntityRepositoryInterface $entity_repository = NULL) {
+  public function __construct(HttpKernelInterface $http_kernel, CommentManagerInterface $comment_manager, EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager, EntityRepositoryInterface $entity_repository) {
     $this->httpKernel = $http_kernel;
     $this->commentManager = $comment_manager;
     $this->entityTypeManager = $entity_type_manager;
-    if (!$entity_field_manager) {
-      @trigger_error('The entity_field.manager service must be passed to CommentController::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_field_manager = \Drupal::service('entity_field.manager');
-    }
     $this->entityFieldManager = $entity_field_manager;
-    if (!$entity_repository) {
-      @trigger_error('The entity.repository service must be passed to CommentController::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
     $this->entityRepository = $entity_repository;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('http_kernel'),
-      $container->get('comment.manager'),
-      $container->get('entity_type.manager'),
-      $container->get('entity_field.manager'),
-      $container->get('entity.repository')
-    );
   }
 
   /**
@@ -106,6 +84,7 @@ class CommentController extends ControllerBase {
    *   A comment entity.
    *
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
+   *   A redirect response to the comment's permalink after approval.
    */
   public function commentApprove(CommentInterface $comment) {
     $comment->setPublished();
@@ -149,13 +128,11 @@ class CommentController extends ControllerBase {
 
       // Find the current display page for this comment.
       $page = $this->entityTypeManager()->getStorage('comment')->getDisplayOrdinal($comment, $field_definition->getSetting('default_mode'), $field_definition->getSetting('per_page'));
-      // @todo: Cleaner sub request handling.
+      // @todo Cleaner sub request handling.
       $subrequest_url = $entity->toUrl()->setOption('query', ['page' => $page])->toString(TRUE);
       $redirect_request = Request::create($subrequest_url->getGeneratedUrl(), 'GET', $request->query->all(), $request->cookies->all(), [], $request->server->all());
       // Carry over the session to the subrequest.
-      if ($request->hasSession()) {
-        $redirect_request->setSession($request->getSession());
-      }
+      $redirect_request->setSession($request->getSession());
       $request->query->set('page', $page);
       $response = $this->httpKernel->handle($redirect_request, HttpKernelInterface::SUB_REQUEST);
       if ($response instanceof CacheableResponseInterface) {
@@ -191,7 +168,7 @@ class CommentController extends ControllerBase {
    *   The node object identified by the legacy URL.
    *
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
-   *   Redirects user to new url.
+   *   Redirects user to new URL.
    *
    * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
    */
@@ -250,7 +227,7 @@ class CommentController extends ControllerBase {
         $build['comment_parent'] = $this->entityTypeManager()->getViewBuilder('comment')->view($comment);
       }
 
-      // The comment is in response to a entity.
+      // The comment is in response to an entity.
       elseif ($entity->access('view', $account)) {
         // We make sure the field value isn't set so we don't end up with a
         // redirect loop.
@@ -345,11 +322,12 @@ class CommentController extends ControllerBase {
       throw new AccessDeniedHttpException();
     }
 
-    $nids = $request->request->get('node_ids');
-    $field_name = $request->request->get('field_name');
-    if (!isset($nids)) {
+    if (!$request->request->has('node_ids') || !$request->request->has('field_name')) {
       throw new NotFoundHttpException();
     }
+    $nids = $request->request->all('node_ids');
+    $field_name = $request->request->get('field_name');
+
     // Only handle up to 100 nodes.
     $nids = array_slice($nids, 0, 100);
 

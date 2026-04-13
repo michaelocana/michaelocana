@@ -31,6 +31,13 @@ trait BlockPluginTrait {
   use PluginWithFormsTrait;
 
   /**
+   * Whether the plugin is being rendered in preview mode.
+   *
+   * @var bool
+   */
+  protected $inPreview = FALSE;
+
+  /**
    * The transliteration service.
    *
    * @var \Drupal\Component\Transliteration\TransliterationInterface
@@ -87,8 +94,8 @@ trait BlockPluginTrait {
     return [
       'id' => $this->getPluginId(),
       'label' => '',
-      'provider' => $this->pluginDefinition['provider'],
       'label_display' => BlockPluginInterface::BLOCK_LABEL_VISIBLE,
+      'provider' => $this->pluginDefinition['provider'],
     ];
   }
 
@@ -131,7 +138,7 @@ trait BlockPluginTrait {
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user session for which to check access.
    *
-   * @return \Drupal\Core\Access\AccessResult
+   * @return \Drupal\Core\Access\AccessResultInterface
    *   The access result.
    *
    * @see self::access()
@@ -177,9 +184,6 @@ trait BlockPluginTrait {
       '#return_value' => BlockPluginInterface::BLOCK_LABEL_VISIBLE,
     ];
 
-    // Add context mapping UI form elements.
-    $contexts = $form_state->getTemporaryValue('gathered_contexts') ?: [];
-    $form['context_mapping'] = $this->addContextAssignmentElement($this, $contexts);
     // Add plugin-specific settings for this block type.
     $form += $this->blockForm($form, $form_state);
     return $form;
@@ -244,13 +248,13 @@ trait BlockPluginTrait {
     $definition = $this->getPluginDefinition();
     $admin_label = $definition['admin_label'];
 
-    // @todo This is basically the same as what is done in
-    //   \Drupal\system\MachineNameController::transliterate(), so it might make
-    //   sense to provide a common service for the two.
     $transliterated = $this->transliteration()->transliterate($admin_label, LanguageInterface::LANGCODE_DEFAULT, '_');
     $transliterated = mb_strtolower($transliterated);
 
     $transliterated = preg_replace('@[^a-z0-9_.]+@', '', $transliterated);
+    // Furthermore remove any characters that are not alphanumerical from the
+    // beginning and end of the transliterated string.
+    $transliterated = preg_replace('@^([^a-z0-9]+)|([^a-z0-9]+)$@', '', $transliterated);
 
     return $transliterated;
   }
@@ -266,6 +270,7 @@ trait BlockPluginTrait {
    * Wraps the transliteration service.
    *
    * @return \Drupal\Component\Transliteration\TransliterationInterface
+   *   The transliteration service.
    */
   protected function transliteration() {
     if (!$this->transliteration) {
@@ -282,6 +287,20 @@ trait BlockPluginTrait {
    */
   public function setTransliteration(TransliterationInterface $transliteration) {
     $this->transliteration = $transliteration;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setInPreview(bool $in_preview): void {
+    $this->inPreview = $in_preview;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function createPlaceholder(): bool {
+    return FALSE;
   }
 
 }

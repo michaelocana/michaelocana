@@ -63,22 +63,22 @@ class ImageToolkitOperation extends Plugin {
   /**
    * The human-readable name of the image toolkit operation.
    *
-   * The string should be wrapped in a @Translation().
-   *
-   * @ingroup plugin_translatable
+   * The string should be wrapped in @Translation().
    *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $label;
 
   /**
    * The description of the image toolkit operation.
    *
-   * The string should be wrapped in a @Translation().
-   *
-   * @ingroup plugin_translatable
+   * The string should be wrapped in @Translation().
    *
    * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
    */
   public $description;
 

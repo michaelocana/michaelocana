@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\UpdateSystem;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,25 +14,29 @@ use Drupal\Tests\BrowserTestBase;
 class DependencyMissingTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['update_test_0', 'update_test_2'];
+  protected static $modules = ['update_test_0', 'update_test_2'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     // Only install update_test_2.module, even though its updates have a
     // dependency on update_test_3.module.
     parent::setUp();
     require_once $this->root . '/core/includes/update.inc';
   }
 
-  public function testMissingUpdate() {
+  /**
+   * Tests updating with a missing dependency.
+   */
+  public function testMissingUpdate(): void {
     $starting_updates = [
       'update_test_2' => 8001,
     ];

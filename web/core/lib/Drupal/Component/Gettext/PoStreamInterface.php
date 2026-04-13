@@ -23,7 +23,7 @@ interface PoStreamInterface {
   /**
    * Gets the URI of the PO stream that is being read or written.
    *
-   * @return
+   * @return string
    *   URI string for this stream.
    */
   public function getURI();
@@ -31,7 +31,7 @@ interface PoStreamInterface {
   /**
    * Set the URI of the PO stream that is going to be read or written.
    *
-   * @param $uri
+   * @param string $uri
    *   URI string to set for this stream.
    */
   public function setURI($uri);

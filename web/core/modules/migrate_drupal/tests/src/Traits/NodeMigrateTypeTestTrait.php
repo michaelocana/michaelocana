@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate_drupal\Traits;
 
 use Drupal\migrate_drupal\NodeMigrateType;
+
+// cspell:ignore destid sourceid
 
 /**
  * Helper functions to test complete and classic node migrations.
@@ -26,7 +30,7 @@ trait NodeMigrateTypeTestTrait {
    *   An associative array with the total number of complete and classic
    *   node migrate_map tables.
    */
-  protected function nodeMigrateMapTableCount($version) {
+  protected function nodeMigrateMapTableCount($version): array {
     $results = [];
     $bases = ['node', 'node_complete'];
     $tables = \Drupal::database()->schema()
@@ -67,10 +71,7 @@ trait NodeMigrateTypeTestTrait {
    */
   protected function getTableName($type, $version) {
     if (!$this->tableName) {
-      // PostgreSQL table names are automatically converted lowercase. If this
-      // string is not lowercase then we can't remove the table in
-      // \Drupal\Tests\migrate_drupal\Traits\NodeMigrateTypeTestTrait::removeNodeMigrateMapTable().
-      $content_type = strtolower($this->randomMachineName());
+      $content_type = $this->randomMachineName();
       $this->tableName = 'migrate_map_d' . $version . '_node_complete__' . $content_type;
       if ($type == NodeMigrateType::NODE_MIGRATE_TYPE_CLASSIC) {
         $this->tableName = 'migrate_map_d' . $version . '_node__' . $content_type;
@@ -183,7 +184,7 @@ trait NodeMigrateTypeTestTrait {
       foreach ($keys as $key) {
         unset($fields[$key]);
         unset($values[$key]);
-        if (strstr($key, 'sourceid')) {
+        if (str_contains($key, 'sourceid')) {
           $index_key = substr($key, -1) - 1;
           unset($indexes['source'][$index_key]);
         }

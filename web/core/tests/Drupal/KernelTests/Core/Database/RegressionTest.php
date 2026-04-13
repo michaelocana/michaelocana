@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Database;
 
 /**
@@ -10,16 +12,14 @@ namespace Drupal\KernelTests\Core\Database;
 class RegressionTest extends DatabaseTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'user'];
+  protected static $modules = ['node', 'user'];
 
   /**
    * Ensures that non-ASCII UTF-8 data is stored in the database properly.
    */
-  public function testRegression_310447() {
+  public function testRegression_310447(): void {
     // That's a 255 character UTF-8 string.
     $job = str_repeat("é", 255);
     $this->connection
@@ -30,33 +30,33 @@ class RegressionTest extends DatabaseTestBase {
         'job' => $job,
       ])->execute();
 
-    $from_database = $this->connection->query('SELECT job FROM {test} WHERE job = :job', [':job' => $job])->fetchField();
+    $from_database = $this->connection->query('SELECT [job] FROM {test} WHERE [job] = :job', [':job' => $job])->fetchField();
     $this->assertSame($job, $from_database, 'The database handles UTF-8 characters cleanly.');
   }
 
   /**
    * Tests the Schema::tableExists() method.
    */
-  public function testDBTableExists() {
-    $this->assertSame(TRUE, $this->connection->schema()->tableExists('test'), 'Returns true for existent table.');
-    $this->assertSame(FALSE, $this->connection->schema()->tableExists('nosuchtable'), 'Returns false for nonexistent table.');
+  public function testDBTableExists(): void {
+    $this->assertTrue($this->connection->schema()->tableExists('test'), 'Returns true for existent table.');
+    $this->assertFalse($this->connection->schema()->tableExists('no_such_table'), 'Returns false for nonexistent table.');
   }
 
   /**
    * Tests the \Drupal\Core\Database\Schema::fieldExists() method.
    */
-  public function testDBFieldExists() {
+  public function testDBFieldExists(): void {
     $schema = $this->connection->schema();
-    $this->assertSame(TRUE, $schema->fieldExists('test', 'name'), 'Returns true for existent column.');
-    $this->assertSame(FALSE, $schema->fieldExists('test', 'nosuchcolumn'), 'Returns false for nonexistent column.');
+    $this->assertTrue($schema->fieldExists('test', 'name'), 'Returns true for existent column.');
+    $this->assertFalse($schema->fieldExists('test', 'no_such_column'), 'Returns false for nonexistent column.');
   }
 
   /**
    * Tests the Schema::indexExists() method.
    */
-  public function testDBIndexExists() {
-    $this->assertSame(TRUE, $this->connection->schema()->indexExists('test', 'ages'), 'Returns true for existent index.');
-    $this->assertSame(FALSE, $this->connection->schema()->indexExists('test', 'nosuchindex'), 'Returns false for nonexistent index.');
+  public function testDBIndexExists(): void {
+    $this->assertTrue($this->connection->schema()->indexExists('test', 'ages'), 'Returns true for existent index.');
+    $this->assertFalse($this->connection->schema()->indexExists('test', 'no_such_index'), 'Returns false for nonexistent index.');
   }
 
 }

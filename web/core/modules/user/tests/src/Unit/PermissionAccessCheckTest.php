@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Unit;
 
 use Drupal\Core\Access\AccessResult;
@@ -33,7 +35,7 @@ class PermissionAccessCheckTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->container = new ContainerBuilder();
@@ -50,15 +52,26 @@ class PermissionAccessCheckTest extends UnitTestCase {
    * Provides data for the testAccess method.
    *
    * @return array
+   *   An array of test data.
    */
-  public function providerTestAccess() {
+  public static function providerTestAccess() {
     return [
       [[], FALSE],
       [['_permission' => 'allowed'], TRUE, ['user.permissions']],
-      [['_permission' => 'denied'], FALSE, ['user.permissions'], "The 'denied' permission is required."],
+      [
+        ['_permission' => 'denied'],
+        FALSE,
+        ['user.permissions'],
+        "The 'denied' permission is required.",
+      ],
       [['_permission' => 'allowed+denied'], TRUE, ['user.permissions']],
       [['_permission' => 'allowed+denied+other'], TRUE, ['user.permissions']],
-      [['_permission' => 'allowed,denied'], FALSE, ['user.permissions'], "The following permissions are required: 'allowed' AND 'denied'."],
+      [
+        ['_permission' => 'allowed,denied'],
+        FALSE,
+        ['user.permissions'],
+        "The following permissions are required: 'allowed' AND 'denied'.",
+      ],
     ];
   }
 
@@ -68,7 +81,7 @@ class PermissionAccessCheckTest extends UnitTestCase {
    * @dataProvider providerTestAccess
    * @covers ::access
    */
-  public function testAccess($requirements, $access, array $contexts = [], $message = '') {
+  public function testAccess($requirements, $access, array $contexts = [], $message = ''): void {
     $access_result = AccessResult::allowedIf($access)->addCacheContexts($contexts);
     if (!empty($message)) {
       $access_result->setReason($message);
@@ -76,12 +89,11 @@ class PermissionAccessCheckTest extends UnitTestCase {
     $user = $this->createMock('Drupal\Core\Session\AccountInterface');
     $user->expects($this->any())
       ->method('hasPermission')
-      ->will($this->returnValueMap([
-          ['allowed', TRUE],
-          ['denied', FALSE],
-          ['other', FALSE],
-        ]
-      ));
+      ->willReturnMap([
+        ['allowed', TRUE],
+        ['denied', FALSE],
+        ['other', FALSE],
+      ]);
     $route = new Route('', [], $requirements);
 
     $this->assertEquals($access_result, $this->accessCheck->access($route, $user));

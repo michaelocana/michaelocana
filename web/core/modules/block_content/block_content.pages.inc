@@ -2,14 +2,13 @@
 
 /**
  * @file
- * Provides page callbacks for custom blocks.
  */
 
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 
 /**
- * Prepares variables for a custom block type creation list templates.
+ * Prepares variables for a block type creation list templates.
  *
  * Default template: block-content-add-list.html.twig.
  *
@@ -19,7 +18,7 @@ use Drupal\Core\Url;
  *
  * @see block_content_add_page()
  */
-function template_preprocess_block_content_add_list(&$variables) {
+function template_preprocess_block_content_add_list(&$variables): void {
   $variables['types'] = [];
   $query = \Drupal::request()->query->all();
   foreach ($variables['content'] as $type) {

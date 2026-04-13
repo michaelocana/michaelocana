@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\media\Traits;
 
 use Drupal\media\Entity\MediaType;
@@ -22,8 +24,6 @@ trait MediaTypeCreationTrait {
    *     be used.
    *   - label: The human-readable label of the media type. If none is provided,
    *     a random value will be used.
-   *   - bundle: (deprecated) The ID of the media type, for backwards
-   *     compatibility purposes. Use 'id' instead.
    *   See \Drupal\media\MediaTypeInterface and \Drupal\media\Entity\MediaType
    *   for full documentation of the media type properties.
    *
@@ -34,12 +34,6 @@ trait MediaTypeCreationTrait {
    * @see \Drupal\media\Entity\MediaType
    */
   protected function createMediaType($source_plugin_id, array $values = []) {
-    if (isset($values['bundle'])) {
-      @trigger_error('Setting the "bundle" key when creating a test media type is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Set the "id" key instead. See https://www.drupal.org/node/2981614.', E_USER_DEPRECATED);
-      $values['id'] = $values['bundle'];
-      unset($values['bundle']);
-    }
-
     $values += [
       'id' => $this->randomMachineName(),
       'label' => $this->randomString(),
@@ -60,7 +54,9 @@ trait MediaTypeCreationTrait {
     // The media type form creates a source field if it does not exist yet. The
     // same must be done in a kernel test, since it does not use that form.
     // @see \Drupal\media\MediaTypeForm::save()
-    $source_field->getFieldStorageDefinition()->save();
+    /** @var \Drupal\field\FieldStorageConfigInterface $storage */
+    $storage = $source_field->getFieldStorageDefinition();
+    $storage->save();
     // The source field storage has been created, now the field can be saved.
     $source_field->save();
 

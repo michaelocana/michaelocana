@@ -1,9 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel\Migrate\d7;
 
+use Drupal\Core\Database\Statement\FetchAs;
 use Drupal\migrate\MigrateExecutable;
 use Drupal\migrate_drupal\NodeMigrateType;
+use Drupal\node\Entity\Node;
 use Drupal\node\NodeInterface;
 use Drupal\Tests\file\Kernel\Migrate\d7\FileMigrationSetupTrait;
 use Drupal\Tests\migrate_drupal\Kernel\d7\MigrateDrupal7TestBase;
@@ -14,6 +18,7 @@ use Drupal\Tests\migrate_drupal\Traits\NodeMigrateTypeTestTrait;
  * Test class for a complete node migration for Drupal 7.
  *
  * @group migrate_drupal_7
+ * @group #slow
  */
 class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
 
@@ -24,16 +29,15 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'content_translation',
     'comment',
     'datetime',
+    'datetime_range',
     'image',
     'language',
     'link',
     'menu_ui',
-    // Required for translation migrations.
-    'migrate_drupal_multilingual',
     'node',
     'taxonomy',
     'telephone',
@@ -43,14 +47,14 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
   /**
    * The entity storage for node.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var \Drupal\Core\Entity\RevisionableStorageInterface
    */
   protected $nodeStorage;
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Remove the classic node table made in setup.
@@ -62,7 +66,6 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
     $this->installEntitySchema('taxonomy_term');
     $this->installSchema('comment', ['comment_entity_statistics']);
     $this->installSchema('node', ['node_access']);
-    $this->installSchema('system', ['sequences']);
 
     $this->createContent();
 
@@ -86,10 +89,10 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getFileMigrationInfo() {
+  protected function getFileMigrationInfo(): array {
     return [
       'path' => 'public://sites/default/files/cube.jpeg',
-      'size' => '3620',
+      'size' => 3620,
       'base_path' => 'public://',
       'plugin_id' => 'd7_file',
     ];
@@ -98,12 +101,12 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
   /**
    * Tests the complete node migration.
    */
-  public function testNodeCompleteMigration() {
+  public function testNodeCompleteMigration(): void {
     // Confirm there are only complete node migration map tables. This shows
     // that only the complete migration ran.
     $results = $this->nodeMigrateMapTableCount('7');
     $this->assertSame(0, $results['node']);
-    $this->assertSame(7, $results['node_complete']);
+    $this->assertSame(8, $results['node_complete']);
 
     $db = \Drupal::database();
     $this->assertEquals($this->expectedNodeFieldRevisionTable(), $db->select('node_field_revision', 'nr')
@@ -111,26 +114,56 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
       ->orderBy('vid')
       ->orderBy('langcode')
       ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC));
+      ->fetchAll(FetchAs::Associative));
     $this->assertEquals($this->expectedNodeFieldDataTable(), $db->select('node_field_data', 'nr')
       ->fields('nr')
       ->orderBy('nid')
       ->orderBy('vid')
       ->orderBy('langcode')
       ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC));
+      ->fetchAll(FetchAs::Associative));
 
     // Load and test each revision.
     $data = $this->expectedRevisionEntityData()[0];
     foreach ($this->expectedNodeFieldRevisionTable() as $key => $revision) {
       $this->assertRevision($revision, $data[$key]);
     }
+
+    // Test the migration of node and user reference fields.
+    foreach ([2, 3] as $revision_id) {
+      $revision = $this->nodeStorage->loadRevision($revision_id);
+      $this->assertCount(1, $revision->field_node_reference);
+      $this->assertSame('5', $revision->field_node_reference->target_id);
+
+      $this->assertCount(1, $revision->field_user_reference);
+      $this->assertSame('Bob', $revision->field_user_reference[0]->entity->getAccountName());
+    }
+
+    // Test the translated node reference in the latest revision of node 2. This
+    // references the legacy site node 4 instead of node 2. The reference is
+    // fixed by the followup migrations, 'd7_entity_reference_translation' and
+    // tested in \Drupal\Tests\migrate_drupal\Kernel\d7\FollowUpMigrationsTest.
+    $node = Node::load(2);
+    $this->assertSame('6', $node->get('field_reference_2')->target_id);
+    $translation = $node->getTranslation('is');
+    $this->assertSame('4', $translation->get('field_reference_2')->target_id);
+
+    // Test the order in multi-value fields.
+    $revision = $this->nodeStorage->loadRevision(1);
+    $this->assertSame([
+      ['value' => 'default@example.com'],
+      ['value' => 'another@example.com'],
+    ], $revision->get('field_email')->getValue());
+    $this->assertSame([
+      ['target_id' => '17'],
+      ['target_id' => '15'],
+    ], $revision->get('field_term_entityreference')->getValue());
   }
 
   /**
    * Tests rollback of the complete node migration.
    */
-  public function testRollbackNodeComplete() {
+  public function testRollbackNodeComplete(): void {
     $db = \Drupal::database();
     $node_types = [
       'article',
@@ -162,9 +195,11 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
    *   An array of revision data matching a node_field_revision table row.
    * @param array $data
    *   An array of revision data.
+   *
+   * @internal
    */
-  protected function assertRevision(array $revision, array $data) {
-    /* @var  \Drupal\node\NodeInterface $actual */
+  protected function assertRevision(array $revision, array $data): void {
+    /** @var  \Drupal\node\NodeInterface $actual */
     $actual = $this->nodeStorage->loadRevision($revision['vid'])
       ->getTranslation($revision['langcode']);
     $this->assertInstanceOf(NodeInterface::class, $actual);
@@ -188,7 +223,7 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
    * @return array
    *   The expected table rows.
    */
-  protected function expectedNodeFieldDataTable() {
+  protected function expectedNodeFieldDataTable(): array {
     return [
       0 =>
         [
@@ -433,7 +468,7 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
    * @return array
    *   The table.
    */
-  protected function expectedNodeFieldRevisionTable() {
+  protected function expectedNodeFieldRevisionTable(): array {
     return [
       0 =>
         [
@@ -971,9 +1006,9 @@ class MigrateNodeCompleteTest extends MigrateDrupal7TestBase {
    * @return array
    *   Selected properties and fields on the revision.
    */
-  protected function expectedRevisionEntityData() {
+  protected function expectedRevisionEntityData(): array {
     return [
-      $revision_data = [
+      [
         // Node 1, revision 1, en.
         0 =>
           [

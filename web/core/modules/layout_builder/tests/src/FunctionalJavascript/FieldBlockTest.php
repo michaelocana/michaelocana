@@ -1,15 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\layout_builder\FunctionalJavascript;
 
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
 
+// cspell:ignore datefield
+
 /**
  * @coversDefaultClass \Drupal\layout_builder\Plugin\Block\FieldBlock
  *
  * @group field
+ * @group legacy
  */
 class FieldBlockTest extends WebDriverTestBase {
 
@@ -21,19 +26,20 @@ class FieldBlockTest extends WebDriverTestBase {
     'datetime',
     'layout_builder',
     'user',
-    // See \Drupal\layout_builder_fieldblock_test\Plugin\Block\FieldBlock.
-    'layout_builder_fieldblock_test',
+    // See \Drupal\layout_builder_field_block_test\Plugin\Block\FieldBlock.
+    'layout_builder_field_block_test',
+    'layout_builder_expose_all_field_blocks',
   ];
 
   /**
    * {@inheritdoc}
    */
-  protected $defaultTheme = 'classy';
+  protected $defaultTheme = 'starterkit_theme';
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $field_storage = FieldStorageConfig::create([
@@ -61,7 +67,7 @@ class FieldBlockTest extends WebDriverTestBase {
   /**
    * Tests configuring a field block for a user field.
    */
-  public function testUserFieldBlock() {
+  public function testUserFieldBlock(): void {
     $page = $this->getSession()->getPage();
     $assert_session = $this->assertSession();
 
@@ -73,13 +79,16 @@ class FieldBlockTest extends WebDriverTestBase {
     $this->clickLink('Place block');
     $assert_session->assertWaitOnAjaxRequest();
 
+    // Ensure that focus is on the first focusable element on modal.
+    $this->assertJsCondition('document.activeElement === document.getElementsByClassName("block-filter-text")[0]');
+
     // Ensure that fields without any formatters are not available.
     $assert_session->pageTextNotContains('Password');
     // Ensure that non-display-configurable fields are not available.
     $assert_session->pageTextNotContains('Initial email');
 
     $assert_session->pageTextContains('Date field');
-    $block_url = 'admin/structure/block/add/field_block_test%3Auser%3Auser%3Afield_date/classy';
+    $block_url = 'admin/structure/block/add/field_block_test%3Auser%3Auser%3Afield_date/starterkit_theme';
     $assert_session->linkByHrefExists($block_url);
 
     $this->drupalGet($block_url);
@@ -122,19 +131,19 @@ class FieldBlockTest extends WebDriverTestBase {
       ],
       'third_party_settings' => [],
     ];
-    $config = $this->container->get('config.factory')->get('block.block.datefield');
+    $config = $this->container->get('config.factory')->get('block.block.starterkit_theme_datefield');
     $this->assertEquals($expected, $config->get('settings.formatter'));
     $this->assertEquals(['field.field.user.user.field_date'], $config->get('dependencies.config'));
 
     // Assert that the block is displaying the user field.
     $this->drupalGet('admin');
-    $assert_session->pageTextContains('Sunday, November 19, 1978 - 16:00');
+    $assert_session->pageTextContains('Sunday, 19 November 1978 - 16:00');
   }
 
   /**
    * Tests configuring a field block that uses #states.
    */
-  public function testStatesFieldBlock() {
+  public function testStatesFieldBlock(): void {
     $page = $this->getSession()->getPage();
 
     $timestamp_field_storage = FieldStorageConfig::create([
@@ -150,7 +159,7 @@ class FieldBlockTest extends WebDriverTestBase {
     ]);
     $timestamp_field->save();
 
-    $this->drupalGet('admin/structure/block/add/field_block_test%3Auser%3Auser%3Afield_timestamp/classy');
+    $this->drupalGet('admin/structure/block/add/field_block_test%3Auser%3Auser%3Afield_timestamp/starterkit_theme');
     $this->assertFalse($page->findField('settings[formatter][settings][custom_date_format]')->isVisible(), 'Custom date format is not visible');
     $page->selectFieldOption('settings[formatter][settings][date_format]', 'custom');
     $this->assertTrue($page->findField('settings[formatter][settings][custom_date_format]')->isVisible(), 'Custom date format is visible');

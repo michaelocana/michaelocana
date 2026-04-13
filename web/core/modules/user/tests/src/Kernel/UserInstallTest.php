@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -12,16 +14,14 @@ use Drupal\KernelTests\KernelTestBase;
 class UserInstallTest extends KernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['user'];
+  protected static $modules = ['user'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->container->get('module_handler')->loadInclude('user', 'install');
     $this->installEntitySchema('user');
@@ -29,10 +29,10 @@ class UserInstallTest extends KernelTestBase {
   }
 
   /**
-   * Test that the initial users have correct values.
+   * Tests that the initial users have correct values.
    */
-  public function testUserInstall() {
-    $user_ids = \Drupal::entityQuery('user')->sort('uid')->execute();
+  public function testUserInstall(): void {
+    $user_ids = \Drupal::entityQuery('user')->sort('uid')->accessCheck(FALSE)->execute();
     $users = \Drupal::entityTypeManager()->getStorage('user')->loadMultiple($user_ids);
     $anon = $users[0];
     $admin = $users[1];

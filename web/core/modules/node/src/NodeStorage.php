@@ -19,7 +19,7 @@ class NodeStorage extends SqlContentEntityStorage implements NodeStorageInterfac
    */
   public function revisionIds(NodeInterface $node) {
     return $this->database->query(
-      'SELECT vid FROM {' . $this->getRevisionTable() . '} WHERE nid=:nid ORDER BY vid',
+      'SELECT [vid] FROM {' . $this->getRevisionTable() . '} WHERE [nid] = :nid ORDER BY [vid]',
       [':nid' => $node->id()]
     )->fetchCol();
   }
@@ -29,7 +29,7 @@ class NodeStorage extends SqlContentEntityStorage implements NodeStorageInterfac
    */
   public function userRevisionIds(AccountInterface $account) {
     return $this->database->query(
-      'SELECT vid FROM {' . $this->getRevisionDataTable() . '} WHERE uid = :uid ORDER BY vid',
+      'SELECT [vid] FROM {' . $this->getRevisionDataTable() . '} WHERE [uid] = :uid ORDER BY [vid]',
       [':uid' => $account->id()]
     )->fetchCol();
   }
@@ -38,13 +38,14 @@ class NodeStorage extends SqlContentEntityStorage implements NodeStorageInterfac
    * {@inheritdoc}
    */
   public function countDefaultLanguageRevisions(NodeInterface $node) {
-    return $this->database->query('SELECT COUNT(*) FROM {' . $this->getRevisionDataTable() . '} WHERE nid = :nid AND default_langcode = 1', [':nid' => $node->id()])->fetchField();
+    return $this->database->query('SELECT COUNT(*) FROM {' . $this->getRevisionDataTable() . '} WHERE [nid] = :nid AND [default_langcode] = 1', [':nid' => $node->id()])->fetchField();
   }
 
   /**
    * {@inheritdoc}
    */
   public function updateType($old_type, $new_type) {
+    @trigger_error(__CLASS__ . "::" . __FUNCTION__ . " is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. See https://www.drupal.org/node/3515214", E_USER_DEPRECATED);
     return $this->database->update($this->getBaseTable())
       ->fields(['type' => $new_type])
       ->condition('type', $old_type)

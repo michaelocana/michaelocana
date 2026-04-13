@@ -13,11 +13,13 @@
 /**
  * Quick inline admin links.
  */
-small .admin-link:before {
-  content: " [";
-}
-small .admin-link:after {
-  content: "]";
+small .admin-link {
+  &::before {
+    content: " [";
+  }
+  &::after {
+    content: "]";
+  }
 }
 
 /**
@@ -25,5 +27,4 @@ small .admin-link:after {
  */
 .system-cron-settings__link {
   overflow-wrap: break-word;
-  word-wrap: break-word;
 }

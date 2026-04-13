@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Database;
 
 use Drupal\Core\Database\Database;
@@ -8,7 +10,7 @@ use Drupal\Core\Site\Settings;
 use Drupal\KernelTests\KernelTestBase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
  * Tests that ReplicaKillSwitch functions correctly.
@@ -20,7 +22,7 @@ class ReplicaKillSwitchTest extends KernelTestBase {
   /**
    * Tests database.replica_kill_switch service.
    */
-  public function testSystemInitIgnoresSecondaries() {
+  public function testSystemInitIgnoresSecondaries(): void {
     // Clone the master credentials to a replica connection.
     // Note this will result in two independent connection objects that happen
     // to point to the same place.
@@ -32,7 +34,7 @@ class ReplicaKillSwitchTest extends KernelTestBase {
     $service->trigger();
     $class_loader = require $this->root . '/autoload.php';
     $kernel = new DrupalKernel('testing', $class_loader, FALSE);
-    $event = new GetResponseEvent($kernel, Request::create('http://example.com'), HttpKernelInterface::MASTER_REQUEST);
+    $event = new RequestEvent($kernel, Request::create('http://example.com'), HttpKernelInterface::MAIN_REQUEST);
     $service->checkReplicaServer($event);
 
     $db1 = Database::getConnection('default', 'default');

@@ -9,7 +9,6 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\GeneratedLink;
 use Drupal\Core\GeneratedButton;
 use Drupal\Core\GeneratedNoLink;
-use Drupal\Core\Link;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\Template\Attribute;
@@ -21,7 +20,7 @@ use Drupal\Core\Url;
 class LinkGenerator implements LinkGeneratorInterface {
 
   /**
-   * The url generator.
+   * The URL generator.
    *
    * @var \Drupal\Core\Routing\UrlGeneratorInterface
    */
@@ -45,7 +44,7 @@ class LinkGenerator implements LinkGeneratorInterface {
    * Constructs a LinkGenerator instance.
    *
    * @param \Drupal\Core\Routing\UrlGeneratorInterface $url_generator
-   *   The url generator.
+   *   The URL generator.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
    * @param \Drupal\Core\Render\RendererInterface $renderer
@@ -55,13 +54,6 @@ class LinkGenerator implements LinkGeneratorInterface {
     $this->urlGenerator = $url_generator;
     $this->moduleHandler = $module_handler;
     $this->renderer = $renderer;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function generateFromLink(Link $link) {
-    return $this->generate($link->getText(), $link->getUrl());
   }
 
   /**
@@ -90,7 +82,8 @@ class LinkGenerator implements LinkGeneratorInterface {
       $text = $this->renderer->render($text);
     }
 
-    // Start building a structured representation of our link to be altered later.
+    // Start building a structured representation of our link to be altered
+    // later.
     $variables = [
       'text' => $text,
       'url' => $url,
@@ -106,7 +99,7 @@ class LinkGenerator implements LinkGeneratorInterface {
       'absolute' => FALSE,
     ];
 
-    // Add a hreflang attribute if we know the language of this link's url and
+    // Add a hreflang attribute if we know the language of this link's URL and
     // hreflang has not already been set.
     if (!empty($variables['options']['language']) && !isset($variables['options']['attributes']['hreflang'])) {
       $variables['options']['attributes']['hreflang'] = $variables['options']['language']->getId();
@@ -132,7 +125,8 @@ class LinkGenerator implements LinkGeneratorInterface {
       // Add a "data-drupal-link-system-path" attribute to let the
       // drupal.active-link library know the path in a standardized manner.
       if ($url->isRouted() && !isset($variables['options']['attributes']['data-drupal-link-system-path'])) {
-        // @todo System path is deprecated - use the route name and parameters.
+        // @todo System path is deprecated - use the route name and parameters
+        //   see https://www.drupal.org/project/drupal/issues/3443759.
         $system_path = $url->getInternalPath();
 
         // Special case for the front page.
@@ -146,9 +140,9 @@ class LinkGenerator implements LinkGeneratorInterface {
       }
     }
 
-    // Remove all HTML and PHP tags from a tooltip, calling expensive strip_tags()
-    // only when a quick strpos() gives suspicion tags are present.
-    if (isset($variables['options']['attributes']['title']) && strpos($variables['options']['attributes']['title'], '<') !== FALSE) {
+    // Remove all HTML and PHP tags from a tooltip, calling expensive
+    // strip_tags() only when a quick strpos() gives suspicion tags are present.
+    if (isset($variables['options']['attributes']['title']) && str_contains($variables['options']['attributes']['title'], '<')) {
       $variables['options']['attributes']['title'] = strip_tags($variables['options']['attributes']['title']);
     }
 
@@ -170,13 +164,13 @@ class LinkGenerator implements LinkGeneratorInterface {
     }
     if ($url->isRouted() && $url->getRouteName() === '<nolink>') {
       $generated_link = new GeneratedNoLink();
-      unset($attributes['href']);
+      unset($attributes['href'], $attributes['hreflang']);
       return $this->doGenerate($generated_link, $attributes, $variables);
     }
     if ($url->isRouted() && $url->getRouteName() === '<button>') {
       $generated_link = new GeneratedButton();
       $attributes['type'] = 'button';
-      unset($attributes['href']);
+      unset($attributes['href'], $attributes['hreflang']);
       return $this->doGenerate($generated_link, $attributes, $variables);
     }
     $generated_url = $url->toString(TRUE);
@@ -190,14 +184,14 @@ class LinkGenerator implements LinkGeneratorInterface {
   /**
    * Generates the link.
    *
-   * @param Drupal\Core\GeneratedLink $generated_link
+   * @param \Drupal\Core\GeneratedLink $generated_link
    *   The generated link, along with its associated cacheability metadata.
    * @param array $attributes
    *   The attributes of the generated link.
    * @param array $variables
-   *   The link text, url, and other options.
+   *   The link text, URL, and other options.
    *
-   * @return Drupal\Core\GeneratedLink
+   * @return \Drupal\Core\GeneratedLink
    *   The generated link, along with its associated cacheability metadata.
    */
   protected function doGenerate($generated_link, $attributes, $variables) {

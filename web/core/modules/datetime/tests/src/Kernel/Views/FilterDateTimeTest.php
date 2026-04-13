@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\datetime\Kernel\Views;
 
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
@@ -35,10 +37,10 @@ class FilterDateTimeTest extends DateTimeHandlerTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp($import_test_views);
 
-    static::$date = REQUEST_TIME + 86400;
+    static::$date = \Drupal::time()->getRequestTime() + 86400;
 
     // Set the timezone.
     date_default_timezone_set(static::$timezone);
@@ -69,20 +71,20 @@ class FilterDateTimeTest extends DateTimeHandlerTestBase {
   }
 
   /**
-   * Test filter operations.
+   * Tests filter operations.
    */
-  public function testDatetimeFilter() {
+  public function testDatetimeFilter(): void {
     $this->_testOffset();
     $this->_testBetween();
     $this->_testExact();
   }
 
   /**
-   * Test offset operations.
+   * Tests offset operations.
    */
-  protected function _testOffset() {
+  protected function _testOffset(): void {
     $view = Views::getView('test_filter_datetime');
-    $field = static::$field_name . '_value';
+    $field = static::$fieldName . '_value';
 
     // Test simple operations.
     $view->initHandlers();
@@ -113,11 +115,11 @@ class FilterDateTimeTest extends DateTimeHandlerTestBase {
   }
 
   /**
-   * Test between operations.
+   * Tests between operations.
    */
-  protected function _testBetween() {
+  protected function _testBetween(): void {
     $view = Views::getView('test_filter_datetime');
-    $field = static::$field_name . '_value';
+    $field = static::$fieldName . '_value';
 
     // Test between with min and max.
     $view->initHandlers();
@@ -176,11 +178,11 @@ class FilterDateTimeTest extends DateTimeHandlerTestBase {
   }
 
   /**
-   * Test exact date matching.
+   * Tests exact date matching.
    */
-  protected function _testExact() {
+  protected function _testExact(): void {
     $view = Views::getView('test_filter_datetime');
-    $field = static::$field_name . '_value';
+    $field = static::$fieldName . '_value';
 
     // Test between with min and max.
     $view->initHandlers();

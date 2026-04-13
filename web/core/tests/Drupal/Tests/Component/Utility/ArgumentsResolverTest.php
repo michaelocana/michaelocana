@@ -1,9 +1,6 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\Tests\Component\Utility\ArgumentsResolverTest.
- */
+declare(strict_types=1);
 
 namespace Drupal\Tests\Component\Utility;
 
@@ -17,18 +14,11 @@ use PHPUnit\Framework\TestCase;
 class ArgumentsResolverTest extends TestCase {
 
   /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-    parent::setUp();
-  }
-
-  /**
    * Tests the getArgument() method.
    *
    * @dataProvider providerTestGetArgument
    */
-  public function testGetArgument($callable, $scalars, $objects, $wildcards, $expected) {
+  public function testGetArgument($callable, $scalars, $objects, $wildcards, $expected): void {
     $arguments = (new ArgumentsResolver($scalars, $objects, $wildcards))->getArguments($callable);
     $this->assertSame($expected, $arguments);
   }
@@ -36,7 +26,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Provides test data to testGetArgument().
    */
-  public function providerTestGetArgument() {
+  public static function providerTestGetArgument() {
     $data = [];
 
     // Test an optional parameter with no provided value.
@@ -60,11 +50,20 @@ class ArgumentsResolverTest extends TestCase {
     ];
 
     // Test with a raw value that overrides the provided upcast value, since
-    // it is not typehinted.
+    // it is not type hinted.
     $scalars = ['foo' => 'baz'];
     $objects = ['foo' => new \stdClass()];
     $data[] = [
       function ($foo) {}, $scalars, $objects, [], ['baz'],
+    ];
+
+    // Test a static method string.
+    $data[] = [
+      TestStaticMethodClass::class . "::access",
+      [],
+      ['foo' => NULL],
+      [],
+      [NULL],
     ];
 
     return $data;
@@ -73,7 +72,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Tests getArgument() with an object.
    */
-  public function testGetArgumentObject() {
+  public function testGetArgumentObject(): void {
     $callable = function (\stdClass $object) {};
 
     $object = new \stdClass();
@@ -84,7 +83,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Tests getArgument() with a wildcard object for a parameter with a custom name.
    */
-  public function testGetWildcardArgument() {
+  public function testGetWildcardArgument(): void {
     $callable = function (\stdClass $custom_name) {};
 
     $object = new \stdClass();
@@ -95,7 +94,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Tests getArgument() with a Route, Request, and Account object.
    */
-  public function testGetArgumentOrder() {
+  public function testGetArgumentOrder(): void {
     $a1 = $this->getMockBuilder('\Drupal\Tests\Component\Utility\Test1Interface')->getMock();
     $a2 = $this->getMockBuilder('\Drupal\Tests\Component\Utility\TestClass')->getMock();
     $a3 = $this->getMockBuilder('\Drupal\Tests\Component\Utility\Test2Interface')->getMock();
@@ -118,11 +117,12 @@ class ArgumentsResolverTest extends TestCase {
   }
 
   /**
-   * Tests getArgument() with a wildcard parameter with no typehint.
+   * Tests getArgument() with a wildcard parameter with no type hint.
    *
-   * Without the typehint, the wildcard object will not be passed to the callable.
+   * Without the type hint, the wildcard object will not be passed to the
+   * callable.
    */
-  public function testGetWildcardArgumentNoTypehint() {
+  public function testGetWildcardArgumentNoTypeHint(): void {
     $a = $this->getMockBuilder('\Drupal\Tests\Component\Utility\Test1Interface')->getMock();
     $wildcards = [$a];
     $resolver = new ArgumentsResolver([], [], $wildcards);
@@ -134,12 +134,12 @@ class ArgumentsResolverTest extends TestCase {
   }
 
   /**
-   * Tests getArgument() with a named parameter with no typehint and a value.
+   * Tests getArgument() with a named parameter with no type hint and a value.
    *
-   * Without the typehint, passing a value to a named parameter will still
+   * Without the type hint, passing a value to a named parameter will still
    * receive the provided value.
    */
-  public function testGetArgumentRouteNoTypehintAndValue() {
+  public function testGetArgumentRouteNoTypeHintAndValue(): void {
     $scalars = ['route' => 'foo'];
     $resolver = new ArgumentsResolver($scalars, [], []);
 
@@ -151,7 +151,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Tests handleUnresolvedArgument() for a scalar argument.
    */
-  public function testHandleNotUpcastedArgument() {
+  public function testHandleNotUpcastedArgument(): void {
     $objects = ['foo' => 'bar'];
     $scalars = ['foo' => 'baz'];
     $resolver = new ArgumentsResolver($scalars, $objects, []);
@@ -167,7 +167,7 @@ class ArgumentsResolverTest extends TestCase {
    *
    * @dataProvider providerTestHandleUnresolvedArgument
    */
-  public function testHandleUnresolvedArgument($callable) {
+  public function testHandleUnresolvedArgument($callable): void {
     $resolver = new ArgumentsResolver([], [], []);
     $this->expectException(\RuntimeException::class);
     $this->expectExceptionMessage('requires a value for the "$foo" argument.');
@@ -177,7 +177,7 @@ class ArgumentsResolverTest extends TestCase {
   /**
    * Provides test data to testHandleUnresolvedArgument().
    */
-  public function providerTestHandleUnresolvedArgument() {
+  public static function providerTestHandleUnresolvedArgument() {
     $data = [];
     $data[] = [function ($foo) {}];
     $data[] = [[new TestClass(), 'access']];
@@ -193,6 +193,16 @@ class ArgumentsResolverTest extends TestCase {
 class TestClass {
 
   public function access($foo) {
+  }
+
+}
+
+/**
+ * Provides a class for testing a static method.
+ */
+class TestStaticMethodClass {
+
+  public static function access($foo) {
   }
 
 }

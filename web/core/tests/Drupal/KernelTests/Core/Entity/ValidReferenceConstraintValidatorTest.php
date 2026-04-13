@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
 use Drupal\Core\Field\BaseFieldDefinition;
@@ -8,7 +10,7 @@ use Drupal\entity_test\Entity\EntityTest;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\node\Entity\Node;
 use Drupal\node\NodeInterface;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 use Drupal\Tests\node\Traits\ContentTypeCreationTrait;
 use Drupal\user\Entity\Role;
 use Drupal\user\Entity\User;
@@ -20,7 +22,7 @@ use Drupal\user\Entity\User;
  */
 class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
 
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
   use ContentTypeCreationTrait;
 
   /**
@@ -33,12 +35,12 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['field', 'node', 'user'];
+  protected static $modules = ['field', 'node', 'user'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installSchema('user', ['users_data']);
     $this->installSchema('node', ['node_access']);
@@ -52,7 +54,7 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
   /**
    * Tests the ValidReferenceConstraintValidator.
    */
-  public function testValidation() {
+  public function testValidation(): void {
     // Create a test entity to be referenced.
     $entity = $this->createUser();
     // By default entity references already have the ValidReference constraint.
@@ -76,27 +78,24 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
 
     // Make sure the information provided by a violation is correct.
     $violation = $violations[0];
-    $this->assertEqual($violation->getMessage(), t('The referenced entity (%type: %id) does not exist.', [
-      '%type' => 'user',
-      '%id' => $entity->id(),
-    ]), 'The message for invalid value is correct.');
-    $this->assertEqual($violation->getRoot(), $typed_data, 'Violation root is correct.');
+    $this->assertEquals(sprintf('The referenced entity (user: %s) does not exist.', $entity->id()), $violation->getMessage(), 'The message for invalid value is correct.');
+    $this->assertEquals($typed_data, $violation->getRoot(), 'Violation root is correct.');
   }
 
   /**
    * Tests the validation of pre-existing items in an entity reference field.
    */
-  public function testPreExistingItemsValidation() {
+  public function testPreExistingItemsValidation(): void {
     // Create two types of users, with and without access to bypass content
     // access.
     /** @var \Drupal\user\RoleInterface $role_with_access */
-    $role_with_access = Role::create(['id' => 'role_with_access']);
+    $role_with_access = Role::create(['id' => 'role_with_access', 'label' => 'With access']);
     $role_with_access->grantPermission('access content');
     $role_with_access->grantPermission('bypass node access');
     $role_with_access->save();
 
     /** @var \Drupal\user\RoleInterface $role_without_access */
-    $role_without_access = Role::create(['id' => 'role_without_access']);
+    $role_without_access = Role::create(['id' => 'role_without_access', 'label' => 'Without access']);
     $role_without_access->grantPermission('access content');
     $role_without_access->save();
 
@@ -166,10 +165,7 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
 
     $violations = $referencing_entity->field_test->validate();
     $this->assertCount(1, $violations);
-    $this->assertEquals(t('This entity (%type: %id) cannot be referenced.', [
-      '%type' => 'node',
-      '%id' => $unpublished_node->id(),
-    ]), $violations[0]->getMessage());
+    $this->assertEquals(sprintf('This entity (node: %s) cannot be referenced.', $unpublished_node->id()), $violations[0]->getMessage());
 
     // Now save the referencing entity which will create a pre-existing state
     // for it and repeat the checks. This time, the user without access should
@@ -179,8 +175,15 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
 
     $this->container->get('account_switcher')->switchTo($user_with_access);
 
+    // We check if the referencing entity was loaded by checking
+    // if it was added to the memory cache.
+    // This requires an empty memory cache for the test to be reliable.
+    $this->container->get('entity.memory_cache')->reset();
     $violations = $referencing_entity->field_test->validate();
     $this->assertCount(0, $violations);
+
+    // No invalid target was found, so the referencing entity was not reloaded.
+    $this->assertFalse($this->container->get('entity.memory_cache')->get('values:' . $referencing_entity->getEntityTypeId() . ':' . $referencing_entity->id()));
 
     // Check that users without access are able pass the validation for fields
     // with pre-existing content.
@@ -201,19 +204,20 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
     $violations = $referencing_entity->field_test->validate();
     $this->assertCount(0, $violations);
 
-    // Remove one of the referenceable bundles and check that a pre-existing node
-    // of that bundle can not be referenced anymore.
+    // Remove one of the referenceable bundles and check that a pre-existing
+    // node of that bundle can not be referenced anymore.
     $field = FieldConfig::loadByName('entity_test', 'entity_test', 'field_test');
     $field->setSetting('handler_settings', ['target_bundles' => ['article']]);
     $field->save();
     $referencing_entity = $this->reloadEntity($referencing_entity);
 
+    $this->container->get('entity.memory_cache')->reset();
     $violations = $referencing_entity->field_test->validate();
     $this->assertCount(1, $violations);
-    $this->assertEquals(t('This entity (%type: %id) cannot be referenced.', [
-      '%type' => 'node',
-      '%id' => $different_bundle_node->id(),
-    ]), $violations[0]->getMessage());
+    $this->assertEquals(sprintf('This entity (node: %s) cannot be referenced.', $different_bundle_node->id()), $violations[0]->getMessage());
+
+    // An invalid target was found, so the referencing entity had to be reloaded.
+    $this->assertNotFalse($this->container->get('entity.memory_cache')->get('values:' . $referencing_entity->getEntityTypeId() . ':' . $referencing_entity->id()));
 
     // Delete the last node and check that the pre-existing reference is not
     // valid anymore.
@@ -221,14 +225,8 @@ class ValidReferenceConstraintValidatorTest extends EntityKernelTestBase {
 
     $violations = $referencing_entity->field_test->validate();
     $this->assertCount(2, $violations);
-    $this->assertEquals(t('This entity (%type: %id) cannot be referenced.', [
-      '%type' => 'node',
-      '%id' => $different_bundle_node->id(),
-    ]), $violations[0]->getMessage());
-    $this->assertEquals(t('The referenced entity (%type: %id) does not exist.', [
-      '%type' => 'node',
-      '%id' => $deleted_node->id(),
-    ]), $violations[1]->getMessage());
+    $this->assertEquals(sprintf('This entity (node: %s) cannot be referenced.', $different_bundle_node->id()), $violations[0]->getMessage());
+    $this->assertEquals(sprintf('The referenced entity (node: %s) does not exist.', $deleted_node->id()), $violations[1]->getMessage());
   }
 
 }

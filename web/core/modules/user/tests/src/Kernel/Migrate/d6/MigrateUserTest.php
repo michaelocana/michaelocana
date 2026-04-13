@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Migrate\d6;
 
 use Drupal\migrate\MigrateExecutable;
@@ -22,12 +24,12 @@ class MigrateUserTest extends MigrateDrupal6TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['language'];
+  protected static $modules = ['language', 'phpass'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installEntitySchema('file');
@@ -45,8 +47,8 @@ class MigrateUserTest extends MigrateDrupal6TestBase {
       'filemime' => 'image/jpeg',
       'created' => 1,
       'changed' => 1,
-      'status' => FILE_STATUS_PERMANENT,
     ]);
+    $file->setPermanent();
     $file->enforceIsNew();
     file_put_contents($file->getFileUri(), file_get_contents('core/tests/fixtures/files/image-1.png'));
     $file->save();
@@ -59,8 +61,8 @@ class MigrateUserTest extends MigrateDrupal6TestBase {
       'filemime' => 'image/png',
       'created' => 1,
       'changed' => 1,
-      'status' => FILE_STATUS_PERMANENT,
     ]);
+    $file->setPermanent();
     $file->enforceIsNew();
     file_put_contents($file->getFileUri(), file_get_contents('core/tests/fixtures/files/image-2.jpg'));
     $file->save();
@@ -72,7 +74,7 @@ class MigrateUserTest extends MigrateDrupal6TestBase {
   /**
    * Tests the Drupal6 user to Drupal 8 migration.
    */
-  public function testUser() {
+  public function testUser(): void {
     $users = Database::getConnection('default', 'migrate')
       ->select('users', 'u')
       ->fields('u')

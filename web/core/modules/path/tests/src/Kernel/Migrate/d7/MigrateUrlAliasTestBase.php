@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\path\Kernel\Migrate\d7;
 
 use Drupal\Tests\migrate_drupal\Kernel\d7\MigrateDrupal7TestBase;
@@ -17,7 +19,7 @@ abstract class MigrateUrlAliasTestBase extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'language',
     'menu_ui',
     'node',
@@ -29,7 +31,7 @@ abstract class MigrateUrlAliasTestBase extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installEntitySchema('node');
@@ -46,20 +48,20 @@ abstract class MigrateUrlAliasTestBase extends MigrateDrupal7TestBase {
   }
 
   /**
-   * Test the URL alias migration.
+   * Tests the URL alias migration.
    */
-  public function testUrlAlias() {
+  public function testUrlAlias(): void {
     $path_alias = $this->loadPathAliasByConditions([
       'path' => '/taxonomy/term/4',
       'alias' => '/term33',
       'langcode' => 'und',
     ]);
-    $this->assertIdentical('/taxonomy/term/4', $path_alias->getPath());
-    $this->assertIdentical('/term33', $path_alias->getAlias());
-    $this->assertIdentical('und', $path_alias->language()->getId());
+    $this->assertSame('/taxonomy/term/4', $path_alias->getPath());
+    $this->assertSame('/term33', $path_alias->getAlias());
+    $this->assertSame('und', $path_alias->language()->getId());
 
     // Alias with no slash.
-    $path_alias = $this->loadPathAliasByConditions(['alias' => '/source-noslash']);
+    $path_alias = $this->loadPathAliasByConditions(['alias' => '/source-noSlash']);
     $this->assertSame('/admin', $path_alias->getPath());
     $this->assertSame('und', $path_alias->language()->getId());
   }

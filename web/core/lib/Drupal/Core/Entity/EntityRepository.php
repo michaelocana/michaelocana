@@ -5,6 +5,7 @@ namespace Drupal\Core\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityTypeInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\Core\Plugin\Context\ContextInterface;
 use Drupal\Core\Plugin\Context\ContextRepositoryInterface;
 use Drupal\Core\TypedData\TranslatableInterface as TranslatableDataInterface;
 
@@ -44,16 +45,10 @@ class EntityRepository implements EntityRepositoryInterface {
    * @param \Drupal\Core\Plugin\Context\ContextRepositoryInterface $context_repository
    *   The context repository service.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, ContextRepositoryInterface $context_repository = NULL) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, ContextRepositoryInterface $context_repository) {
     $this->entityTypeManager = $entity_type_manager;
     $this->languageManager = $language_manager;
-    if (isset($context_repository)) {
-      $this->contextRepository = $context_repository;
-    }
-    else {
-      @trigger_error('The context.repository service must be passed to EntityRepository::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2938929.', E_USER_DEPRECATED);
-      $this->contextRepository = \Drupal::service('context.repository');
-    }
+    $this->contextRepository = $context_repository;
   }
 
   /**
@@ -132,18 +127,18 @@ class EntityRepository implements EntityRepositoryInterface {
   /**
    * {@inheritdoc}
    */
-  public function getActive($entity_type_id, $entity_id, array $contexts = NULL) {
+  public function getActive($entity_type_id, $entity_id, ?array $contexts = NULL) {
     return current($this->getActiveMultiple($entity_type_id, [$entity_id], $contexts)) ?: NULL;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getActiveMultiple($entity_type_id, array $entity_ids, array $contexts = NULL) {
+  public function getActiveMultiple($entity_type_id, array $entity_ids, ?array $contexts = NULL) {
     $active = [];
 
     if (!isset($contexts)) {
-      $contexts = $this->contextRepository->getAvailableContexts();
+      $contexts = [];
     }
 
     // @todo Consider implementing a more performant version of this logic fully
@@ -176,14 +171,14 @@ class EntityRepository implements EntityRepositoryInterface {
   /**
    * {@inheritdoc}
    */
-  public function getCanonical($entity_type_id, $entity_id, array $contexts = NULL) {
+  public function getCanonical($entity_type_id, $entity_id, ?array $contexts = NULL) {
     return current($this->getCanonicalMultiple($entity_type_id, [$entity_id], $contexts)) ?: NULL;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getCanonicalMultiple($entity_type_id, array $entity_ids, array $contexts = NULL) {
+  public function getCanonicalMultiple($entity_type_id, array $entity_ids, ?array $contexts = NULL) {
     $entities = $this->entityTypeManager->getStorage($entity_type_id)
       ->loadMultiple($entity_ids);
 
@@ -192,21 +187,19 @@ class EntityRepository implements EntityRepositoryInterface {
     }
 
     if (!isset($contexts)) {
-      $contexts = $this->contextRepository->getAvailableContexts();
+      $contexts = [];
     }
 
-    // @todo Consider deprecating the legacy context operation altogether in
-    //   https://www.drupal.org/node/3031124.
-    $legacy_context = [];
-    $key = static::CONTEXT_ID_LEGACY_CONTEXT_OPERATION;
+    $key = '@entity.repository:legacy_context_operation';
     if (isset($contexts[$key])) {
-      $legacy_context['operation'] = $contexts[$key]->getContextValue();
+      @trigger_error('Providing an \Drupal\Core\Entity\EntityRepositoryInterface::CONTEXT_ID_LEGACY_CONTEXT_OPERATION context to EntityRepository::getCanonicalMultiple() is deprecated in drupal:10.3.0 and is removed from drupal:12.0.0. There is no replacement. See https://www.drupal.org/node/3437685', E_USER_DEPRECATED);
+      $contexts['operation'] = $contexts[$key]->getContextValue();
     }
 
     $canonical = [];
     $langcode = $this->getContentLanguageFromContexts($contexts);
     foreach ($entities as $id => $entity) {
-      $canonical[$id] = $this->getTranslationFromContext($entity, $langcode, $legacy_context);
+      $canonical[$id] = $this->getTranslationFromContext($entity, $langcode, $contexts);
     }
 
     return $canonical;
@@ -215,22 +208,33 @@ class EntityRepository implements EntityRepositoryInterface {
   /**
    * Retrieves the current content language from the specified contexts.
    *
-   * @param \Drupal\Core\Plugin\Context\ContextInterface[] $contexts
+   * This is a BC layer to support plugin context system identifiers, the
+   * langcode key should be used instead and is preferred when given.
+   *
+   * @param string[] $contexts
    *   An array of context items.
    *
    * @return string|null
    *   A language code or NULL if no language context was provided.
+   *
+   * @internal
    */
   protected function getContentLanguageFromContexts(array $contexts) {
+
+    if (isset($contexts['langcode'])) {
+      return $contexts['langcode'];
+    }
+
     // Content language might not be configurable, in which case we need to fall
     // back to a configurable language type.
     foreach ([LanguageInterface::TYPE_CONTENT, LanguageInterface::TYPE_INTERFACE] as $language_type) {
       $context_id = '@language.current_language_context:' . $language_type;
-      if (isset($contexts[$context_id])) {
+      if (isset($contexts[$context_id]) && $contexts[$context_id] instanceof ContextInterface) {
+        @trigger_error('Providing the language as ' . $context_id . ' context to EntityRepository is deprecated in drupal:10.3.0 and is removed from drupal:12.0.0. Use the langcode key instead. See https://www.drupal.org/node/3437685', E_USER_DEPRECATED);
         return $contexts[$context_id]->getContextValue()->getId();
       }
     }
-    return $this->languageManager->getDefaultLanguage()->getId();
+    return $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->getId();
   }
 
   /**

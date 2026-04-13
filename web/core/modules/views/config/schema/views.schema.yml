@@ -10,9 +10,6 @@ views.settings:
       sequence:
         type: string
         label: 'Display extender'
-    skip_cache:
-      type: boolean
-      label: 'Disable views data caching'
     sql_signature:
       type: boolean
       label: 'Add Views signature to all SQL queries'
@@ -30,9 +27,9 @@ views.settings:
             advanced_column:
               type: boolean
               label: 'Always show advanced display settings'
-            master_display:
+            default_display:
               type: boolean
-              label: 'Always show the master (default) display'
+              label: 'Always show the default display'
             performance_statistics:
               type: boolean
               label: 'Show performance statistics'
@@ -70,10 +67,15 @@ views.view.*:
   label: 'View'
   mapping:
     id:
-      type: string
+      type: machine_name
       label: 'ID'
+      constraints:
+        Length:
+          # View IDs are specifically limited to 128 characters.
+          # @see \Drupal\views_ui\ViewAddForm::form()
+          max: 128
     label:
-      type: label
+      type: required_label
       label: 'Label'
     module:
       type: string
@@ -106,6 +108,9 @@ views.view.*:
           display_plugin:
             type: string
             label: 'Display plugin'
+            constraints:
+              PluginExists:
+                manager: plugin.manager.views.display
           position:
             type: integer
             label: 'Position'
@@ -135,16 +140,29 @@ views.view.*:
 views_block:
   type: block_settings
   label: 'View block'
+  constraints:
+    FullyValidatable: ~
   mapping:
     views_label:
       type: label
       label: 'Title'
+      requiredKey: false
     items_per_page:
-      type: string
+      type: integer
       label: 'Items per block'
+      constraints:
+        Range:
+          min: 1
+      # Will only be respected if the associated View is configured to allow this to be overridden.
+      # @see \Drupal\views\Plugin\views\display\Block::blockForm()
+      requiredKey: false
+      # NULL to use the default defined by the view.
+      nullable: true
 
 block.settings.views_block:*:
   type: views_block
+  constraints:
+    FullyValidatable: ~
 
 block.settings.views_exposed_filter_block:*:
   type: views_block

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Kernel;
 
 use Drupal\KernelTests\Core\Entity\EntityKernelTestBase;
@@ -16,13 +18,14 @@ use Drupal\user\Entity\User;
 class NodeOwnerTest extends EntityKernelTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'language'];
+  protected static $modules = ['node', 'language'];
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     // Create the node bundles required for testing.
@@ -42,7 +45,7 @@ class NodeOwnerTest extends EntityKernelTestBase {
   /**
    * Tests node owner functionality.
    */
-  public function testOwner() {
+  public function testOwner(): void {
     $user = $this->createUser();
 
     $container = \Drupal::getContainer();
@@ -56,7 +59,7 @@ class NodeOwnerTest extends EntityKernelTestBase {
     ]);
     $english->save();
 
-    $this->assertEqual($user->id(), $english->getOwnerId());
+    $this->assertEquals($user->id(), $english->getOwnerId());
 
     $german = $english->addTranslation('de');
     $german->title = $this->randomString();
@@ -68,18 +71,18 @@ class NodeOwnerTest extends EntityKernelTestBase {
     $german->set('uid', ['target_id' => NULL]);
     $italian->set('uid', ['target_id' => NULL]);
 
-    // Entity::save() saves all translations!
+    // This saves all translations!
     $italian->save();
 
-    $this->assertEqual(0, $english->getOwnerId());
-    $this->assertEqual(0, $german->getOwnerId());
-    $this->assertEqual(0, $italian->getOwnerId());
+    $this->assertEquals(0, $english->getOwnerId());
+    $this->assertEquals(0, $german->getOwnerId());
+    $this->assertEquals(0, $italian->getOwnerId());
   }
 
   /**
-   * Test an unsaved node owner.
+   * Tests an unsaved node owner.
    */
-  public function testUnsavedNodeOwner() {
+  public function testUnsavedNodeOwner(): void {
     $user = User::create([
       'name' => 'foo',
     ]);
@@ -96,16 +99,6 @@ class NodeOwnerTest extends EntityKernelTestBase {
     // The ID assigned to the newly saved user will now be the owner ID of the
     // node.
     $this->assertEquals($user->id(), $node->getOwnerId());
-  }
-
-  /**
-   * Tests the legacy method used as the default entity owner.
-   *
-   * @group legacy
-   * @expectedDeprecation The ::getCurrentUserId method is deprecated in 8.6.x and will be removed before 9.0.0.
-   */
-  public function testGetCurrentUserId() {
-    $this->assertEquals(['0'], Node::getCurrentUserId());
   }
 
 }

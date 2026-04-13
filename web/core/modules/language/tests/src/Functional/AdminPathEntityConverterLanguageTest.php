@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\language\Functional;
 
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -12,14 +14,20 @@ use Drupal\Tests\BrowserTestBase;
  */
 class AdminPathEntityConverterLanguageTest extends BrowserTestBase {
 
-  public static $modules = ['language', 'language_test'];
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = ['language', 'language_test'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     $permissions = [
       'access administration pages',
@@ -32,19 +40,19 @@ class AdminPathEntityConverterLanguageTest extends BrowserTestBase {
   /**
    * Tests the translated and untranslated config entities are loaded properly.
    */
-  public function testConfigUsingCurrentLanguage() {
+  public function testConfigUsingCurrentLanguage(): void {
     \Drupal::languageManager()
       ->getLanguageConfigOverride('es', 'language.entity.es')
       ->set('label', 'Español')
       ->save();
 
     $this->drupalGet('es/admin/language_test/entity_using_current_language/es');
-    $this->assertNoRaw(t('Loaded %label.', ['%label' => 'Spanish']));
-    $this->assertRaw(t('Loaded %label.', ['%label' => 'Español']));
+    $this->assertSession()->pageTextNotContains('Loaded Spanish.');
+    $this->assertSession()->pageTextContains('Loaded Español.');
 
     $this->drupalGet('es/admin/language_test/entity_using_original_language/es');
-    $this->assertRaw(t('Loaded %label.', ['%label' => 'Spanish']));
-    $this->assertNoRaw(t('Loaded %label.', ['%label' => 'Español']));
+    $this->assertSession()->pageTextContains('Loaded Spanish.');
+    $this->assertSession()->pageTextNotContains('Loaded Español.');
   }
 
 }

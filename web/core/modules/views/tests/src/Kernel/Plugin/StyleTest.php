@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Kernel\Plugin;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Tests\views\Kernel\ViewsKernelTestBase;
 use Drupal\views\Views;
 use Drupal\views_test_data\Plugin\views\row\RowTest;
@@ -26,7 +29,7 @@ class StyleTest extends ViewsKernelTestBase {
   /**
    * Tests the general rendering of styles.
    */
-  public function testStyle() {
+  public function testStyle(): void {
     $renderer = $this->container->get('renderer');
 
     // This run use the test row plugin and render with it.
@@ -42,7 +45,7 @@ class StyleTest extends ViewsKernelTestBase {
     $view->initStyle();
     // Reinitialize the style as it supports row plugins now.
     $view->style_plugin->init($view, $view->display_handler);
-    $this->assertInstanceOf(Rowtest::class, $view->rowPlugin);
+    $this->assertInstanceOf(RowTest::class, $view->rowPlugin);
 
     $random_text = $this->randomMachineName();
     $view->rowPlugin->setOutput($random_text);
@@ -75,7 +78,7 @@ class StyleTest extends ViewsKernelTestBase {
   /**
    * Tests the grouping features of styles.
    */
-  public function testGrouping() {
+  public function testGrouping(): void {
     $this->doTestGrouping(FALSE);
     $this->doTestGrouping(TRUE);
   }
@@ -83,7 +86,7 @@ class StyleTest extends ViewsKernelTestBase {
   /**
    * Provides reusable code for ::testGrouping().
    */
-  protected function doTestGrouping($stripped = FALSE) {
+  protected function doTestGrouping($stripped = FALSE): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
     // Setup grouping by the job and the age field.
@@ -108,6 +111,7 @@ class StyleTest extends ViewsKernelTestBase {
         'field' => 'name',
         'relationship' => 'none',
         'label' => 'Name',
+        'element_label_colon' => TRUE,
       ],
       'job' => [
         'id' => 'job',
@@ -115,6 +119,7 @@ class StyleTest extends ViewsKernelTestBase {
         'field' => 'job',
         'relationship' => 'none',
         'label' => 'Job',
+        'element_label_colon' => TRUE,
       ],
       'age' => [
         'id' => 'age',
@@ -122,11 +127,12 @@ class StyleTest extends ViewsKernelTestBase {
         'field' => 'age',
         'relationship' => 'none',
         'label' => 'Age',
+        'element_label_colon' => TRUE,
       ],
     ];
     $view->displayHandlers->get('default')->overrideOption('fields', $fields);
 
-    // Now run the query and groupby the result.
+    // Now run the query and group by the result.
     $this->executeView($view);
 
     $expected = [];
@@ -227,21 +233,55 @@ class StyleTest extends ViewsKernelTestBase {
     }
 
     $sets_new_rendered = $view->style_plugin->renderGrouping($view->result, $view->style_plugin->options['grouping'], TRUE);
-
+    $no_label_expected = $expected;
     // Remove labels from expected results.
-    foreach ($expected as $job => $data) {
-      unset($expected[$job]);
+    foreach ($no_label_expected as $job => $data) {
+      unset($no_label_expected[$job]);
       $job = str_replace('Job: ', '', $job);
       $data['group'] = $job;
-      $expected[$job] = $data;
+      $no_label_expected[$job] = $data;
     }
-    $this->assertEquals($expected, $sets_new_rendered);
+    $this->assertEquals($no_label_expected, $sets_new_rendered);
+
+    // Test that grouping works on fields having no colon after the label.
+    $fields['job']['label'] = 'Job';
+    $fields['job']['element_label_colon'] = FALSE;
+    $view->destroy();
+    $view->setDisplay();
+    $view->initStyle();
+    $view->displayHandlers->get('default')->overrideOption('fields', $fields);
+    $view->style_plugin->options['grouping'] = [
+      ['field' => 'job'],
+      ['field' => 'age'],
+    ];
+
+    $this->executeView($view);
+
+    if ($stripped) {
+      $view->result[0]->views_test_data_job .= $rand1;
+      $view->result[1]->views_test_data_job .= $rand2;
+      $view->result[2]->views_test_data_job .= $rand3;
+      $view->style_plugin->options['grouping'][0] = ['field' => 'job', 'rendered' => TRUE, 'rendered_strip' => TRUE];
+      $view->style_plugin->options['grouping'][1] = ['field' => 'age', 'rendered' => TRUE, 'rendered_strip' => TRUE];
+    }
+
+    $sets_new_rendered = $view->style_plugin->renderGrouping($view->result, $view->style_plugin->options['grouping'], TRUE);
+
+    // Remove colons from expected results.
+    $no_colon_expected = $expected;
+    foreach ($no_colon_expected as $job => $data) {
+      unset($no_colon_expected[$job]);
+      $job = str_replace('Job: ', 'Job ', $job);
+      $data['group'] = $job;
+      $no_colon_expected[$job] = $data;
+    }
+    $this->assertEquals($no_colon_expected, $sets_new_rendered);
   }
 
   /**
    * Tests custom CSS row classes.
    */
-  public function testCustomRowClasses() {
+  public function testCustomRowClasses(): void {
     $view = Views::getView('test_view');
     $view->setDisplay();
 
@@ -251,7 +291,7 @@ class StyleTest extends ViewsKernelTestBase {
     $view->style_plugin->options['row_class'] = $random_name . " test-token-{{ name }}";
 
     $output = $view->preview();
-    $html_dom = $this->getHtmlDom($this->container->get('renderer')->renderRoot($output));
+    $html_dom = $this->getHtmlDom((string) $this->container->get('renderer')->renderRoot($output));
 
     $rows = $html_dom->body->div->div;
     $count = 0;
@@ -275,8 +315,7 @@ class StyleTest extends ViewsKernelTestBase {
    *   The HTML DOM.
    */
   protected function getHtmlDom($output) {
-    $html_dom = new \DOMDocument();
-    @$html_dom->loadHTML($output);
+    $html_dom = Html::load($output);
     if ($html_dom) {
       // It's much easier to work with simplexml than DOM, luckily enough
       // we can just simply import our DOM tree.

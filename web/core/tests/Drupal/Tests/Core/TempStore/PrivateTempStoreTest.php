@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\TempStore;
 
 use Drupal\Core\TempStore\Lock;
@@ -53,21 +55,21 @@ class PrivateTempStoreTest extends UnitTestCase {
   /**
    * A tempstore object belonging to the owner.
    *
-   * @var \stdClass
+   * @var object
    */
   protected $ownObject;
 
   /**
    * A tempstore object not belonging to the owner.
    *
-   * @var \stdClass
+   * @var object
    */
   protected $otherObject;
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->keyValue = $this->createMock('Drupal\Core\KeyValueStore\KeyValueStoreExpirableInterface');
@@ -99,19 +101,18 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::get
    */
-  public function testGet() {
-    $this->keyValue->expects($this->at(0))
+  public function testGet(): void {
+    $calls = ['1:test_2', '1:test', '1:test'];
+    $this->keyValue->expects($this->exactly(count($calls)))
       ->method('get')
-      ->with('1:test_2')
-      ->will($this->returnValue(FALSE));
-    $this->keyValue->expects($this->at(1))
-      ->method('get')
-      ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
-    $this->keyValue->expects($this->at(2))
-      ->method('get')
-      ->with('1:test')
-      ->will($this->returnValue($this->otherObject));
+      ->with($this->callback(function (string $key) use (&$calls): bool {
+        return array_shift($calls) == $key;
+      }))
+      ->willReturnOnConsecutiveCalls(
+        FALSE,
+        $this->ownObject,
+        $this->otherObject,
+      );
 
     $this->assertNull($this->tempStore->get('test_2'));
     $this->assertSame($this->ownObject->data, $this->tempStore->get('test'));
@@ -123,18 +124,14 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::set
    */
-  public function testSetWithNoLockAvailable() {
-    $this->lock->expects($this->at(0))
+  public function testSetWithNoLockAvailable(): void {
+    $this->lock->expects($this->exactly(2))
       ->method('acquire')
       ->with('1:test')
-      ->will($this->returnValue(FALSE));
-    $this->lock->expects($this->at(1))
+      ->willReturn(FALSE);
+    $this->lock->expects($this->once())
       ->method('wait')
       ->with('1:test');
-    $this->lock->expects($this->at(2))
-      ->method('acquire')
-      ->with('1:test')
-      ->will($this->returnValue(FALSE));
 
     $this->keyValue->expects($this->once())
       ->method('getCollectionName');
@@ -148,11 +145,11 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::set
    */
-  public function testSet() {
+  public function testSet(): void {
     $this->lock->expects($this->once())
       ->method('acquire')
       ->with('1:test')
-      ->will($this->returnValue(TRUE));
+      ->willReturn(TRUE);
     $this->lock->expects($this->never())
       ->method('wait');
     $this->lock->expects($this->once())
@@ -171,55 +168,20 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::getMetadata
    */
-  public function testGetMetadata() {
-    $this->keyValue->expects($this->at(0))
+  public function testGetMetadata(): void {
+    $this->keyValue->expects($this->exactly(2))
       ->method('get')
       ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
-
-    $this->keyValue->expects($this->at(1))
-      ->method('get')
-      ->with('1:test')
-      ->will($this->returnValue(FALSE));
+      ->willReturnOnConsecutiveCalls($this->ownObject, FALSE);
 
     $metadata = $this->tempStore->getMetadata('test');
     $this->assertInstanceOf(Lock::class, $metadata);
-    $this->assertObjectHasAttribute('ownerId', $metadata);
-    $this->assertObjectHasAttribute('updated', $metadata);
+    $this->assertObjectHasProperty('ownerId', $metadata);
+    $this->assertObjectHasProperty('updated', $metadata);
     // Data should get removed.
-    $this->assertObjectNotHasAttribute('data', $metadata);
+    $this->assertObjectNotHasProperty('data', $metadata);
 
     $this->assertNull($this->tempStore->getMetadata('test'));
-  }
-
-  /**
-   * @covers ::getMetadata
-   * @expectedDeprecation Using the "owner" public property of a TempStore lock is deprecated in Drupal 8.7.0 and will not be allowed in Drupal 9.0.0. Use \Drupal\Core\TempStore\Lock::getOwnerId() instead. See https://www.drupal.org/node/3025869.
-   * @group legacy
-   */
-  public function testGetMetadataOwner() {
-    $this->keyValue->expects($this->once())
-      ->method('get')
-      ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
-
-    $metadata = $this->tempStore->getMetadata('test');
-    $this->assertSame(1, $metadata->owner);
-  }
-
-  /**
-   * @covers ::getMetadata
-   * @expectedDeprecation Using the "updated" public property of a TempStore lock is deprecated in Drupal 8.7.0 and will not be allowed in Drupal 9.0.0. Use \Drupal\Core\TempStore\Lock::getUpdated() instead. See https://www.drupal.org/node/3025869.
-   * @group legacy
-   */
-  public function testGetMetadataUpdated() {
-    $this->keyValue->expects($this->once())
-      ->method('get')
-      ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
-
-    $metadata = $this->tempStore->getMetadata('test');
-    $this->assertSame($metadata->getUpdated(), $metadata->updated);
   }
 
   /**
@@ -227,15 +189,15 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::delete
    */
-  public function testDeleteLocking() {
+  public function testDeleteLocking(): void {
     $this->keyValue->expects($this->once())
       ->method('get')
       ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
+      ->willReturn($this->ownObject);
     $this->lock->expects($this->once())
       ->method('acquire')
       ->with('1:test')
-      ->will($this->returnValue(TRUE));
+      ->willReturn(TRUE);
     $this->lock->expects($this->never())
       ->method('wait');
     $this->lock->expects($this->once())
@@ -254,22 +216,18 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::delete
    */
-  public function testDeleteWithNoLockAvailable() {
+  public function testDeleteWithNoLockAvailable(): void {
     $this->keyValue->expects($this->once())
       ->method('get')
       ->with('1:test')
-      ->will($this->returnValue($this->ownObject));
-    $this->lock->expects($this->at(0))
+      ->willReturn($this->ownObject);
+    $this->lock->expects($this->exactly(2))
       ->method('acquire')
       ->with('1:test')
-      ->will($this->returnValue(FALSE));
-    $this->lock->expects($this->at(1))
+      ->willReturn(FALSE);
+    $this->lock->expects($this->once())
       ->method('wait')
       ->with('1:test');
-    $this->lock->expects($this->at(2))
-      ->method('acquire')
-      ->with('1:test')
-      ->will($this->returnValue(FALSE));
 
     $this->keyValue->expects($this->once())
       ->method('getCollectionName');
@@ -283,27 +241,26 @@ class PrivateTempStoreTest extends UnitTestCase {
    *
    * @covers ::delete
    */
-  public function testDelete() {
+  public function testDelete(): void {
     $this->lock->expects($this->once())
       ->method('acquire')
       ->with('1:test_2')
-      ->will($this->returnValue(TRUE));
+      ->willReturn(TRUE);
 
-    $this->keyValue->expects($this->at(0))
+    $calls = ['1:test_1', '1:test_2', '1:test_3'];
+    $this->keyValue->expects($this->exactly(count($calls)))
       ->method('get')
-      ->with('1:test_1')
-      ->will($this->returnValue(FALSE));
-    $this->keyValue->expects($this->at(1))
-      ->method('get')
-      ->with('1:test_2')
-      ->will($this->returnValue($this->ownObject));
-    $this->keyValue->expects($this->at(2))
+      ->with($this->callback(function (string $key) use (&$calls): bool {
+        return array_shift($calls) == $key;
+      }))
+      ->willReturnOnConsecutiveCalls(
+        FALSE,
+        $this->ownObject,
+        $this->otherObject,
+      );
+    $this->keyValue->expects($this->once())
       ->method('delete')
       ->with('1:test_2');
-    $this->keyValue->expects($this->at(3))
-      ->method('get')
-      ->with('1:test_3')
-      ->will($this->returnValue($this->otherObject));
 
     $this->assertTrue($this->tempStore->delete('test_1'));
     $this->assertTrue($this->tempStore->delete('test_2'));

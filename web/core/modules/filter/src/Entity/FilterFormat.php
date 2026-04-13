@@ -3,64 +3,75 @@
 namespace Drupal\filter\Entity;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
+use Drupal\Core\Config\Action\Attribute\ActionMethod;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
+use Drupal\Core\Entity\Attribute\ConfigEntityType;
 use Drupal\Core\Entity\EntityWithPluginCollectionInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\filter\FilterFormatAccessControlHandler;
+use Drupal\filter\FilterFormatAddForm;
+use Drupal\filter\FilterFormatEditForm;
 use Drupal\filter\FilterFormatInterface;
+use Drupal\filter\FilterFormatListBuilder;
 use Drupal\filter\FilterPluginCollection;
+use Drupal\filter\Form\FilterDisableForm;
+use Drupal\filter\Form\FilterEnableForm;
 use Drupal\filter\Plugin\FilterInterface;
+use Drupal\user\Entity\Role;
 
 /**
  * Represents a text format.
- *
- * @ConfigEntityType(
- *   id = "filter_format",
- *   label = @Translation("Text format"),
- *   label_collection = @Translation("Text formats"),
- *   label_singular = @Translation("text format"),
- *   label_plural = @Translation("text formats"),
- *   label_count = @PluralTranslation(
- *     singular = "@count text format",
- *     plural = "@count text formats",
- *   ),
- *   handlers = {
- *     "form" = {
- *       "add" = "Drupal\filter\FilterFormatAddForm",
- *       "edit" = "Drupal\filter\FilterFormatEditForm",
- *       "disable" = "Drupal\filter\Form\FilterDisableForm"
- *     },
- *     "list_builder" = "Drupal\filter\FilterFormatListBuilder",
- *     "access" = "Drupal\filter\FilterFormatAccessControlHandler",
- *   },
- *   config_prefix = "format",
- *   admin_permission = "administer filters",
- *   entity_keys = {
- *     "id" = "format",
- *     "label" = "name",
- *     "weight" = "weight",
- *     "status" = "status"
- *   },
- *   links = {
- *     "edit-form" = "/admin/config/content/formats/manage/{filter_format}",
- *     "disable" = "/admin/config/content/formats/manage/{filter_format}/disable"
- *   },
- *   config_export = {
- *     "name",
- *     "format",
- *     "weight",
- *     "roles",
- *     "filters",
- *   }
- * )
  */
+#[ConfigEntityType(
+  id: 'filter_format',
+  label: new TranslatableMarkup('Text format'),
+  label_collection: new TranslatableMarkup('Text formats'),
+  label_singular: new TranslatableMarkup('text format'),
+  label_plural: new TranslatableMarkup('text formats'),
+  config_prefix: 'format',
+  entity_keys: [
+    'id' => 'format',
+    'label' => 'name',
+    'weight' => 'weight',
+    'status' => 'status',
+  ],
+  handlers: [
+    'form' => [
+      'add' => FilterFormatAddForm::class,
+      'edit' => FilterFormatEditForm::class,
+      'disable' => FilterDisableForm::class,
+      'enable' => FilterEnableForm::class,
+    ],
+    'list_builder' => FilterFormatListBuilder::class,
+    'access' => FilterFormatAccessControlHandler::class,
+  ],
+  links: [
+    'edit-form' => '/admin/config/content/formats/manage/{filter_format}',
+    'disable' => '/admin/config/content/formats/manage/{filter_format}/disable',
+    'enable' => '/admin/config/content/formats/manage/{filter_format}/enable',
+  ],
+  admin_permission: 'administer filters',
+  label_count: [
+    'singular' => '@count text format',
+    'plural' => '@count text formats',
+  ],
+  config_export: [
+    'name',
+    'format',
+    'weight',
+    'roles',
+    'filters',
+  ],
+)]
 class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, EntityWithPluginCollectionInterface {
 
   /**
    * Unique machine name of the format.
    *
-   * @todo Rename to $id.
-   *
    * @var string
+   *
+   * @todo Rename to $id.
    */
   protected $format;
 
@@ -71,9 +82,9 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
    * label but different filter configuration would impose a security risk.
    * Therefore, each text format label must be unique.
    *
-   * @todo Rename to $label.
-   *
    * @var string
+   *
+   * @todo Rename to $label.
    */
   protected $name;
 
@@ -88,7 +99,7 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
   protected $weight = 0;
 
   /**
-   * List of user role IDs to grant access to use this format on initial creation.
+   * List of role IDs to grant access to use this format on initial creation.
    *
    * This property is always empty and unused for existing text formats.
    *
@@ -159,6 +170,7 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
   /**
    * {@inheritdoc}
    */
+  #[ActionMethod(adminLabel: new TranslatableMarkup('Sets configuration for a filter plugin'))]
   public function setFilterConfig($instance_id, array $configuration) {
     $this->filters[$instance_id] = $configuration;
     if (isset($this->filterCollection)) {
@@ -201,11 +213,20 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
-    // Ensure the filters have been sorted before saving.
-    $this->filters()->sort();
-
     parent::preSave($storage);
+    if (!$this->isSyncing() && $this->hasTrustedData()) {
+      // Filters are sorted by keys to ensure config export diffs are easy to
+      // read and there is a minimal changeset. If the save is not trusted then
+      // the configuration will be sorted by StorableConfigBase.
+      ksort($this->filters);
+      // Ensure the filter configuration is well-formed.
+      array_walk($this->filters, function (array &$config, string $filter): void {
+        $config['id'] ??= $filter;
+        $config['provider'] ??= $this->filters($filter)->getPluginDefinition()['provider'];
+      });
+    }
 
+    assert(is_string($this->label()), 'Filter format label is expected to be a string.');
     $this->name = trim($this->label());
   }
 
@@ -227,7 +248,7 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
       // \Drupal\filter\FilterPermissions::permissions() and lastly
       // filter_formats(), so its cache must be reset upfront.
       if (($roles = $this->get('roles')) && $permission = $this->getPermissionName()) {
-        foreach (user_roles() as $rid => $name) {
+        foreach (Role::loadMultiple() as $rid => $role) {
           $enabled = in_array($rid, $roles, TRUE);
           user_role_change_permissions($rid, [$permission => $enabled]);
         }
@@ -301,19 +322,9 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
           return $new_restrictions;
         }
         // Subsequent filters with an "allowed html" setting must be intersected
-        // with the existing set, to ensure we only end up with the tags that are
-        // allowed by *all* filters with an "allowed html" setting.
+        // with the existing set, to ensure we only end up with the tags that
+        // are allowed by *all* filters with an "allowed html" setting.
         else {
-          // Track the union of forbidden tags.
-          if (isset($new_restrictions['forbidden_tags'])) {
-            if (!isset($restrictions['forbidden_tags'])) {
-              $restrictions['forbidden_tags'] = $new_restrictions['forbidden_tags'];
-            }
-            else {
-              $restrictions['forbidden_tags'] = array_unique(array_merge($restrictions['forbidden_tags'], $new_restrictions['forbidden_tags']));
-            }
-          }
-
           // Track the intersection of allowed tags.
           if (isset($restrictions['allowed'])) {
             $intersection = $restrictions['allowed'];
@@ -323,7 +334,8 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
               if (!array_key_exists($tag, $new_restrictions['allowed'])) {
                 // The exception is the asterisk (which applies to all tags): it
                 // does not need to be allowed by every filter in order to be
-                // used; not every filter needs attribute restrictions on all tags.
+                // used; not every filter needs attribute restrictions on all
+                // tags.
                 if ($tag === '*') {
                   continue;
                 }
@@ -357,8 +369,8 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
                 }
                 // Both list an array of attribute values; do an intersection,
                 // where we take into account that a value of:
-                //  - TRUE means the attribute value is allowed;
-                //  - FALSE means the attribute value is forbidden;
+                // - TRUE means the attribute value is allowed;
+                // - FALSE means the attribute value is forbidden;
                 // hence we keep the ANDed result.
                 else {
                   $intersection[$tag] = array_intersect_key($intersection[$tag], $new_attributes);
@@ -371,31 +383,16 @@ class FilterFormat extends ConfigEntityBase implements FilterFormatInterface, En
             $restrictions['allowed'] = $intersection;
           }
 
+          // Simplification: if the only remaining allowed tag is the asterisk
+          // (which contains attribute restrictions that apply to all tags),
+          // then effectively nothing is allowed.
+          if (count($restrictions['allowed']) === 1 && array_key_exists('*', $restrictions['allowed'])) {
+            $restrictions['allowed'] = [];
+          }
+
           return $restrictions;
         }
       }, NULL);
-
-      // Simplification: if we have both allowed (intersected) and forbidden
-      // (unioned) tags, then remove any allowed tags that are also forbidden.
-      // Once complete, the list of allowed tags expresses all tag-level
-      // restrictions, and the list of forbidden tags can be removed.
-      if (isset($restrictions['allowed']) && isset($restrictions['forbidden_tags'])) {
-        foreach ($restrictions['forbidden_tags'] as $tag) {
-          if (isset($restrictions['allowed'][$tag])) {
-            unset($restrictions['allowed'][$tag]);
-          }
-        }
-        unset($restrictions['forbidden_tags']);
-      }
-
-      // Simplification: if the only remaining allowed tag is the asterisk
-      // (which contains attribute restrictions that apply to all tags), and
-      // there are no forbidden tags, then effectively nothing is allowed.
-      if (isset($restrictions['allowed'])) {
-        if (count($restrictions['allowed']) === 1 && array_key_exists('*', $restrictions['allowed']) && !isset($restrictions['forbidden_tags'])) {
-          $restrictions['allowed'] = [];
-        }
-      }
 
       return $restrictions;
     }

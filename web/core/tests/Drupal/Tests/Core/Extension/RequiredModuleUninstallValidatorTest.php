@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Extension;
 
-use Drupal\Tests\AssertHelperTrait;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -10,8 +11,6 @@ use Drupal\Tests\UnitTestCase;
  * @group Extension
  */
 class RequiredModuleUninstallValidatorTest extends UnitTestCase {
-
-  use AssertHelperTrait;
 
   /**
    * @var \Drupal\Core\Extension\RequiredModuleUninstallValidator|\PHPUnit\Framework\MockObject\MockObject
@@ -21,11 +20,11 @@ class RequiredModuleUninstallValidatorTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->uninstallValidator = $this->getMockBuilder('Drupal\Core\Extension\RequiredModuleUninstallValidator')
       ->disableOriginalConstructor()
-      ->setMethods(['getModuleInfoByModule'])
+      ->onlyMethods(['getModuleInfoByModule'])
       ->getMock();
     $this->uninstallValidator->setStringTranslation($this->getStringTranslationStub());
   }
@@ -33,7 +32,7 @@ class RequiredModuleUninstallValidatorTest extends UnitTestCase {
   /**
    * @covers ::validate
    */
-  public function testValidateNoModule() {
+  public function testValidateNoModule(): void {
     $this->uninstallValidator->expects($this->once())
       ->method('getModuleInfoByModule')
       ->willReturn([]);
@@ -47,7 +46,7 @@ class RequiredModuleUninstallValidatorTest extends UnitTestCase {
   /**
    * @covers ::validate
    */
-  public function testValidateNotRequired() {
+  public function testValidateNotRequired(): void {
     $module = $this->randomMachineName();
 
     $this->uninstallValidator->expects($this->once())
@@ -62,7 +61,7 @@ class RequiredModuleUninstallValidatorTest extends UnitTestCase {
   /**
    * @covers ::validate
    */
-  public function testValidateRequired() {
+  public function testValidateRequired(): void {
     $module = $this->randomMachineName();
 
     $this->uninstallValidator->expects($this->once())
@@ -71,7 +70,7 @@ class RequiredModuleUninstallValidatorTest extends UnitTestCase {
 
     $expected = ["The $module module is required"];
     $reasons = $this->uninstallValidator->validate($module);
-    $this->assertSame($expected, $this->castSafeStrings($reasons));
+    $this->assertEquals($expected, $reasons);
   }
 
 }

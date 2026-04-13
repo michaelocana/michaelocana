@@ -12,8 +12,6 @@
 namespace Symfony\Component\Serializer\Mapping;
 
 /**
- * {@inheritdoc}
- *
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
 class ClassMetadata implements ClassMetadataInterface
@@ -23,7 +21,7 @@ class ClassMetadata implements ClassMetadataInterface
      *           class' serialized representation. Do not access it. Use
      *           {@link getName()} instead.
      */
-    public $name;
+    public string $name;
 
     /**
      * @var AttributeMetadataInterface[]
@@ -32,51 +30,42 @@ class ClassMetadata implements ClassMetadataInterface
      *           class' serialized representation. Do not access it. Use
      *           {@link getAttributesMetadata()} instead.
      */
-    public $attributesMetadata = [];
+    public array $attributesMetadata = [];
+
+    private ?\ReflectionClass $reflClass = null;
 
     /**
-     * @var \ReflectionClass
+     * @internal This property is public in order to reduce the size of the
+     *           class' serialized representation. Do not access it. Use
+     *           {@link getClassDiscriminatorMapping()} instead.
      */
-    private $reflClass;
+    public ?ClassDiscriminatorMapping $classDiscriminatorMapping = null;
 
     /**
      * Constructs a metadata for the given class.
-     *
-     * @param string $class
      */
-    public function __construct($class)
+    public function __construct(string $class, ?ClassDiscriminatorMapping $classDiscriminatorMapping = null)
     {
         $this->name = $class;
+        $this->classDiscriminatorMapping = $classDiscriminatorMapping;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function addAttributeMetadata(AttributeMetadataInterface $attributeMetadata)
+    public function addAttributeMetadata(AttributeMetadataInterface $attributeMetadata): void
     {
         $this->attributesMetadata[$attributeMetadata->getName()] = $attributeMetadata;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getAttributesMetadata()
+    public function getAttributesMetadata(): array
     {
         return $this->attributesMetadata;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function merge(ClassMetadataInterface $classMetadata)
+    public function merge(ClassMetadataInterface $classMetadata): void
     {
         foreach ($classMetadata->getAttributesMetadata() as $attributeMetadata) {
             if (isset($this->attributesMetadata[$attributeMetadata->getName()])) {
@@ -87,16 +76,19 @@ class ClassMetadata implements ClassMetadataInterface
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getReflectionClass()
+    public function getReflectionClass(): \ReflectionClass
     {
-        if (!$this->reflClass) {
-            $this->reflClass = new \ReflectionClass($this->getName());
-        }
+        return $this->reflClass ??= new \ReflectionClass($this->getName());
+    }
 
-        return $this->reflClass;
+    public function getClassDiscriminatorMapping(): ?ClassDiscriminatorMapping
+    {
+        return $this->classDiscriminatorMapping;
+    }
+
+    public function setClassDiscriminatorMapping(?ClassDiscriminatorMapping $mapping): void
+    {
+        $this->classDiscriminatorMapping = $mapping;
     }
 
     /**
@@ -104,11 +96,12 @@ class ClassMetadata implements ClassMetadataInterface
      *
      * @return string[]
      */
-    public function __sleep()
+    public function __sleep(): array
     {
         return [
             'name',
             'attributesMetadata',
+            'classDiscriminatorMapping',
         ];
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\render_attached_test\Controller;
 
 /**
@@ -8,7 +10,7 @@ namespace Drupal\render_attached_test\Controller;
 class RenderAttachedTestController {
 
   /**
-   * Test special header and status code rendering.
+   * Tests special header and status code rendering.
    *
    * @return array
    *   A render array using features of the 'http_header' directive.
@@ -20,7 +22,7 @@ class RenderAttachedTestController {
   }
 
   /**
-   * Test attached HTML head rendering.
+   * Tests attached HTML head rendering.
    *
    * @return array
    *   A render array using the 'http_head' directive.
@@ -36,7 +38,7 @@ class RenderAttachedTestController {
   }
 
   /**
-   * Test attached HTML head rendering.
+   * Tests attached HTML head rendering.
    *
    * @return array
    *   A render array using the 'html_head' directive.
@@ -46,7 +48,7 @@ class RenderAttachedTestController {
       [
         '#tag' => 'meta',
         '#attributes' => [
-          'test-attribute' => 'testvalue',
+          'test-attribute' => 'test_value',
         ],
       ],
       'test_head_attribute',
@@ -58,7 +60,7 @@ class RenderAttachedTestController {
   }
 
   /**
-   * Test attached feed rendering.
+   * Tests attached feed rendering.
    *
    * @return array
    *   A render array using the 'feed' directive.
@@ -70,7 +72,7 @@ class RenderAttachedTestController {
   }
 
   /**
-   * Test HTTP header rendering for link.
+   * Tests HTTP header rendering for link.
    *
    * @return array
    *   A render array using the 'html_head_link' directive.
@@ -80,6 +82,7 @@ class RenderAttachedTestController {
     $render['#attached']['html_head_link'][] = [['href' => '/foo?bar=<baz>&baz=false', 'rel' => 'alternate'], TRUE];
     $render['#attached']['html_head_link'][] = [['href' => '/not-added-to-http-headers', 'rel' => 'alternate'], FALSE];
     $render['#attached']['html_head_link'][] = [['href' => '/foo/bar', 'hreflang' => 'nl', 'rel' => 'alternate'], TRUE];
+    $render['#attached']['html_head_link'][] = [['href' => '/foo/bar', 'hreflang' => 'de', 'rel' => 'alternate'], TRUE];
     return $render;
   }
 

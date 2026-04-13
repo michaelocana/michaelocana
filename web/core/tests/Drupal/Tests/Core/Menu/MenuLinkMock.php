@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Menu;
 
 use Drupal\Core\Cache\Cache;
@@ -10,6 +12,11 @@ use Drupal\Core\Menu\MenuLinkBase;
  */
 class MenuLinkMock extends MenuLinkBase {
 
+  /**
+   * The default configuration for the test menu link.
+   *
+   * @var array
+   */
   protected static $defaults = [
     'menu_name' => 'mock',
     'route_name' => 'MUST BE PROVIDED',
@@ -24,7 +31,7 @@ class MenuLinkMock extends MenuLinkBase {
     'options' => [],
     'expanded' => '0',
     'enabled' => '1',
-    'provider' => 'simpletest',
+    'provider' => 'test',
     'metadata' => [
       'cache_contexts' => [],
       'cache_tags' => [],

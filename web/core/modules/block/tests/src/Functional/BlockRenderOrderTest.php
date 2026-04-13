@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\block\Functional;
 
 use Drupal\Component\Utility\Html;
@@ -13,18 +15,19 @@ use Drupal\Tests\BrowserTestBase;
 class BlockRenderOrderTest extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'block'];
+  protected static $modules = ['node', 'block'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     // Create a test user.
     $end_user = $this->drupalCreateUser([
@@ -36,22 +39,22 @@ class BlockRenderOrderTest extends BrowserTestBase {
   /**
    * Tests the render order of the blocks.
    */
-  public function testBlockRenderOrder() {
+  public function testBlockRenderOrder(): void {
     // Enable test blocks and place them in the same region.
     $region = 'header';
     $test_blocks = [
       'stark_powered' => [
-        'weight' => '-3',
+        'weight' => -3,
         'id' => 'stark_powered',
         'label' => 'Test block A',
       ],
       'stark_by' => [
-        'weight' => '3',
+        'weight' => 3,
         'id' => 'stark_by',
         'label' => 'Test block C',
       ],
       'stark_drupal' => [
-        'weight' => '3',
+        'weight' => 3,
         'id' => 'stark_drupal',
         'label' => 'Test block B',
       ],
@@ -74,12 +77,16 @@ class BlockRenderOrderTest extends BrowserTestBase {
     foreach ($controller->loadMultiple() as $return_block) {
       $id = $return_block->id();
       if ($return_block_weight = $return_block->getWeight()) {
-        $this->assertTrue($test_blocks[$id]['weight'] == $return_block_weight, 'Block weight is set as "' . $return_block_weight . '" for ' . $id . ' block.');
+        $this->assertSame((int) $test_blocks[$id]['weight'], $return_block_weight, 'Block weight is set as "' . $return_block_weight . '" for ' . $id . ' block.');
         $position[$id] = strpos($test_content, Html::getClass('block-' . $test_blocks[$id]['id']));
       }
     }
-    $this->assertTrue($position['stark_powered'] < $position['stark_by'], 'Blocks with different weight are rendered in the correct order.');
-    $this->assertTrue($position['stark_drupal'] < $position['stark_by'], 'Blocks with identical weight are rendered in alphabetical order.');
+    // Verify that blocks with different weight are rendered in the correct
+    // order.
+    $this->assertLessThan($position['stark_by'], $position['stark_powered']);
+    // Verify that blocks with identical weight are rendered in alphabetical
+    // order.
+    $this->assertLessThan($position['stark_by'], $position['stark_drupal']);
   }
 
 }

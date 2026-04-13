@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\Theme;
 
 use Drupal\Tests\BrowserTestBase;
+
+// cspell:ignore nyan
 
 /**
  * Tests the multi theme engine support.
@@ -12,18 +16,19 @@ use Drupal\Tests\BrowserTestBase;
 class EngineNyanCatTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['theme_test'];
+  protected static $modules = ['theme_test'];
 
   /**
    * {@inheritdoc}
    */
   protected $defaultTheme = 'stark';
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
     \Drupal::service('theme_installer')->install(['test_theme_nyan_cat_engine']);
   }
@@ -31,12 +36,12 @@ class EngineNyanCatTest extends BrowserTestBase {
   /**
    * Ensures a theme's template is overridable based on the 'template' filename.
    */
-  public function testTemplateOverride() {
+  public function testTemplateOverride(): void {
     $this->config('system.theme')
       ->set('default', 'test_theme_nyan_cat_engine')
       ->save();
     $this->drupalGet('theme-test/template-test');
-    $this->assertText('Success: Template overridden with Nyan Cat theme. All of them', 'Template overridden by Nyan Cat file.');
+    $this->assertSession()->pageTextContains('Success: Template overridden with Nyan Cat theme. All of them');
   }
 
 }

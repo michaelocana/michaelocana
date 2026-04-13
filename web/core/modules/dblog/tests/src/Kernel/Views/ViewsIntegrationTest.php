@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\dblog\Kernel\Views;
 
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Utility\Xss;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Link;
@@ -26,7 +27,7 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['dblog', 'dblog_test_views', 'user'];
+  protected static $modules = ['dblog', 'dblog_test_views', 'user'];
 
   /**
    * {@inheritdoc}
@@ -36,19 +37,19 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp($import_test_views = TRUE) {
+  protected function setUp($import_test_views = TRUE): void {
     parent::setUp();
 
     $this->installEntitySchema('user');
     $this->installSchema('dblog', ['watchdog']);
 
-    ViewTestData::createTestViews(get_class($this), ['dblog_test_views']);
+    ViewTestData::createTestViews(static::class, ['dblog_test_views']);
   }
 
   /**
    * Tests the messages escaping functionality.
    */
-  public function testMessages() {
+  public function testMessages(): void {
 
     // Remove the watchdog entries added by the potential batch process.
     $this->container->get('database')->truncate('watchdog')->execute();
@@ -63,15 +64,18 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
       if (!isset($entry['variables'])) {
         continue;
       }
-      $this->assertEqual($view->style_plugin->getField($index, 'message'), new FormattableMarkup($entry['message'], $entry['variables']));
+      $message_vars = $entry['variables'];
+      unset($message_vars['link']);
+      $this->assertEquals(strtr($entry['message'], $message_vars), $view->style_plugin->getField($index, 'message'));
       $link_field = $view->style_plugin->getField($index, 'link');
       // The 3rd entry contains some unsafe markup that needs to get filtered.
       if ($index == 2) {
         // Make sure that unsafe link differs from the rendered link, so we know
-        // that some filtering actually happened.
-        $this->assertNotEqual($link_field, $entry['variables']['link']);
+        // that some filtering actually happened. We use assertNotSame and cast
+        // values to strings since HTML tags are significant.
+        $this->assertNotSame((string) $entry['variables']['link'], (string) $link_field);
       }
-      $this->assertEqual($link_field, Xss::filterAdmin($entry['variables']['link']));
+      $this->assertSame(Xss::filterAdmin($entry['variables']['link']), (string) $link_field);
     }
 
     // Disable replacing variables and check that the tokens aren't replaced.
@@ -82,14 +86,14 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
     $view->initStyle();
     $view->field['message']->options['replace_variables'] = FALSE;
     foreach ($entries as $index => $entry) {
-      $this->assertEqual($view->style_plugin->getField($index, 'message'), $entry['message']);
+      $this->assertEquals($entry['message'], $view->style_plugin->getField($index, 'message'));
     }
   }
 
   /**
    * Tests the relationship with the users_field_data table.
    */
-  public function testRelationship() {
+  public function testRelationship(): void {
     $view = Views::getView('dblog_integration_test');
     $view->setDisplay('page_1');
     // The uid relationship should now join to the {users_field_data} table.
@@ -100,9 +104,9 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
   }
 
   /**
-   * Test views can be filtered by severity and log type.
+   * Tests views can be filtered by severity and log type.
    */
-  public function testFiltering() {
+  public function testFiltering(): void {
     // Remove the watchdog entries added by the potential batch process.
     $this->container->get('database')->truncate('watchdog')->execute();
     $this->createLogEntries();
@@ -173,7 +177,7 @@ class ViewsIntegrationTest extends ViewsKernelTestBase {
    * @return array
    *   An array of data used to create the log entries.
    */
-  protected function createLogEntries() {
+  protected function createLogEntries(): array {
     $entries = [];
     // Setup a watchdog entry without tokens.
     $entries[] = [

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Functional\Email;
 
 use Drupal\entity_test\Entity\EntityTest;
@@ -15,11 +17,9 @@ use Drupal\Tests\BrowserTestBase;
 class EmailFieldTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'entity_test', 'field_ui'];
+  protected static $modules = ['node', 'entity_test', 'field_ui'];
 
   /**
    * {@inheritdoc}
@@ -40,7 +40,10 @@ class EmailFieldTest extends BrowserTestBase {
    */
   protected $field;
 
-  protected function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
 
     $this->drupalLogin($this->drupalCreateUser([
@@ -53,9 +56,9 @@ class EmailFieldTest extends BrowserTestBase {
   /**
    * Tests email field.
    */
-  public function testEmailField() {
+  public function testEmailField(): void {
     // Create a field with settings to validate.
-    $field_name = mb_strtolower($this->randomMachineName());
+    $field_name = $this->randomMachineName();
     $this->fieldStorage = FieldStorageConfig::create([
       'field_name' => $field_name,
       'entity_type' => 'entity_test',
@@ -89,19 +92,19 @@ class EmailFieldTest extends BrowserTestBase {
 
     // Display creation form.
     $this->drupalGet('entity_test/add');
-    $this->assertFieldByName("{$field_name}[0][value]", '', 'Widget found.');
-    $this->assertRaw('placeholder="example@example.com"');
+    $this->assertSession()->fieldValueEquals("{$field_name}[0][value]", '');
+    $this->assertSession()->responseContains('placeholder="example@example.com"');
 
     // Submit a valid email address and ensure it is accepted.
     $value = 'test@example.com';
     $edit = [
       "{$field_name}[0][value]" => $value,
     ];
-    $this->drupalPostForm(NULL, $edit, t('Save'));
+    $this->submitForm($edit, 'Save');
     preg_match('|entity_test/manage/(\d+)|', $this->getUrl(), $match);
     $id = $match[1];
-    $this->assertText(t('entity_test @id has been created.', ['@id' => $id]));
-    $this->assertRaw($value);
+    $this->assertSession()->pageTextContains('entity_test ' . $id . ' has been created.');
+    $this->assertSession()->responseContains($value);
 
     // Verify that a mailto link is displayed.
     $entity = EntityTest::load($id);
@@ -109,6 +112,15 @@ class EmailFieldTest extends BrowserTestBase {
     $content = $display->build($entity);
     $rendered_content = (string) \Drupal::service('renderer')->renderRoot($content);
     $this->assertStringContainsString('href="mailto:test@example.com"', $rendered_content);
+
+    // Test Email validation message.
+    $this->drupalGet('entity_test/add');
+    $value = 'abc.@in';
+    $edit = [
+      "{$field_name}[0][value]" => $value,
+    ];
+    $this->submitForm($edit, 'Save');
+    $this->assertSession()->statusMessageContains("The email address {$value} is not valid. Use the format user@example.com.", 'error');
   }
 
 }

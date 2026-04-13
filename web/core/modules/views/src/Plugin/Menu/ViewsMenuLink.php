@@ -2,7 +2,6 @@
 
 namespace Drupal\views\Plugin\Menu;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Menu\MenuLinkBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -15,12 +14,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @see \Drupal\views\Plugin\Derivative\ViewsMenuLink
  */
 class ViewsMenuLink extends MenuLinkBase implements ContainerFactoryPluginInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * {@inheritdoc}
@@ -62,13 +55,13 @@ class ViewsMenuLink extends MenuLinkBase implements ContainerFactoryPluginInterf
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
    * @param \Drupal\views\ViewExecutableFactory $view_executable_factory
-   *   The view executable factory
+   *   The view executable factory.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, ViewExecutableFactory $view_executable_factory) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);

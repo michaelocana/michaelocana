@@ -4,7 +4,7 @@ dependencies:
   module:
     - user
 id: test_user_name
-label: ''
+label: test_user_name
 module: views
 description: ''
 tag: ''
@@ -45,11 +45,10 @@ display:
             identifier: uid
             remember_roles:
               authenticated: authenticated
-              anonymous: '0'
           entity_type: user
           entity_field: uid
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   page_1:

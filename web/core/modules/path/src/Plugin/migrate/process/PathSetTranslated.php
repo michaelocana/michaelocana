@@ -2,6 +2,7 @@
 
 namespace Drupal\path\Plugin\migrate\process;
 
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateException;
 use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
@@ -49,11 +50,8 @@ use Drupal\migrate\Row;
  * In the example above, if the node_translation lookup succeeds and the
  * original path is of the format '/node/<original node nid>', then the new path
  * will be set to '/node/<translated node nid>'
- *
- * @MigrateProcessPlugin(
- *   id = "path_set_translated"
- * )
  */
+#[MigrateProcess('path_set_translated')]
 class PathSetTranslated extends ProcessPluginBase {
 
   /**
@@ -64,7 +62,7 @@ class PathSetTranslated extends ProcessPluginBase {
       throw new MigrateException("The input value should be an array.");
     }
 
-    $path = isset($value[0]) ? $value[0] : '';
+    $path = $value[0] ?? '';
     $nid = (is_array($value[1]) && isset($value[1][0])) ? $value[1][0] : FALSE;
     if (preg_match('/^\/node\/\d+$/', $path) && $nid) {
       return '/node/' . $nid;

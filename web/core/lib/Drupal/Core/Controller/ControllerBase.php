@@ -2,14 +2,12 @@
 
 namespace Drupal\Core\Controller;
 
+use Drupal\Core\DependencyInjection\AutowireTrait;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Logger\LoggerChannelTrait;
-use Drupal\Core\Routing\LinkGeneratorTrait;
 use Drupal\Core\Routing\RedirectDestinationTrait;
-use Drupal\Core\Routing\UrlGeneratorTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Messenger\MessengerTrait;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
@@ -36,19 +34,11 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  */
 abstract class ControllerBase implements ContainerInjectionInterface {
 
-  use LinkGeneratorTrait;
+  use AutowireTrait;
   use LoggerChannelTrait;
   use MessengerTrait;
   use RedirectDestinationTrait;
   use StringTranslationTrait;
-  use UrlGeneratorTrait;
-
-  /**
-   * The entity manager.
-   *
-   * @var \Drupal\Core\Entity\EntityManagerInterface
-   */
-  protected $entityManager;
 
   /**
    * The entity type manager.
@@ -114,31 +104,6 @@ abstract class ControllerBase implements ContainerInjectionInterface {
   protected $formBuilder;
 
   /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static();
-  }
-
-  /**
-   * Retrieves the entity manager service.
-   *
-   * @return \Drupal\Core\Entity\EntityManagerInterface
-   *   The entity manager service.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Most of the time static::entityTypeManager() is supposed to be used
-   *   instead.
-   */
-  protected function entityManager() {
-    @trigger_error('ControllerBase::getEntityManager() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use ::getEntityTypeManager() instead. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-    if (!$this->entityManager) {
-      $this->entityManager = $this->container()->get('entity.manager');
-    }
-    return $this->entityManager;
-  }
-
-  /**
    * Retrieves the entity type manager.
    *
    * @return \Drupal\Core\Entity\EntityTypeManagerInterface
@@ -182,13 +147,13 @@ abstract class ControllerBase implements ContainerInjectionInterface {
    * Retrieves a configuration object.
    *
    * This is the main entry point to the configuration API. Calling
-   * @code $this->config('book.admin') @endcode will return a configuration
-   * object in which the book module can store its administrative settings.
+   * $this->config('my_module.admin') will return a configuration object in
+   * which the my_module module can store its administrative settings.
    *
    * @param string $name
    *   The name of the configuration object to retrieve. The name corresponds to
-   *   a configuration file. For @code \Drupal::config('book.admin') @endcode,
-   *   the config object returned will contain the contents of book.admin
+   *   a configuration file. For \Drupal::config('my_module.admin'), the config
+   *   object returned will contain the contents of my_module.admin
    *   configuration file.
    *
    * @return \Drupal\Core\Config\Config
@@ -208,6 +173,7 @@ abstract class ControllerBase implements ContainerInjectionInterface {
    *   Name of the key/value collection to return.
    *
    * @return \Drupal\Core\KeyValueStore\KeyValueStoreInterface
+   *   The key/value storage.
    */
   protected function keyValue($collection) {
     if (!$this->keyValue) {
@@ -226,6 +192,7 @@ abstract class ControllerBase implements ContainerInjectionInterface {
    * (for example, the system maintenance message) should use config() instead.
    *
    * @return \Drupal\Core\State\StateInterface
+   *   The state storage service.
    */
   protected function state() {
     if (!$this->stateService) {
@@ -238,6 +205,7 @@ abstract class ControllerBase implements ContainerInjectionInterface {
    * Returns the module handler.
    *
    * @return \Drupal\Core\Extension\ModuleHandlerInterface
+   *   The module handler service.
    */
   protected function moduleHandler() {
     if (!$this->moduleHandler) {
@@ -250,6 +218,7 @@ abstract class ControllerBase implements ContainerInjectionInterface {
    * Returns the form builder service.
    *
    * @return \Drupal\Core\Form\FormBuilderInterface
+   *   The form builder service.
    */
   protected function formBuilder() {
     if (!$this->formBuilder) {

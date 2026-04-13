@@ -3,7 +3,7 @@
 namespace Drupal\locale;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\Query\Condition;
+use Drupal\Core\Database\Query\PagerSelectExtender;
 
 /**
  * Defines a class to store localized strings in the database.
@@ -268,7 +268,7 @@ class StringDatabaseStorage implements StringStorageInterface {
    * @param \Drupal\locale\StringInterface $string
    *   The string object.
    *
-   * @return string
+   * @return string|null
    *   The table name.
    */
   protected function dbStringTable($string) {
@@ -278,6 +278,7 @@ class StringDatabaseStorage implements StringStorageInterface {
     elseif ($string->isTranslation()) {
       return 'locales_target';
     }
+    return NULL;
   }
 
   /**
@@ -417,7 +418,7 @@ class StringDatabaseStorage implements StringStorageInterface {
       elseif ($table_alias == 't' && $join === 'leftJoin') {
         // Conditions for target fields when doing an outer join only make
         // sense if we add also OR field IS NULL.
-        $query->condition((new Condition('OR'))
+        $query->condition(($this->connection->condition('OR'))
           ->condition($field_alias, (array) $value, 'IN')
           ->isNull($field_alias)
         );
@@ -430,7 +431,7 @@ class StringDatabaseStorage implements StringStorageInterface {
     // Process other options, string filter, query limit, etc.
     if (!empty($options['filters'])) {
       if (count($options['filters']) > 1) {
-        $filter = new Condition('OR');
+        $filter = $this->connection->condition('OR');
         $query->condition($filter);
       }
       else {
@@ -443,7 +444,7 @@ class StringDatabaseStorage implements StringStorageInterface {
     }
 
     if (!empty($options['pager limit'])) {
-      $query = $query->extend('Drupal\Core\Database\Query\PagerSelectExtender')->limit($options['pager limit']);
+      $query = $query->extend(PagerSelectExtender::class)->limit($options['pager limit']);
     }
 
     return $query;
@@ -526,7 +527,10 @@ class StringDatabaseStorage implements StringStorageInterface {
   protected function dbDelete($table, $keys) {
     $query = $this->connection->delete($table, $this->options);
     foreach ($keys as $field => $value) {
-      $query->condition($field, $value);
+      if (!is_array($value)) {
+        $value = [$value];
+      }
+      $query->condition($field, $value, 'IN');
     }
     return $query;
   }

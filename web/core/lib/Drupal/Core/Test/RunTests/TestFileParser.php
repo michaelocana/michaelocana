@@ -2,11 +2,17 @@
 
 namespace Drupal\Core\Test\RunTests;
 
-use Drupal\simpletest\TestBase;
 use PHPUnit\Framework\TestCase;
+
+@trigger_error('Drupal\Core\Test\RunTests\TestFileParser is deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no replacement. See https://www.drupal.org/node/3447698', E_USER_DEPRECATED);
 
 /**
  * Parses class names from PHP files without loading them.
+ *
+ * @deprecated in drupal:11.2.0 and is removed from drupal:12.0.0. There is no
+ *   replacement.
+ *
+ * @see https://www.drupal.org/node/3447698
  *
  * @internal
  */
@@ -24,7 +30,7 @@ class TestFileParser {
   public function getTestListFromFile($file) {
     $test_list = $this->parseContents(file_get_contents($file));
     return array_filter($test_list, function ($class) {
-      return (is_subclass_of($class, TestCase::class) || is_subclass_of($class, TestBase::class));
+      return is_subclass_of($class, TestCase::class);
     });
   }
 

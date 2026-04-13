@@ -3,27 +3,30 @@
 namespace Drupal\views\Plugin\views\filter;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Attribute\ViewsFilter;
 
 /**
  * Filter to handle dates stored as a timestamp.
  *
  * @ingroup views_filter_handlers
- *
- * @ViewsFilter("date")
  */
+#[ViewsFilter("date")]
 class Date extends NumericFilter {
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    // value is already set up properly, we're just adding our new field to it.
+    // Value is already set up properly, we're just adding our new field to it.
     $options['value']['contains']['type']['default'] = 'date';
 
     return $options;
   }
 
   /**
-   * Add a type selector to the value form
+   * Add a type selector to the value form.
    */
   protected function valueForm(&$form, FormStateInterface $form_state) {
     if (!$form_state->get('exposed')) {
@@ -40,6 +43,9 @@ class Date extends NumericFilter {
     parent::valueForm($form, $form_state);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     parent::validateOptionsForm($form, $form_state);
 
@@ -51,6 +57,9 @@ class Date extends NumericFilter {
     $this->validateValidTime($form['value'], $form_state, $form_state->getValue(['options', 'operator']), $form_state->getValue(['options', 'value']));
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function validateExposed(&$form, FormStateInterface $form_state) {
     if (empty($this->options['exposed'])) {
       return;
@@ -111,11 +120,14 @@ class Date extends NumericFilter {
     // one greater.
     $operators = $this->operators();
     $expected = $operators[$group['operator']]['values'] + 1;
-    $actual = count(array_filter($group['value'], 'static::arrayFilterZero'));
+    $actual = count(array_filter($group['value'], [static::class, 'arrayFilterZero']));
 
     return $actual == $expected;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function acceptExposedInput($input) {
     if (empty($this->options['exposed'])) {
       return TRUE;
@@ -165,6 +177,9 @@ class Date extends NumericFilter {
     return $rc;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function opBetween($field) {
     $a = intval(strtotime($this->value['min'], 0));
     $b = intval(strtotime($this->value['max'], 0));
@@ -175,20 +190,24 @@ class Date extends NumericFilter {
       // Keep sign.
       $b = '***CURRENT_TIME***' . sprintf('%+d', $b);
     }
-    // This is safe because we are manually scrubbing the values.
-    // It is necessary to do it this way because $a and $b are formulas when using an offset.
+    // This is safe because we are manually scrubbing the values. It is
+    // necessary to do it this way because $a and $b are formulas when using an
+    // offset.
     $operator = strtoupper($this->operator);
     $this->query->addWhereExpression($this->options['group'], "$field $operator $a AND $b");
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function opSimple($field) {
     $value = intval(strtotime($this->value['value'], 0));
     if (!empty($this->value['type']) && $this->value['type'] == 'offset') {
       // Keep sign.
       $value = '***CURRENT_TIME***' . sprintf('%+d', $value);
     }
-    // This is safe because we are manually scrubbing the value.
-    // It is necessary to do it this way because $value is a formula when using an offset.
+    // This is safe because we are manually scrubbing the value. It is necessary
+    // to do it this way because $value is a formula when using an offset.
     $this->query->addWhereExpression($this->options['group'], "$field $this->operator $value");
   }
 

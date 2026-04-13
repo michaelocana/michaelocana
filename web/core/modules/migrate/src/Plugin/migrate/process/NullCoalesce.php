@@ -2,6 +2,7 @@
 
 namespace Drupal\migrate\Plugin\migrate\process;
 
+use Drupal\migrate\Attribute\MigrateProcess;
 use Drupal\migrate\MigrateException;
 use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
@@ -20,20 +21,17 @@ use Drupal\migrate\Row;
  *
  * Example:
  * Given source keys of foo, bar, and baz:
- *
+ * @code
  * process_key:
  *   plugin: null_coalesce
  *   source:
  *     - foo
  *     - bar
  *     - baz
- *
+ * @endcode
  * This plugin will return the equivalent of `foo ?? bar ?? baz`
- *
- * @MigrateProcessPlugin(
- *   id = "null_coalesce"
- * )
  */
+#[MigrateProcess('null_coalesce')]
 class NullCoalesce extends ProcessPluginBase {
 
   /**

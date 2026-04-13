@@ -1,20 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\user_batch_action_test\Plugin\Action;
 
 use Drupal\Core\Action\ActionBase;
+use Drupal\Core\Action\Attribute\Action;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
  * Provides action that sets batch precessing.
- *
- * @Action(
- *   id = "user_batch_action_test_action",
- *   label = @Translation("Process user in batch"),
- *   type = "user",
- * )
  */
+#[Action(
+  id: 'user_batch_action_test_action',
+  label: new TranslatableMarkup('Process user in batch'),
+  type: 'user'
+)]
 class BatchUserAction extends ActionBase {
 
   /**
@@ -25,7 +28,7 @@ class BatchUserAction extends ActionBase {
 
     foreach ($entities as $entity) {
       $operations[] = [
-        [get_class($this), 'processBatch'],
+        [static::class, 'processBatch'],
         [
           [
             'entity_type' => $entity->getEntityTypeId(),
@@ -38,7 +41,7 @@ class BatchUserAction extends ActionBase {
     if ($operations) {
       $batch = [
         'operations' => $operations,
-        'finished' => [get_class($this), 'finishBatch'],
+        'finished' => [static::class, 'finishBatch'],
       ];
       batch_set($batch);
     }
@@ -47,14 +50,15 @@ class BatchUserAction extends ActionBase {
   /**
    * {@inheritdoc}
    */
-  public function execute(ContentEntityInterface $entity = NULL) {
+  public function execute($entity = NULL) {
+    assert($entity instanceof ContentEntityInterface);
     $this->executeMultiple([$entity]);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function access($object, AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($object, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     return TRUE;
   }
 

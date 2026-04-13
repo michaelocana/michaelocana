@@ -4,7 +4,7 @@ dependencies:
   module:
     - node
 id: test_exposed_form_buttons
-label: ''
+label: test_exposed_form_buttons
 module: views
 description: ''
 tag: ''
@@ -47,7 +47,7 @@ display:
       row:
         type: 'entity:node'
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   page_1:

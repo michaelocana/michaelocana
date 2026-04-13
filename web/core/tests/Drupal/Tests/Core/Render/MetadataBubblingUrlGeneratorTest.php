@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Render;
 
 use Drupal\Core\Render\MetadataBubblingUrlGenerator;
@@ -25,7 +27,7 @@ class MetadataBubblingUrlGeneratorTest extends UrlGeneratorTest {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->renderer = $this->createMock('\Drupal\Core\Render\RendererInterface');
@@ -50,13 +52,11 @@ class MetadataBubblingUrlGeneratorTest extends UrlGeneratorTest {
    *
    * @dataProvider providerUrlBubbleableMetadataBubbling
    */
-  public function testUrlBubbleableMetadataBubbling($collect_bubbleable_metadata, $invocations, array $options) {
-    $self = $this;
-
+  public function testUrlBubbleableMetadataBubbling($collect_bubbleable_metadata, $invocations, array $options): void {
     $this->renderer->expects($this->exactly($invocations))
       ->method('render')
-      ->willReturnCallback(function ($build) use ($self) {
-        $self->assertTrue(!empty($build['#cache']));
+      ->willReturnCallback(function ($build) {
+        $this->assertArrayHasKey('#cache', $build);
       });
 
     $url = new Url('test_1', [], $options);
@@ -67,7 +67,7 @@ class MetadataBubblingUrlGeneratorTest extends UrlGeneratorTest {
   /**
    * Data provider for ::testUrlBubbleableMetadataBubbling().
    */
-  public function providerUrlBubbleableMetadataBubbling() {
+  public static function providerUrlBubbleableMetadataBubbling() {
     return [
       // No bubbling when bubbleable metadata is collected.
       [TRUE, 0, []],

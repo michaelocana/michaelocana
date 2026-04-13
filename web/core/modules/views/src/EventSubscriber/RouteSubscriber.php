@@ -18,7 +18,6 @@ use Symfony\Component\Routing\RouteCollection;
  * routes are overridden by views. This information is used to determine which
  * views have to be added by views in the dynamic event.
  *
- *
  * @see \Drupal\views\Plugin\views\display\PathPluginBase
  */
 class RouteSubscriber extends RouteSubscriberBase {
@@ -74,7 +73,7 @@ class RouteSubscriber extends RouteSubscriberBase {
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
+  public static function getSubscribedEvents(): array {
     $events = parent::getSubscribedEvents();
     $events[RoutingEvents::FINISHED] = ['routeRebuildFinished'];
     // Ensure to run after the entity resolver subscriber
@@ -94,7 +93,7 @@ class RouteSubscriber extends RouteSubscriberBase {
       // @todo Convert this method to some service.
       $views = $this->getApplicableViews();
       foreach ($views as $data) {
-        list($view_id, $display_id) = $data;
+        [$view_id, $display_id] = $data;
         $this->viewsDisplayPairs[] = $view_id . '.' . $display_id;
       }
       $this->viewsDisplayPairs = array_combine($this->viewsDisplayPairs, $this->viewsDisplayPairs);
@@ -111,7 +110,7 @@ class RouteSubscriber extends RouteSubscriberBase {
   public function routes() {
     $collection = new RouteCollection();
     foreach ($this->getViewsDisplayIDsWithRoute() as $pair) {
-      list($view_id, $display_id) = explode('.', $pair);
+      [$view_id, $display_id] = explode('.', $pair);
       $view = $this->viewStorage->load($view_id);
       // @todo This should have an executable factory injected.
       if (($view = $view->getExecutable()) && $view instanceof ViewExecutable) {
@@ -133,14 +132,14 @@ class RouteSubscriber extends RouteSubscriberBase {
    */
   protected function alterRoutes(RouteCollection $collection) {
     foreach ($this->getViewsDisplayIDsWithRoute() as $pair) {
-      list($view_id, $display_id) = explode('.', $pair);
+      [$view_id, $display_id] = explode('.', $pair);
       $view = $this->viewStorage->load($view_id);
       // @todo This should have an executable factory injected.
       if (($view = $view->getExecutable()) && $view instanceof ViewExecutable) {
         if ($view->setDisplay($display_id) && $display = $view->displayHandlers->get($display_id)) {
           if ($display instanceof DisplayRouterInterface) {
-            // If the display returns TRUE a route item was found, so it does not
-            // have to be added.
+            // If the display returns TRUE a route item was found, so it does
+            // not have to be added.
             $view_route_names = $display->alterRoutes($collection);
             $this->viewRouteNames = $view_route_names + $this->viewRouteNames;
             foreach ($view_route_names as $id_display => $route_name) {

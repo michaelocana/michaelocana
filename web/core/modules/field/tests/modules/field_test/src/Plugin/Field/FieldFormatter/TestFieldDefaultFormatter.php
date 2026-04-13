@@ -1,25 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\field_test\Plugin\Field\FieldFormatter;
 
+use Drupal\Core\Field\Attribute\FieldFormatter;
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
  * Plugin implementation of the 'field_test_default' formatter.
- *
- * @FieldFormatter(
- *   id = "field_test_default",
- *   label = @Translation("Default"),
- *   description = @Translation("Default formatter"),
- *   field_types = {
- *     "test_field",
- *     "test_field_with_preconfigured_options"
- *   },
- *   weight = 1
- * )
  */
+#[FieldFormatter(
+  id: 'field_test_default',
+  label: new TranslatableMarkup('Default'),
+  description: new TranslatableMarkup('Default formatter'),
+  field_types: [
+    'test_field',
+    'test_field_with_preconfigured_options',
+  ],
+  weight: 1,
+)]
 class TestFieldDefaultFormatter extends FormatterBase {
 
   /**
@@ -36,7 +39,7 @@ class TestFieldDefaultFormatter extends FormatterBase {
    */
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $element['test_formatter_setting'] = [
-      '#title' => t('Setting'),
+      '#title' => $this->t('Setting'),
       '#type' => 'textfield',
       '#size' => 20,
       '#default_value' => $this->getSetting('test_formatter_setting'),
@@ -50,7 +53,10 @@ class TestFieldDefaultFormatter extends FormatterBase {
    */
   public function settingsSummary() {
     $summary = [];
-    $summary[] = t('@setting: @value', ['@setting' => 'test_formatter_setting', '@value' => $this->getSetting('test_formatter_setting')]);
+    $summary[] = $this->t('@setting: @value', [
+      '@setting' => 'test_formatter_setting',
+      '@value' => $this->getSetting('test_formatter_setting'),
+    ]);
     return $summary;
   }
 

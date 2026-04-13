@@ -52,8 +52,10 @@ class ModerationInformation implements ModerationInformationInterface {
     if (!$entity instanceof ContentEntityInterface) {
       return FALSE;
     }
-
-    return $this->shouldModerateEntitiesOfBundle($entity->getEntityType(), $entity->bundle());
+    if (!$this->shouldModerateEntitiesOfBundle($entity->getEntityType(), $entity->bundle())) {
+      return FALSE;
+    }
+    return $this->entityTypeManager->getHandler($entity->getEntityTypeId(), 'moderation')->isModeratedEntity($entity);
   }
 
   /**
@@ -80,27 +82,6 @@ class ModerationInformation implements ModerationInformationInterface {
       return isset($bundles[$bundle]['workflow']);
     }
     return FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getLatestRevision($entity_type_id, $entity_id) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use RevisionableStorageInterface::getLatestRevisionId() and RevisionableStorageInterface::loadRevision() instead. See https://www.drupal.org/node/3087295', E_USER_DEPRECATED);
-    /** @var \Drupal\Core\Entity\ContentEntityStorageInterface $storage */
-    $storage = $this->entityTypeManager->getStorage($entity_type_id);
-    return $storage->loadRevision($storage->getLatestRevisionId($entity_id));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getLatestRevisionId($entity_type_id, $entity_id) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use RevisionableStorageInterface::getLatestRevisionId() instead. See https://www.drupal.org/node/3087295', E_USER_DEPRECATED);
-    /** @var \Drupal\Core\Entity\ContentEntityStorageInterface $storage */
-    if ($storage = $this->entityTypeManager->getStorage($entity_type_id)) {
-      return $storage->getLatestRevisionId($entity_id);
-    }
   }
 
   /**
@@ -136,18 +117,10 @@ class ModerationInformation implements ModerationInformationInterface {
   /**
    * {@inheritdoc}
    */
-  public function isLatestRevision(ContentEntityInterface $entity) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use RevisionableInterface::isLatestRevision() instead. See https://www.drupal.org/node/3087295', E_USER_DEPRECATED);
-    return $entity->isLatestRevision();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function hasPendingRevision(ContentEntityInterface $entity) {
     $result = FALSE;
     if ($this->isModeratedEntity($entity)) {
-      /** @var \Drupal\Core\Entity\ContentEntityStorageInterface $storage */
+      /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
       $storage = $this->entityTypeManager->getStorage($entity->getEntityTypeId());
       $latest_revision_id = $storage->getLatestTranslationAffectedRevisionId($entity->id(), $entity->language()->getId());
       $default_revision_id = $entity->isDefaultRevision() && !$entity->isNewRevision() && ($revision_id = $entity->getRevisionId()) ?
@@ -242,8 +215,10 @@ class ModerationInformation implements ModerationInformationInterface {
     $state = NULL;
     $workflow_type = $this->getWorkflowForEntity($entity)->getTypePlugin();
     if (!$entity->isNew() && !$this->isFirstTimeModeration($entity)) {
+      /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
+      $storage = $this->entityTypeManager->getStorage($entity->getEntityTypeId());
       /** @var \Drupal\Core\Entity\ContentEntityInterface $original_entity */
-      $original_entity = $this->entityTypeManager->getStorage($entity->getEntityTypeId())->loadRevision($entity->getLoadedRevisionId());
+      $original_entity = $storage->loadRevision($entity->getLoadedRevisionId());
       if (!$entity->isDefaultTranslation() && $original_entity->hasTranslation($entity->language()->getId())) {
         $original_entity = $original_entity->getTranslation($entity->language()->getId());
       }
@@ -267,6 +242,7 @@ class ModerationInformation implements ModerationInformationInterface {
    *   TRUE if this is the entity's first time being moderated, FALSE otherwise.
    */
   protected function isFirstTimeModeration(ContentEntityInterface $entity) {
+    /** @var \Drupal\Core\Entity\RevisionableStorageInterface $storage */
     $storage = $this->entityTypeManager->getStorage($entity->getEntityTypeId());
     $original_entity = $storage->loadRevision($storage->getLatestRevisionId($entity->id()));
 

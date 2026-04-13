@@ -2,41 +2,11 @@
 
 /**
  * @file
- * Interface translation summary, editing and deletion user interfaces.
  */
 
+use Drupal\Core\Hook\Attribute\ProceduralHookScanStop;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-
-/**
- * Page callback: Checks for translation updates and displays the status.
- *
- * Manually checks the translation status without the use of cron.
- *
- * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0. It is unused by
- *   Drupal core. Duplicate this function in your own extension if you need its
- *   behavior.
- *
- * @see https://www.drupal.org/node/2931188
- */
-function locale_translation_manual_status() {
-  @trigger_error('locale_translation_manual_status() is deprecated in Drupal 8.5.0 and will be removed before Drupal 9.0.0. It is unused by Drupal core. Duplicate this function in your own extension if you need its behavior.', E_USER_DEPRECATED);
-  module_load_include('compare.inc', 'locale');
-
-  // Check the translation status of all translatable projects in all languages.
-  // First we clear the cached list of projects. Although not strictly
-  // necessary, this is helpful in case the project list is out of sync.
-  locale_translation_flush_projects();
-  locale_translation_check_projects();
-
-  // Execute a batch if required. A batch is only used when remote files
-  // are checked.
-  if (batch_get()) {
-    return batch_process('admin/reports/translations');
-  }
-  return new RedirectResponse(Url::fromRoute('locale.translate_status', [], ['absolute' => TRUE])->toString());
-}
 
 /**
  * Prepares variables for translation status information templates.
@@ -52,7 +22,8 @@ function locale_translation_manual_status() {
  *
  * @see \Drupal\locale\Form\TranslationStatusForm
  */
-function template_preprocess_locale_translation_update_info(array &$variables) {
+#[ProceduralHookScanStop]
+function template_preprocess_locale_translation_update_info(array &$variables): void {
   foreach ($variables['updates'] as $update) {
     $variables['modules'][] = $update['name'];
   }
@@ -74,9 +45,9 @@ function template_preprocess_locale_translation_update_info(array &$variables) {
  *
  * @see \Drupal\locale\Form\TranslationStatusForm
  */
-function template_preprocess_locale_translation_last_check(array &$variables) {
+function template_preprocess_locale_translation_last_check(array &$variables): void {
   $last = $variables['last'];
   $variables['last_checked'] = ($last != NULL);
-  $variables['time'] = \Drupal::service('date.formatter')->formatTimeDiffSince($last);
+  $variables['time'] = $variables['last_checked'] ? \Drupal::service('date.formatter')->formatTimeDiffSince($last) : NULL;
   $variables['link'] = Link::fromTextAndUrl(t('Check manually'), Url::fromRoute('locale.check_translation', [], ['query' => \Drupal::destination()->getAsArray()]))->toString();
 }

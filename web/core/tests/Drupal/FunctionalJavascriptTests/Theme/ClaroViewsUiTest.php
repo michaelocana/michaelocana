@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalJavascriptTests\Theme;
 
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
@@ -24,7 +26,7 @@ class ClaroViewsUiTest extends WebDriverTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     // Disable automatic live preview to make the sequence of calls clearer.
@@ -45,7 +47,7 @@ class ClaroViewsUiTest extends WebDriverTestBase {
    * Ensures that the CSS classes added to display menu tabs are preserved when
    * Views UI is updated with AJAX.
    */
-  public function testViewsUiTabsCssClasses() {
+  public function testViewsUiTabsCssClasses(): void {
     $this->drupalGet('admin/structure/views/view/who_s_online');
     $assert_session = $this->assertSession();
     $assert_session->elementExists('css', '#views-display-menu-tabs.views-tabs.views-tabs--secondary');
@@ -67,14 +69,14 @@ class ClaroViewsUiTest extends WebDriverTestBase {
    * Ensures that the CSS classes added to the Views UI extra actions dropbutton
    * in .views-display-top are preserved when Views UI is refreshed with AJAX.
    */
-  public function testViewsUiDropButtonCssClasses() {
+  public function testViewsUiDropButtonCssClasses(): void {
     $this->drupalGet('admin/structure/views/view/who_s_online');
     $assert_session = $this->assertSession();
     $extra_actions_dropbutton_list = $assert_session->elementExists('css', '#views-display-extra-actions.dropbutton--small');
     $list_item_selectors = ['li:first-child', 'li:last-child'];
     // Test list item CSS classes.
     foreach ($list_item_selectors as $list_item_selector) {
-      $this->assertNotNull($extra_actions_dropbutton_list->find('css', "$list_item_selector.dropbutton__item.dropbutton__item--small"));
+      $this->assertNotNull($extra_actions_dropbutton_list->find('css', "$list_item_selector.dropbutton__item"));
     }
 
     // Click on the Display name and wait for the Views UI dialog.
@@ -89,7 +91,7 @@ class ClaroViewsUiTest extends WebDriverTestBase {
     $this->assertTrue($extra_actions_dropbutton_list->hasClass('dropbutton--small'));
     // Check list item CSS classes.
     foreach ($list_item_selectors as $list_item_selector) {
-      $this->assertNotNull($extra_actions_dropbutton_list->find('css', "$list_item_selector.dropbutton__item.dropbutton__item--small"));
+      $this->assertNotNull($extra_actions_dropbutton_list->find('css', "$list_item_selector.dropbutton__item"));
     }
   }
 

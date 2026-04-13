@@ -14,7 +14,7 @@ base_field: nid
 display:
   default:
     id: default
-    display_title: Master
+    display_title: Default
     display_plugin: default
     position: 0
     display_options:
@@ -247,7 +247,6 @@ display:
           admin_label: ''
           title_enable: false
           title: ''
-          default_argument_skip_url: false
           summary_options: {  }
           validate:
             type: none
@@ -287,6 +286,7 @@ display:
           override: true
           sticky: false
           grouping: {  }
+          class: ''
           row_class: ''
           default_row_class: true
           uses_fields: false
@@ -401,7 +401,6 @@ display:
           admin_label: ''
           title_enable: false
           title: ''
-          default_argument_skip_url: false
           validate:
             type: none
             fail: 'not found'

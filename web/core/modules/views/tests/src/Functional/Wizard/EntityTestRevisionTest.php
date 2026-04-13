@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional\Wizard;
 
 /**
@@ -12,7 +14,7 @@ class EntityTestRevisionTest extends WizardTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['entity_test'];
+  protected static $modules = ['entity_test'];
 
   /**
    * {@inheritdoc}
@@ -22,18 +24,19 @@ class EntityTestRevisionTest extends WizardTestBase {
   /**
    * Tests creating a view of revisions where the type is not on the base table.
    */
-  public function testRevisionsViewWithNoTypeOnBaseTable() {
+  public function testRevisionsViewWithNoTypeOnBaseTable(): void {
     $type = [
       'show[wizard_key]' => 'standard:entity_test_rev_revision',
     ];
-    $this->drupalPostForm('admin/structure/views/add', $type, t('Update "Show" choice'));
+    $this->drupalGet('admin/structure/views/add');
+    $this->submitForm($type, 'Update "Show" choice');
     $view = [];
     $view['label'] = $this->randomMachineName(16);
-    $view['id'] = strtolower($this->randomMachineName(16));
+    $view['id'] = $this->randomMachineName(16);
     $view['description'] = $this->randomMachineName(16);
     $view['page[create]'] = FALSE;
     $view['show[type]'] = 'entity_test_rev';
-    $this->drupalPostForm(NULL, $view, t('Save and edit'));
+    $this->submitForm($view, 'Save and edit');
 
     $view_storage_controller = \Drupal::entityTypeManager()->getStorage('view');
     /** @var \Drupal\views\Entity\View $view */

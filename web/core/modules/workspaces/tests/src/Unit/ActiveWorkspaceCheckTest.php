@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\workspaces\Unit;
 
 use Drupal\Core\Access\AccessResult;
@@ -28,7 +30,7 @@ class ActiveWorkspaceCheckTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->container = new ContainerBuilder();
@@ -43,8 +45,9 @@ class ActiveWorkspaceCheckTest extends UnitTestCase {
    * Provides data for the testAccess method.
    *
    * @return array
+   *   An array of test data.
    */
-  public function providerTestAccess() {
+  public static function providerTestAccess() {
     return [
       [[], FALSE, FALSE],
       [[], TRUE, FALSE],
@@ -59,7 +62,7 @@ class ActiveWorkspaceCheckTest extends UnitTestCase {
    * @covers ::access
    * @dataProvider providerTestAccess
    */
-  public function testAccess($requirements, $has_active_workspace, $access, array $contexts = []) {
+  public function testAccess($requirements, $has_active_workspace, $access, array $contexts = []): void {
     $route = new Route('', [], $requirements);
 
     $workspace_manager = $this->prophesize(WorkspaceManagerInterface::class);

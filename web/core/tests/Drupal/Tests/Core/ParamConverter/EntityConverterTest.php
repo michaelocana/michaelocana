@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\ParamConverter;
 
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
@@ -8,13 +10,8 @@ use Drupal\Core\Entity\ContentEntityStorageInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\ParamConverter\EntityConverter;
 use Drupal\Core\ParamConverter\ParamNotConvertedException;
-use Drupal\Core\Plugin\Context\Context;
-use Drupal\Core\Plugin\Context\ContextDefinition;
-use Drupal\Core\Plugin\Context\ContextRepositoryInterface;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
@@ -53,7 +50,7 @@ class EntityConverterTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
@@ -68,7 +65,7 @@ class EntityConverterTest extends UnitTestCase {
    * @param object[] $service_map
    *   An associative array of service instances keyed by service name.
    */
-  protected function setUpMocks($service_map = []) {
+  protected function setUpMocks($service_map = []): void {
     $entity = $this->createMock(ContentEntityInterface::class);
     $entity->expects($this->any())
       ->method('getEntityTypeId')
@@ -108,11 +105,6 @@ class EntityConverterTest extends UnitTestCase {
       ->with('entity_test')
       ->willReturn($entity_type);
 
-    $context_repository = $this->createMock(ContextRepositoryInterface::class);
-    $context_repository->expects($this->any())
-      ->method('getAvailableContexts')
-      ->willReturn([]);
-
     $context_definition = $this->createMock(DataDefinition::class);
     foreach (['setLabel', 'setDescription', 'setRequired', 'setConstraints'] as $method) {
       $context_definition->expects($this->any())
@@ -132,7 +124,6 @@ class EntityConverterTest extends UnitTestCase {
       ->willReturn($context_definition);
 
     $service_map += [
-      'context.repository' => $context_repository,
       'typed_data_manager' => $typed_data_manager,
     ];
 
@@ -151,115 +142,13 @@ class EntityConverterTest extends UnitTestCase {
   }
 
   /**
-   * Tests that passing the language manager triggers a deprecation error.
-   *
-   * @group legacy
-   *
-   * @expectedDeprecation Calling EntityConverter::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.
-   */
-  public function testDeprecatedLanguageManager() {
-    $container_entity_repository = clone $this->entityRepository;
-    $this->setUpMocks([
-      'entity.repository' => $container_entity_repository,
-    ]);
-    $language_manager = $this->createMock(LanguageManagerInterface::class);
-
-    $this->entityConverter = new EntityConverter($this->entityTypeManager, $language_manager);
-  }
-
-  /**
-   * Tests that retrieving the language manager triggers a deprecation error.
-   *
-   * @group legacy
-   *
-   * @expectedDeprecation The property languageManager (language_manager service) is deprecated in Drupal\Core\ParamConverter\EntityConverter and will be removed before Drupal 9.0.0.
-   */
-  public function testDeprecatedLanguageManagerMethod() {
-    $this->setUpMocks([
-      'language_manager' => $this->createMock(LanguageManagerInterface::class),
-    ]);
-    $this->entityConverter = new EntityConverter($this->entityTypeManager, $this->entityRepository);
-    $reflector = new \ReflectionMethod(EntityConverter::class, 'languageManager');
-    $reflector->setAccessible(TRUE);
-    $this->assertSame(\Drupal::service('language_manager'), $reflector->invoke($this->entityConverter));
-  }
-
-  /**
-   * Tests that retrieving the language manager triggers a deprecation error.
-   *
-   * @group legacy
-   *
-   * @expectedDeprecation The property languageManager (language_manager service) is deprecated in Drupal\Core\ParamConverter\EntityConverter and will be removed before Drupal 9.0.0.
-   */
-  public function testDeprecatedLanguageManagerProperty() {
-    $this->setUpMocks([
-      'language_manager' => $this->createMock(LanguageManagerInterface::class),
-    ]);
-    $this->entityConverter = new EntityConverter($this->entityTypeManager, $this->entityRepository);
-    $this->assertSame(\Drupal::service('language_manager'), $this->entityConverter->__get('languageManager'));
-  }
-
-  /**
-   * Tests that ::getLatestTranslationAffectedRevision() is deprecated.
-   *
-   * @group legacy
-   *
-   * @expectedDeprecation \Drupal\Core\ParamConverter\EntityConverter::getLatestTranslationAffectedRevision() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepositoryInterface::getActive() instead.
-   */
-  public function testDeprecatedGetLatestTranslationAffectedRevision() {
-    $this->setUpMocks();
-
-    /** @var \Drupal\Core\Entity\ContentEntityInterface|\PHPUnit\Framework\MockObject\MockObject $revision */
-    $revision = $this->createMock(ContentEntityInterface::class);
-    $revision->expects($this->any())
-      ->method('getEntityTypeId')
-      ->willReturn('entity_test');
-    $revision->expects($this->any())
-      ->method('id')
-      ->willReturn('1');
-
-    /** @var static $test */
-    $test = $this;
-    $this->entityRepository->expects($this->any())
-      ->method('getActive')
-      ->willReturnCallback(function ($entity_type_id, $entity_id, $contexts) use ($test) {
-        $test->assertSame('entity_test', $entity_type_id);
-        $test->assertSame('1', $entity_id);
-        $context_id_prefix = '@language.current_language_context:';
-        $test->assertTrue(isset($contexts[$context_id_prefix . LanguageInterface::TYPE_CONTENT]));
-        $test->assertTrue(isset($contexts[$context_id_prefix . LanguageInterface::TYPE_INTERFACE]));
-      });
-
-    $this->entityConverter = new EntityConverter($this->entityTypeManager, $this->entityRepository);
-    $reflector = new \ReflectionMethod(EntityConverter::class, 'getLatestTranslationAffectedRevision');
-    $reflector->setAccessible(TRUE);
-    $reflector->invoke($this->entityConverter, $revision, NULL);
-  }
-
-  /**
-   * Tests that ::loadRevision() is deprecated.
-   *
-   * @group legacy
-   *
-   * @expectedDeprecation \Drupal\Core\ParamConverter\EntityConverter::loadRevision() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0.
-   */
-  public function testDeprecatedLoadRevision() {
-    $this->setUpMocks();
-    $this->entityConverter = new EntityConverter($this->entityTypeManager, $this->entityRepository);
-    $reflector = new \ReflectionMethod(EntityConverter::class, 'loadRevision');
-    $reflector->setAccessible(TRUE);
-    $revision = $this->createMock(ContentEntityInterface::class);
-    $reflector->invoke($this->entityConverter, $revision, NULL);
-  }
-
-  /**
    * Tests the applies() method.
    *
    * @dataProvider providerTestApplies
    *
    * @covers ::applies
    */
-  public function testApplies(array $definition, $name, Route $route, $applies) {
+  public function testApplies(array $definition, $name, Route $route, $applies): void {
     $this->entityTypeManager->expects($this->any())
       ->method('hasDefinition')
       ->willReturnCallback(function ($entity_type) {
@@ -271,7 +160,7 @@ class EntityConverterTest extends UnitTestCase {
   /**
    * Provides test data for testApplies()
    */
-  public function providerTestApplies() {
+  public static function providerTestApplies() {
     $data = [];
     $data[] = [['type' => 'entity:foo'], 'foo', new Route('/test/{foo}/bar'), FALSE];
     $data[] = [['type' => 'entity:entity_test'], 'foo', new Route('/test/{foo}/bar'), TRUE];
@@ -290,7 +179,7 @@ class EntityConverterTest extends UnitTestCase {
    *
    * @covers ::convert
    */
-  public function testConvert($value, array $definition, array $defaults, $expected_result) {
+  public function testConvert($value, array $definition, array $defaults, $expected_result): void {
     $this->setUpMocks();
 
     $this->entityRepository->expects($this->any())
@@ -303,9 +192,9 @@ class EntityConverterTest extends UnitTestCase {
   }
 
   /**
-   * Provides test data for testConvert
+   * Provides test data for testConvert.
    */
-  public function providerTestConvert() {
+  public static function providerTestConvert() {
     $data = [];
     // Existing entity type.
     $data[] = ['valid_id', ['type' => 'entity:entity_test'], ['foo' => 'valid_id'], (object) ['id' => 'valid_id']];
@@ -320,14 +209,11 @@ class EntityConverterTest extends UnitTestCase {
   /**
    * Tests the convert() method with an invalid entity type.
    */
-  public function testConvertWithInvalidEntityType() {
+  public function testConvertWithInvalidEntityType(): void {
     $this->setUpMocks();
 
-    $contexts = [
-      EntityRepositoryInterface::CONTEXT_ID_LEGACY_CONTEXT_OPERATION => new Context(new ContextDefinition('string'), 'entity_upcast'),
-    ];
-
     $plugin_id = 'invalid_id';
+    $contexts = ['operation' => 'entity_upcast'];
     $this->entityRepository->expects($this->once())
       ->method('getCanonical')
       ->with($plugin_id, 'id', $contexts)
@@ -341,7 +227,7 @@ class EntityConverterTest extends UnitTestCase {
   /**
    * Tests the convert() method with an invalid dynamic entity type.
    */
-  public function testConvertWithInvalidDynamicEntityType() {
+  public function testConvertWithInvalidDynamicEntityType(): void {
     $this->expectException(ParamNotConvertedException::class);
     $this->expectExceptionMessage('The "foo" parameter was not converted because the "invalid_id" parameter is missing.');
     $this->entityConverter->convert('id', ['type' => 'entity:{invalid_id}'], 'foo', ['foo' => 'id']);

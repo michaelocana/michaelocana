@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\system\Functional\Theme;
 
 use Drupal\Tests\BrowserTestBase;
@@ -12,11 +14,9 @@ use Drupal\Tests\BrowserTestBase;
 class HtmlAttributesTest extends BrowserTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['theme_test'];
+  protected static $modules = ['theme_test'];
 
   /**
    * {@inheritdoc}
@@ -26,11 +26,10 @@ class HtmlAttributesTest extends BrowserTestBase {
   /**
    * Tests that attributes in the 'html' and 'body' elements can be altered.
    */
-  public function testThemeHtmlAttributes() {
+  public function testThemeHtmlAttributes(): void {
     $this->drupalGet('');
     $this->assertSession()->responseContains('<html lang="en" dir="ltr" theme_test_html_attribute="theme test html attribute value">');
-    $attributes = $this->xpath('/body[@theme_test_body_attribute="theme test body attribute value"]');
-    $this->assertCount(1, $attributes, "Attribute set in the 'body' element via hook_preprocess_HOOK() found.");
+    $this->assertSession()->elementsCount('xpath', '/body[@theme_test_body_attribute="theme test body attribute value"]', 1);
   }
 
 }

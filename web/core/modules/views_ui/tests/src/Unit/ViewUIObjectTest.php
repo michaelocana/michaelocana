@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views_ui\Unit;
 
 use Drupal\Core\Language\LanguageInterface;
@@ -18,7 +20,7 @@ class ViewUIObjectTest extends UnitTestCase {
   /**
    * Tests entity method decoration.
    */
-  public function testEntityDecoration() {
+  public function testEntityDecoration(): void {
     $method_args = [];
     $method_args['setOriginalId'] = [12];
     $method_args['setStatus'] = [TRUE];
@@ -30,14 +32,23 @@ class ViewUIObjectTest extends UnitTestCase {
     foreach ($reflection->getMethods() as $reflection_method) {
       $interface_methods[] = $reflection_method->getName();
 
-      // EntityInterface::isNew() is missing from the list of methods, because it
-      // calls id(), which breaks the ->expect($this->once()) call. Call it later.
-      // EntityInterface::isSyncing() is only called during syncing process.
-      // EntityInterface::isUninstalling() is only called during uninstallation
-      // process. EntityInterface::getConfigDependencyName() and
+      // EntityInterface::isNew() is missing from the list of methods, because
+      // it calls id(), which breaks the ->expect($this->once()) call. Call it
+      // later. EntityInterface::isSyncing() is only called during syncing
+      // process. EntityInterface::isUninstalling() is only called during
+      // uninstallation process. EntityInterface::getConfigDependencyName() and
       // ConfigEntityInterface::calculateDependencies() are only used for
       // dependency management.
-      if (!in_array($reflection_method->getName(), ['isNew', 'isSyncing', 'isUninstalling', 'getConfigDependencyKey', 'getConfigDependencyName', 'calculateDependencies'])) {
+      if (!in_array(
+        $reflection_method->getName(),
+        [
+          'isNew',
+          'isSyncing',
+          'isUninstalling',
+          'getConfigDependencyKey',
+          'getConfigDependencyName',
+          'calculateDependencies',
+        ])) {
         if (count($reflection_method->getParameters()) == 0) {
           $method_args[$reflection_method->getName()] = [];
         }
@@ -45,7 +56,7 @@ class ViewUIObjectTest extends UnitTestCase {
     }
 
     $storage = $this->getMockBuilder('Drupal\views\Entity\View')
-      ->setMethods($interface_methods)
+      ->onlyMethods($interface_methods)
       ->setConstructorArgs([[], 'view'])
       ->getMock();
     $executable = $this->getMockBuilder('Drupal\views\ViewExecutable')
@@ -73,7 +84,7 @@ class ViewUIObjectTest extends UnitTestCase {
   /**
    * Tests the isLocked method.
    */
-  public function testIsLocked() {
+  public function testIsLocked(): void {
     $storage = $this->getMockBuilder('Drupal\views\Entity\View')
       ->setConstructorArgs([[], 'view'])
       ->getMock();
@@ -85,7 +96,7 @@ class ViewUIObjectTest extends UnitTestCase {
     $account = $this->createMock('Drupal\Core\Session\AccountInterface');
     $account->expects($this->exactly(2))
       ->method('id')
-      ->will($this->returnValue(1));
+      ->willReturn(1);
 
     $container = new ContainerBuilder();
     $container->set('current_user', $account);
@@ -111,61 +122,9 @@ class ViewUIObjectTest extends UnitTestCase {
   }
 
   /**
-   * Tests the isLocked method.
-   *
-   * @expectedDeprecation Using the "lock" public property of a View is deprecated in Drupal 8.7.0 and will not be allowed in Drupal 9.0.0. Use \Drupal\views_ui\ViewUI::setLock() instead. See https://www.drupal.org/node/3025869.
-   * @group legacy
-   */
-  public function testIsLockedLegacy() {
-    $storage = $this->getMockBuilder('Drupal\views\Entity\View')
-      ->setConstructorArgs([[], 'view'])
-      ->getMock();
-    $executable = $this->getMockBuilder('Drupal\views\ViewExecutable')
-      ->disableOriginalConstructor()
-      ->setConstructorArgs([$storage])
-      ->getMock();
-    $storage->set('executable', $executable);
-    $account = $this->createMock('Drupal\Core\Session\AccountInterface');
-    $account->expects($this->exactly(2))
-      ->method('id')
-      ->will($this->returnValue(1));
-
-    $container = new ContainerBuilder();
-    $container->set('current_user', $account);
-    \Drupal::setContainer($container);
-
-    $view_ui = new ViewUI($storage);
-
-    // A view_ui without a lock object is not locked.
-    $this->assertFalse($view_ui->isLocked());
-
-    // Set the lock object with a different owner than the mocked account above.
-    $lock = (object) [
-      'owner' => 2,
-      'data' => [],
-      'updated' => (int) $_SERVER['REQUEST_TIME'],
-    ];
-    $view_ui->lock = $lock;
-    $this->assertTrue($view_ui->isLocked());
-
-    // Set a different lock object with the same object as the mocked account.
-    $lock = (object) [
-      'owner' => 1,
-      'data' => [],
-      'updated' => (int) $_SERVER['REQUEST_TIME'],
-    ];
-    $view_ui->lock = $lock;
-    $this->assertFalse($view_ui->isLocked());
-  }
-
-  /**
    * Tests serialization of the ViewUI object.
    */
-  public function testSerialization() {
-    // Set a container so the DependencySerializationTrait has it.
-    $container = new ContainerBuilder();
-    \Drupal::setContainer($container);
-
+  public function testSerialization(): void {
     $storage = new View([], 'view');
     $executable = $this->getMockBuilder('Drupal\views\ViewExecutable')
       ->disableOriginalConstructor()

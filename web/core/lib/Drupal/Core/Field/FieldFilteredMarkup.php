@@ -41,7 +41,7 @@ final class FieldFilteredMarkup implements MarkupInterface, \Countable {
     // All known XSS vectors are filtered out by
     // \Drupal\Component\Utility\Xss::filter(), all tags in the markup are
     // allowed intentionally by the trait, and no danger is added in by
-    // \Drupal\Component\Utility\HTML::normalize(). Since the normalized value
+    // \Drupal\Component\Utility\Html::normalize(). Since the normalized value
     // is essentially the same markup, designate this string as safe as well.
     // This method is an internal part of field sanitization, so the resultant,
     // sanitized string should be printable as is.
@@ -56,7 +56,30 @@ final class FieldFilteredMarkup implements MarkupInterface, \Countable {
    *   A list of allowed tags.
    */
   public static function allowedTags() {
-    return ['a', 'b', 'big', 'code', 'del', 'em', 'i', 'ins', 'pre', 'q', 'small', 'span', 'strong', 'sub', 'sup', 'tt', 'ol', 'ul', 'li', 'p', 'br', 'img'];
+    return [
+      'a',
+      'b',
+      'big',
+      'code',
+      'del',
+      'em',
+      'i',
+      'ins',
+      'pre',
+      'q',
+      'small',
+      'span',
+      'strong',
+      'sub',
+      'sup',
+      'tt',
+      'ol',
+      'ul',
+      'li',
+      'p',
+      'br',
+      'img',
+    ];
   }
 
   /**

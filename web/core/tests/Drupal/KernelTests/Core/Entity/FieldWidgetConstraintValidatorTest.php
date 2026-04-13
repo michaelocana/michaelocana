@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\KernelTests\Core\Entity;
 
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormState;
 use Drupal\entity_test\Entity\EntityTestCompositeConstraint;
@@ -15,7 +16,10 @@ use Drupal\KernelTests\KernelTestBase;
  */
 class FieldWidgetConstraintValidatorTest extends KernelTestBase {
 
-  public static $modules = [
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = [
     'entity_test',
     'field',
     'field_test',
@@ -26,11 +30,8 @@ class FieldWidgetConstraintValidatorTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
-
-    $this->installSchema('system', ['key_value']);
-    $this->container->get('router.builder')->rebuild();
 
     $this->installEntitySchema('user');
     $this->installEntitySchema('entity_test_composite_constraint');
@@ -39,7 +40,7 @@ class FieldWidgetConstraintValidatorTest extends KernelTestBase {
   /**
    * Tests widget constraint validation.
    */
-  public function testValidation() {
+  public function testValidation(): void {
     $entity_type = 'entity_test_constraint_violation';
     $entity = $this->container->get('entity_type.manager')
       ->getStorage($entity_type)
@@ -61,15 +62,15 @@ class FieldWidgetConstraintValidatorTest extends KernelTestBase {
     $display->validateFormValues($entity, $form, $form_state);
 
     $errors = $form_state->getErrors();
-    $this->assertEqual($errors['name'], 'Widget constraint has failed.', 'Constraint violation at the field items list level is generated correctly');
-    $this->assertEqual($errors['test_field'], 'Widget constraint has failed.', 'Constraint violation at the field items list level is generated correctly for an advanced widget');
+    $this->assertEquals('Widget constraint has failed.', $errors['name'], 'Constraint violation at the field items list level is generated correctly');
+    $this->assertEquals('Widget constraint has failed.', $errors['test_field'], 'Constraint violation at the field items list level is generated correctly for an advanced widget');
   }
 
   /**
    * Gets the form errors for a given entity.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The entity
+   *   The entity.
    * @param array $hidden_fields
    *   (optional) A list of hidden fields.
    *
@@ -107,7 +108,7 @@ class FieldWidgetConstraintValidatorTest extends KernelTestBase {
   /**
    * Tests widget constraint validation with composite constraints.
    */
-  public function testValidationWithCompositeConstraint() {
+  public function testValidationWithCompositeConstraint(): void {
     // First provide a valid value, this should cause no validation.
     $entity = EntityTestCompositeConstraint::create([
       'name' => 'valid-value',
@@ -144,24 +145,24 @@ class FieldWidgetConstraintValidatorTest extends KernelTestBase {
     $errors = $this->getErrorsForEntity($entity, ['name']);
     $this->assertFalse(isset($errors['name']));
     $this->assertTrue(isset($errors['type']));
-    $this->assertEqual($errors['type'], new FormattableMarkup('The validation failed because the value conflicts with the value in %field_name, which you cannot access.', ['%field_name' => 'name']));
+    $this->assertEquals('The validation failed because the value conflicts with the value in name, which you cannot access.', $errors['type']);
   }
 
   /**
    * Tests entity level constraint validation.
    */
-  public function testEntityLevelConstraintValidation() {
+  public function testEntityLevelConstraintValidation(): void {
     $entity = EntityTestCompositeConstraint::create([
       'name' => 'entity-level-violation',
     ]);
     $entity->save();
 
     $errors = $this->getErrorsForEntity($entity);
-    $this->assertEqual($errors[''], 'Entity level validation');
+    $this->assertEquals('Entity level validation', $errors['']);
 
     $entity->name->value = 'entity-level-violation-with-path';
     $errors = $this->getErrorsForEntity($entity);
-    $this->assertEqual($errors['test][form][element'], 'Entity level validation');
+    $this->assertEquals('Entity level validation', $errors['test][form][element']);
   }
 
 }

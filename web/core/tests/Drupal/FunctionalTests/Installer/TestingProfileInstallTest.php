@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\FunctionalTests\Installer;
 
 use Drupal\Tests\BrowserTestBase;
@@ -22,13 +24,10 @@ class TestingProfileInstallTest extends BrowserTestBase {
   protected $defaultTheme = 'stark';
 
   /**
-   * Ensure the Update module and its dependencies are installed.
+   * Ensure the Update Status module is installed.
    */
-  public function testUpdateModuleInstall() {
-    $this->assertTrue(
-      \Drupal::moduleHandler()->moduleExists('update') && \Drupal::moduleHandler()->moduleExists('file') && \Drupal::moduleHandler()->moduleExists('field'),
-      'The Update module and its dependencies are installed.'
-    );
+  public function testUpdateModuleInstall(): void {
+    $this->assertTrue(\Drupal::moduleHandler()->moduleExists('update'));
   }
 
   /**

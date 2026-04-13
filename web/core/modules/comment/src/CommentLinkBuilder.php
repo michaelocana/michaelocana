@@ -4,7 +4,6 @@ namespace Drupal\comment;
 
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
@@ -21,12 +20,6 @@ use Drupal\Core\Url;
 class CommentLinkBuilder implements CommentLinkBuilderInterface {
 
   use StringTranslationTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * Current user.
@@ -205,7 +198,7 @@ class CommentLinkBuilder implements CommentLinkBuilderInterface {
           $entity_links['comment__' . $field_name]['#attached']['library'][] = 'comment/drupal.node-new-comments-link';
           // Embed the metadata for the "X new comments" link (if any) on this
           // entity.
-          $entity_links['comment__' . $field_name]['#attached']['drupalSettings']['history']['lastReadTimestamps'][$entity->id()] = (int) history_read($entity->id());
+          $entity_links['comment__' . $field_name]['#attached']['drupalSettings']['history']['lastReadTimestamps'][$entity->id()] = history_read($entity->id());
           $new_comments = $this->commentManager->getCountNewComments($entity);
           if ($new_comments > 0) {
             $page_number = $this->entityTypeManager

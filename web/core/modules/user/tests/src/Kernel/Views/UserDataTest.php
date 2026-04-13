@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Views;
 
 use Drupal\Tests\views\Kernel\ViewsKernelTestBase;
@@ -24,13 +26,13 @@ class UserDataTest extends ViewsKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['user_test_views'];
+  protected static $modules = ['user_test_views'];
 
   /**
    * Tests field handler.
    */
-  public function testDataField() {
-    ViewTestData::createTestViews(get_class($this), ['user_test_views']);
+  public function testDataField(): void {
+    ViewTestData::createTestViews(static::class, ['user_test_views']);
 
     $this->installEntitySchema('user');
     $this->installSchema('user', ['users_data']);

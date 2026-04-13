@@ -2,32 +2,30 @@
 
 namespace Drupal\Core\Field\Plugin\Field\FieldFormatter;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Field\Attribute\FieldFormatter;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Plugin implementation of the 'string' formatter.
- *
- * @FieldFormatter(
- *   id = "string",
- *   label = @Translation("Plain text"),
- *   field_types = {
- *     "string",
- *     "uri",
- *   },
- *   quickedit = {
- *     "editor" = "plain_text"
- *   }
- * )
  */
-class StringFormatter extends FormatterBase implements ContainerFactoryPluginInterface {
+#[FieldFormatter(
+  id: 'string',
+  label: new TranslatableMarkup('Plain text'),
+  field_types: [
+    'string',
+    'uri',
+  ],
+)]
+class StringFormatter extends FormatterBase {
 
   /**
    * The entity type manager.
@@ -40,7 +38,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    * Constructs a StringFormatter instance.
    *
    * @param string $plugin_id
-   *   The plugin_id for the formatter.
+   *   The plugin ID for the formatter.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
@@ -52,7 +50,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    * @param string $view_mode
    *   The view mode.
    * @param array $third_party_settings
-   *   Any third party settings settings.
+   *   Any third party settings.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
    */
@@ -93,14 +91,15 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    */
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $form = parent::settingsForm($form, $form_state);
-
     $entity_type = $this->entityTypeManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
 
-    $form['link_to_entity'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Link to the @entity_label', ['@entity_label' => $entity_type->getLabel()]),
-      '#default_value' => $this->getSetting('link_to_entity'),
-    ];
+    if ($entity_type->hasLinkTemplate('canonical')) {
+      $form['link_to_entity'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Link to the @entity_label', ['@entity_label' => $entity_type->getLabel()]),
+        '#default_value' => $this->getSetting('link_to_entity'),
+      ];
+    }
 
     return $form;
   }
@@ -112,7 +111,9 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
     $summary = [];
     if ($this->getSetting('link_to_entity')) {
       $entity_type = $this->entityTypeManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
-      $summary[] = $this->t('Linked to the @entity_label', ['@entity_label' => $entity_type->getLabel()]);
+      if ($entity_type->hasLinkTemplate('canonical')) {
+        $summary[] = $this->t('Linked to the @entity_label', ['@entity_label' => $entity_type->getLabel()]);
+      }
     }
     return $summary;
   }
@@ -122,24 +123,33 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    */
   public function viewElements(FieldItemListInterface $items, $langcode) {
     $elements = [];
-    $url = NULL;
-    if ($this->getSetting('link_to_entity')) {
-      $url = $this->getEntityUrl($items->getEntity());
+    $entity = $items->getEntity();
+    $entity_type = $entity->getEntityType();
+
+    $render_as_link = FALSE;
+    if ($this->getSetting('link_to_entity') && !$entity->isNew() && $entity_type->hasLinkTemplate('canonical')) {
+      $url = $this->getEntityUrl($entity);
+      $access = $url->access(return_as_object: TRUE);
+      (new CacheableMetadata())
+        ->addCacheableDependency($access)
+        ->applyTo($elements);
+      $render_as_link = $access->isAllowed();
     }
 
     foreach ($items as $delta => $item) {
-      $view_value = $this->viewValue($item);
-      if ($url) {
+      if ($render_as_link) {
+        assert(isset($url));
         $elements[$delta] = [
           '#type' => 'link',
-          '#title' => $view_value,
+          '#title' => $this->viewValue($item),
           '#url' => $url,
         ];
       }
       else {
-        $elements[$delta] = $view_value;
+        $elements[$delta] = $this->viewValue($item);
       }
     }
+
     return $elements;
   }
 
@@ -174,7 +184,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
   protected function getEntityUrl(EntityInterface $entity) {
     // For the default revision, the 'revision' link template falls back to
     // 'canonical'.
-    // @see \Drupal\Core\Entity\Entity::toUrl()
+    // @see \Drupal\Core\Entity\EntityBase::toUrl()
     $rel = $entity->getEntityType()->hasLinkTemplate('revision') ? 'revision' : 'canonical';
     return $entity->toUrl($rel);
   }

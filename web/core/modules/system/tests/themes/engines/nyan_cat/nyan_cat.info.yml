@@ -1,5 +1,5 @@
+# cspell:ignore nyan
 type: theme_engine
 name: Nyan cat
-core: 8.x
 version: VERSION
 package: Core

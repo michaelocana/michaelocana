@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\views\Functional;
 
 use Drupal\Tests\BrowserTestBase;
@@ -13,11 +15,14 @@ use Drupal\Tests\BrowserTestBase;
 class UserBatchActionTest extends BrowserTestBase {
 
   /**
-   * Modules to install.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['user', 'user_batch_action_test', 'views'];
+  protected static $modules = [
+    'user',
+    'user_batch_action_test',
+    'views',
+  ];
+
 
   /**
    * {@inheritdoc}
@@ -27,11 +32,11 @@ class UserBatchActionTest extends BrowserTestBase {
   /**
    * Tests user admin batch.
    */
-  public function testUserAction() {
-    $themes = ['classy', 'seven', 'bartik', 'test_subseven'];
+  public function testUserAction(): void {
+    $themes = ['stark', 'olivero', 'claro'];
     $this->container->get('theme_installer')->install($themes);
 
-    $this->drupalLogin($this->rootUser);
+    $this->drupalLogin($this->createUser(['administer users']));
 
     foreach ($themes as $theme) {
       $this->config('system.theme')->set('default', $theme)->save();
@@ -40,7 +45,7 @@ class UserBatchActionTest extends BrowserTestBase {
         'user_bulk_form[0]' => TRUE,
         'action' => 'user_batch_action_test_action',
       ];
-      $this->drupalPostForm(NULL, $edit, t('Apply'));
+      $this->submitForm($edit, 'Apply');
       $this->assertSession()->pageTextContains('One item has been processed.');
       $this->assertSession()->pageTextContains($theme . ' theme used');
     }

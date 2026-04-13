@@ -17,7 +17,7 @@ interface EntityTypeManagerInterface extends PluginManagerInterface, CachedDisco
    *   The entity type ID for this access control handler.
    *
    * @return \Drupal\Core\Entity\EntityAccessControlHandlerInterface
-   *   A access control handler instance.
+   *   An access control handler instance.
    */
   public function getAccessControlHandler($entity_type_id);
 
@@ -79,6 +79,7 @@ interface EntityTypeManagerInterface extends PluginManagerInterface, CachedDisco
    *   The entity type ID for the route providers.
    *
    * @return \Drupal\Core\Entity\Routing\EntityRouteProviderInterface[]
+   *   An array of all the route providers for this entity type.
    */
   public function getRouteProviders($entity_type_id);
 
@@ -120,7 +121,7 @@ interface EntityTypeManagerInterface extends PluginManagerInterface, CachedDisco
   /**
    * Creates new handler instance.
    *
-   * Usually \Drupal\Core\Entity\EntityManagerInterface::getHandler() is
+   * Usually \Drupal\Core\Entity\EntityTypeManagerInterface::getHandler() is
    * preferred since that method has additional checking that the class exists
    * and has static caches.
    *
@@ -132,12 +133,14 @@ interface EntityTypeManagerInterface extends PluginManagerInterface, CachedDisco
    * @return object
    *   A handler instance.
    */
-  public function createHandlerInstance($class, EntityTypeInterface $definition = NULL);
+  public function createHandlerInstance($class, ?EntityTypeInterface $definition = NULL);
 
   /**
    * {@inheritdoc}
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface|null
+   *   A plugin definition, or NULL if the plugin ID is invalid and
+   *   $exception_on_invalid is FALSE.
    */
   public function getDefinition($entity_type_id, $exception_on_invalid = TRUE);
 
@@ -145,6 +148,8 @@ interface EntityTypeManagerInterface extends PluginManagerInterface, CachedDisco
    * {@inheritdoc}
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface[]
+   *   An array of plugin definitions (empty array if no definitions were
+   *   found). Keys are plugin IDs.
    */
   public function getDefinitions();
 

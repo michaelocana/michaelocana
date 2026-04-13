@@ -1,15 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Entity;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Link;
+use Drupal\Tests\Core\Config\Entity\StubConfigEntity;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * @coversDefaultClass \Drupal\Core\Entity\Entity
+ * @coversDefaultClass \Drupal\Core\Entity\EntityBase
  * @group Entity
  */
 class EntityLinkTest extends UnitTestCase {
@@ -38,7 +41,7 @@ class EntityLinkTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
@@ -53,89 +56,13 @@ class EntityLinkTest extends UnitTestCase {
   }
 
   /**
-   * Tests for the Entity::link() method
-   *
-   * @covers ::link
-   *
-   * @dataProvider providerTestLink
-   *
-   * @group legacy
-   *
-   * Note this is only a legacy test because it triggers a call to
-   * \Drupal\Core\Entity\EntityTypeInterface::getLabelCallback() which is mocked
-   * and triggers a deprecation error. Remove when ::getLabelCallback() is
-   * removed.
-   */
-  public function testLink($entity_label, $link_text, $expected_text, $link_rel = 'canonical', array $link_options = []) {
-    $language = new Language(['id' => 'es']);
-    $link_options += ['language' => $language];
-    $this->languageManager->expects($this->any())
-      ->method('getLanguage')
-      ->with('es')
-      ->willReturn($language);
-
-    $route_name_map = [
-      'canonical' => 'entity.test_entity_type.canonical',
-      'edit-form' => 'entity.test_entity_type.edit_form',
-    ];
-    $route_name = $route_name_map[$link_rel];
-    $entity_id = 'test_entity_id';
-    $entity_type_id = 'test_entity_type';
-    $expected = '<a href="/test_entity_type/test_entity_id">' . $expected_text . '</a>';
-
-    $entity_type = $this->createMock('Drupal\Core\Entity\EntityTypeInterface');
-    $entity_type->expects($this->once())
-      ->method('getLinkTemplates')
-      ->willReturn($route_name_map);
-    $entity_type->expects($this->any())
-      ->method('getKey')
-      ->willReturnMap([
-        ['label', 'label'],
-        ['langcode', 'langcode'],
-      ]);
-
-    $this->entityTypeManager
-      ->expects($this->any())
-      ->method('getDefinition')
-      ->with($entity_type_id)
-      ->will($this->returnValue($entity_type));
-
-    /** @var \Drupal\Core\Entity\Entity $entity */
-    $entity = $this->getMockForAbstractClass('Drupal\Core\Entity\EntityBase', [
-      ['id' => $entity_id, 'label' => $entity_label, 'langcode' => 'es'],
-      $entity_type_id,
-    ]);
-
-    $expected_link = Link::createFromRoute(
-      $expected_text,
-      $route_name,
-      [$entity_type_id => $entity_id],
-      ['entity_type' => $entity_type_id, 'entity' => $entity] + $link_options
-    )->setLinkGenerator($this->linkGenerator);
-
-    $this->linkGenerator->expects($this->once())
-      ->method('generateFromLink')
-      ->with($this->equalTo($expected_link))
-      ->willReturn($expected);
-
-    $this->assertSame($expected, $entity->toLink($link_text, $link_rel, $link_options)->toString());
-  }
-
-  /**
-   * Tests for the Entity::toLink() method
+   * Tests for the EntityBase::toLink() method.
    *
    * @covers ::toLink
    *
    * @dataProvider providerTestLink
-   *
-   * @group legacy
-   *
-   * Note this is only a legacy test because it triggers a call to
-   * \Drupal\Core\Entity\EntityTypeInterface::getLabelCallback() which is mocked
-   * and triggers a deprecation error. Remove when ::getLabelCallback() is
-   * removed.
    */
-  public function testToLink($entity_label, $link_text, $expected_text, $link_rel = 'canonical', array $link_options = []) {
+  public function testToLink($entity_label, $link_text, $expected_text, $link_rel = 'canonical', array $link_options = []): void {
     $language = new Language(['id' => 'es']);
     $link_options += ['language' => $language];
     $this->languageManager->expects($this->any())
@@ -150,7 +77,6 @@ class EntityLinkTest extends UnitTestCase {
     $route_name = $route_name_map[$link_rel];
     $entity_id = 'test_entity_id';
     $entity_type_id = 'test_entity_type';
-    $expected = '<a href="/test_entity_type/test_entity_id">' . $expected_text . '</a>';
 
     $entity_type = $this->createMock('Drupal\Core\Entity\EntityTypeInterface');
     $entity_type->expects($this->once())
@@ -167,13 +93,12 @@ class EntityLinkTest extends UnitTestCase {
       ->expects($this->any())
       ->method('getDefinition')
       ->with($entity_type_id)
-      ->will($this->returnValue($entity_type));
+      ->willReturn($entity_type);
 
-    /** @var \Drupal\Core\Entity\Entity $entity */
-    $entity = $this->getMockForAbstractClass('Drupal\Core\Entity\EntityBase', [
+    $entity = new StubConfigEntity(
       ['id' => $entity_id, 'label' => $entity_label, 'langcode' => 'es'],
       $entity_type_id,
-    ]);
+    );
 
     $expected_link = Link::createFromRoute(
       $expected_text,
@@ -189,12 +114,12 @@ class EntityLinkTest extends UnitTestCase {
   /**
    * Provides test data for testLink().
    */
-  public function providerTestLink() {
+  public static function providerTestLink() {
     $data = [];
     $data[] = [
       'some_entity_label',
-      'qwerqwer',
-      'qwerqwer',
+      'link text',
+      'link text',
     ];
     $data[] = [
       'some_entity_label',
@@ -208,22 +133,22 @@ class EntityLinkTest extends UnitTestCase {
     ];
     $data[] = [
       'some_entity_label',
-      'qwerqwer',
-      'qwerqwer',
+      'link text',
+      'link text',
       'edit-form',
     ];
     $data[] = [
       'some_entity_label',
-      'qwerqwer',
-      'qwerqwer',
+      'link text',
+      'link text',
       'edit-form',
     ];
     $data[] = [
       'some_entity_label',
-      'qwerqwer',
-      'qwerqwer',
+      'link text',
+      'link text',
       'edit-form',
-      ['foo' => 'qwer'],
+      ['foo' => 'bar'],
     ];
     return $data;
   }

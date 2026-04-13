@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -12,11 +14,9 @@ use Drupal\language\Entity\ConfigurableLanguage;
 class NodeViewLanguageTest extends NodeTestBase {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['node', 'datetime', 'language'];
+  protected static $modules = ['node', 'datetime', 'language'];
 
   /**
    * {@inheritdoc}
@@ -26,7 +26,7 @@ class NodeViewLanguageTest extends NodeTestBase {
   /**
    * Tests the language extra field display.
    */
-  public function testViewLanguage() {
+  public function testViewLanguage(): void {
     // Add Spanish language.
     ConfigurableLanguage::createFromLangcode('es')->save();
 
@@ -40,7 +40,7 @@ class NodeViewLanguageTest extends NodeTestBase {
     $node = $this->drupalCreateNode(['langcode' => 'es']);
 
     $this->drupalGet($node->toUrl());
-    $this->assertText('Spanish', 'The language field is displayed properly.');
+    $this->assertSession()->pageTextContains('Spanish');
   }
 
 }

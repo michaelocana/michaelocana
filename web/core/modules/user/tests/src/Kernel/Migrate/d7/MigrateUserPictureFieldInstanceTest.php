@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\user\Kernel\Migrate\d7;
 
 use Drupal\Core\Field\FieldConfigInterface;
@@ -13,12 +15,15 @@ use Drupal\Tests\migrate_drupal\Kernel\d7\MigrateDrupal7TestBase;
  */
 class MigrateUserPictureFieldInstanceTest extends MigrateDrupal7TestBase {
 
-  public static $modules = ['image', 'file'];
+  /**
+   * {@inheritdoc}
+   */
+  protected static $modules = ['image', 'file'];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->executeMigrations([
       'user_picture_field',
@@ -27,15 +32,15 @@ class MigrateUserPictureFieldInstanceTest extends MigrateDrupal7TestBase {
   }
 
   /**
-   * Test the user picture field migration.
+   * Tests the user picture field migration.
    */
-  public function testUserPictureField() {
+  public function testUserPictureField(): void {
     /** @var \Drupal\field\FieldConfigInterface $field */
     $field = FieldConfig::load('user.user.user_picture');
     $this->assertInstanceOf(FieldConfigInterface::class, $field);
-    $this->assertIdentical('user', $field->getTargetEntityTypeId());
-    $this->assertIdentical('user', $field->getTargetBundle());
-    $this->assertIdentical('user_picture', $field->getName());
+    $this->assertSame('user', $field->getTargetEntityTypeId());
+    $this->assertSame('user', $field->getTargetBundle());
+    $this->assertSame('user_picture', $field->getName());
   }
 
 }

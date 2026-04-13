@@ -4,8 +4,15 @@ namespace Drupal\config_translation\Plugin\migrate\source\d6;
 
 use Drupal\user\Plugin\migrate\source\ProfileField;
 
+// cspell:ignore nprofile objectid
+
 /**
- * Gets i18n strings profile field source from database.
+ * Drupal 6 i18n strings profile field source from database.
+ *
+ * For available configuration keys, refer to the parent classes.
+ *
+ * @see \Drupal\migrate\Plugin\migrate\source\SqlBase
+ * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  *
  * @MigrateSource(
  *   id = "d6_profile_field_translation",
@@ -21,8 +28,8 @@ class ProfileFieldTranslation extends ProfileField {
     $query = parent::query();
     $query->fields('i18n', ['property'])
       ->fields('lt', ['lid', 'translation', 'language']);
-    $query->leftJoin('i18n_strings', 'i18n', 'i18n.objectid = pf.name');
-    $query->innerJoin('locales_target', 'lt', 'lt.lid = i18n.lid');
+    $query->leftJoin('i18n_strings', 'i18n', '[i18n].[objectid] = [pf].[name]');
+    $query->innerJoin('locales_target', 'lt', '[lt].[lid] = [i18n].[lid]');
     return $query;
   }
 

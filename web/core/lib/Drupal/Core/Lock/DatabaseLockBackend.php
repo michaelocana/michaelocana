@@ -80,7 +80,7 @@ class DatabaseLockBackend extends LockBackendAbstract {
           // We never need to try again.
           $retry = FALSE;
         }
-        catch (IntegrityConstraintViolationException $e) {
+        catch (IntegrityConstraintViolationException) {
           // Suppress the error. If this is our first pass through the loop,
           // then $retry is FALSE. In this case, the insert failed because some
           // other request acquired the lock but did not release it. We decide
@@ -112,7 +112,7 @@ class DatabaseLockBackend extends LockBackendAbstract {
     $name = $this->normalizeName($name);
 
     try {
-      $lock = $this->database->query('SELECT expire, value FROM {semaphore} WHERE name = :name', [':name' => $name])->fetchAssoc();
+      $lock = $this->database->query('SELECT [expire], [value] FROM {semaphore} WHERE [name] = :name', [':name' => $name])->fetchAssoc();
     }
     catch (\Exception $e) {
       $this->catchException($e);
@@ -177,19 +177,18 @@ class DatabaseLockBackend extends LockBackendAbstract {
   protected function ensureTableExists() {
     try {
       $database_schema = $this->database->schema();
-      if (!$database_schema->tableExists(static::TABLE_NAME)) {
-        $schema_definition = $this->schemaDefinition();
-        $database_schema->createTable(static::TABLE_NAME, $schema_definition);
-        return TRUE;
-      }
+      $schema_definition = $this->schemaDefinition();
+      $database_schema->createTable(static::TABLE_NAME, $schema_definition);
     }
     // If another process has already created the semaphore table, attempting to
     // recreate it will throw an exception. In this case just catch the
     // exception and do nothing.
-    catch (DatabaseException $e) {
-      return TRUE;
+    catch (DatabaseException) {
     }
-    return FALSE;
+    catch (\Exception) {
+      return FALSE;
+    }
+    return TRUE;
   }
 
   /**
@@ -199,7 +198,7 @@ class DatabaseLockBackend extends LockBackendAbstract {
    * yet the query failed, then the semaphore is stale and the exception needs
    * to propagate.
    *
-   * @param $e
+   * @param \Exception $e
    *   The exception.
    *
    * @throws \Exception

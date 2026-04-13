@@ -32,7 +32,7 @@ class ProviderFilterDecorator implements DiscoveryInterface {
   protected $providerExists;
 
   /**
-   * Constructs a InheritProviderDecorator object.
+   * Constructs an InheritProviderDecorator object.
    *
    * @param \Drupal\Component\Plugin\Discovery\DiscoveryInterface $decorated
    *   The object implementing DiscoveryInterface that is being decorated.
@@ -55,7 +55,7 @@ class ProviderFilterDecorator implements DiscoveryInterface {
    *   A callable, gets passed a provider name, should return TRUE if the
    *   provider exists and FALSE if not.
    *
-   * @return array|\mixed[]
+   * @return array
    *   An array of plugin definitions. If a definition is an array and has a
    *   provider key that provider is guaranteed to exist.
    */
@@ -67,9 +67,12 @@ class ProviderFilterDecorator implements DiscoveryInterface {
     return array_filter($definitions, function ($definition) use ($provider_exists) {
       // Plugin definitions can be objects (for example, Typed Data) those will
       // become empty array here and cause no problems.
-      $definition = (array) $definition + ['provider' => []];
+      $definition = (array) $definition + [
+        'provider' => [],
+        'providers' => [],
+      ];
       // There can be one or many providers, handle them as multiple always.
-      $providers = (array) $definition['provider'];
+      $providers = $definition['providers'] ?: (array) $definition['provider'];
       return count($providers) == count(array_filter($providers, $provider_exists));
     });
   }

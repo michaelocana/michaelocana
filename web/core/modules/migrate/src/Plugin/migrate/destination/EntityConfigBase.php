@@ -40,7 +40,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @code
  * source:
- *   plugin: d6_i18n_profile_field
+ *   plugin: d6_profile_field_translation
  *   constants:
  *     entity_type: user
  *     bundle: user
@@ -50,6 +50,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   bundle: 'constants/bundle'
  *   field_name: name
  *   ...
+ *   property: property
  *   translation: translation
  * destination:
  *   plugin: entity:field_config
@@ -58,7 +59,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * Because the translations configuration is set to "true", this will save the
  * migrated, processed row to a "field_config" entity associated with the
- * designated langcode.
+ * designated langcode. Note that the this makes the "translation" and
+ * "property" properties required.
  */
 class EntityConfigBase extends Entity {
 
@@ -82,7 +84,7 @@ class EntityConfigBase extends Entity {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\migrate\Plugin\MigrationInterface $migration
@@ -105,7 +107,7 @@ class EntityConfigBase extends Entity {
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, ?MigrationInterface $migration = NULL) {
     $entity_type_id = static::getEntityTypeId($plugin_id);
     return new static(
       $configuration,
@@ -190,12 +192,19 @@ class EntityConfigBase extends Entity {
    *   The entity to update.
    * @param \Drupal\migrate\Row $row
    *   The row object to update from.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface
+   *   An updated entity from row values.
+   *
+   * @throws \LogicException
+   *   Thrown if the destination is for translations and either the "property"
+   *   or "translation" property does not exist.
    */
   protected function updateEntity(EntityInterface $entity, Row $row) {
     // This is a translation if the language in the active config does not
     // match the language of this row.
     $translation = FALSE;
-    if ($row->hasDestinationProperty('langcode') && $this->languageManager instanceof ConfigurableLanguageManager) {
+    if ($this->isTranslationDestination() && $row->hasDestinationProperty('langcode') && $this->languageManager instanceof ConfigurableLanguageManager) {
       $config = $entity->getConfigDependencyName();
       $langcode = $this->configFactory->get('langcode');
       if ($langcode != $row->getDestinationProperty('langcode')) {
@@ -204,6 +213,12 @@ class EntityConfigBase extends Entity {
     }
 
     if ($translation) {
+      if (!$row->hasDestinationProperty('property')) {
+        throw new \LogicException('The "property" property is required');
+      }
+      if (!$row->hasDestinationProperty('translation')) {
+        throw new \LogicException('The "translation" property is required');
+      }
       $config_override = $this->languageManager->getLanguageConfigOverride($row->getDestinationProperty('langcode'), $config);
       $config_override->set(str_replace(Row::PROPERTY_SEPARATOR, '.', $row->getDestinationProperty('property')), $row->getDestinationProperty('translation'));
       $config_override->save();
@@ -214,6 +229,8 @@ class EntityConfigBase extends Entity {
       }
       $this->setRollbackAction($row->getIdMap());
     }
+
+    return $entity;
   }
 
   /**

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\node\Functional;
 
 use Drupal\field\Entity\FieldConfig;
@@ -27,7 +29,7 @@ class MultiStepNodeFormBasicOptionsTest extends NodeTestBase {
   /**
    * Tests changing the default values of basic options to ensure they persist.
    */
-  public function testMultiStepNodeFormBasicOptions() {
+  public function testMultiStepNodeFormBasicOptions(): void {
     // Prepare a user to create the node.
     $web_user = $this->drupalCreateUser([
       'administer nodes',
@@ -36,7 +38,7 @@ class MultiStepNodeFormBasicOptionsTest extends NodeTestBase {
     $this->drupalLogin($web_user);
 
     // Create an unlimited cardinality field.
-    $this->fieldName = mb_strtolower($this->randomMachineName());
+    $this->fieldName = $this->randomMachineName();
     FieldStorageConfig::create([
       'field_name' => $this->fieldName,
       'entity_type' => 'node',
@@ -64,9 +66,10 @@ class MultiStepNodeFormBasicOptionsTest extends NodeTestBase {
       'sticky[value]' => 1,
       "{$this->fieldName}[0][value]" => $this->randomString(32),
     ];
-    $this->drupalPostForm('node/add/page', $edit, t('Add another item'));
-    $this->assertNoFieldChecked('edit-promote-value', 'Promote stayed unchecked');
-    $this->assertFieldChecked('edit-sticky-value', 'Sticky stayed checked');
+    $this->drupalGet('node/add/page');
+    $this->submitForm($edit, 'Add another item');
+    $this->assertSession()->checkboxNotChecked('edit-promote-value');
+    $this->assertSession()->checkboxChecked('edit-sticky-value');
   }
 
 }

@@ -1,12 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\field\Kernel\EntityReference\Views;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
+use Drupal\entity_test\EntityTestHelper;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\node\Entity\NodeType;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
+use Drupal\Tests\field\Traits\EntityReferenceFieldCreationTrait;
 use Drupal\Tests\node\Traits\NodeCreationTrait;
 use Drupal\views\Views;
 
@@ -17,7 +21,7 @@ use Drupal\views\Views;
  */
 class SelectionTest extends KernelTestBase {
 
-  use EntityReferenceTestTrait;
+  use EntityReferenceFieldCreationTrait;
   use NodeCreationTrait;
 
   /**
@@ -51,16 +55,20 @@ class SelectionTest extends KernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installConfig(['entity_reference_test', 'filter']);
     $this->installEntitySchema('user');
     $this->installEntitySchema('node');
+    $this->installEntitySchema('entity_test');
 
     // Create test nodes.
-    $type = strtolower($this->randomMachineName());
-    NodeType::create(['type' => $type])->save();
+    $type = $this->randomMachineName();
+    NodeType::create([
+      'type' => $type,
+      'name' => $this->randomString(),
+    ])->save();
     $node1 = $this->createNode(['type' => $type]);
     $node2 = $this->createNode(['type' => $type]);
     $node3 = $this->createNode();
@@ -68,6 +76,10 @@ class SelectionTest extends KernelTestBase {
     foreach ([$node1, $node2, $node3] as $node) {
       $this->nodes[$node->id()] = $node;
     }
+
+    // Ensure the bundle to which the field is attached actually exists, or we
+    // will get config validation errors.
+    EntityTestHelper::createBundle('test_bundle');
 
     // Create an entity reference field.
     $handler_settings = [
@@ -84,7 +96,7 @@ class SelectionTest extends KernelTestBase {
   /**
    * Tests the selection handler.
    */
-  public function testSelectionHandler() {
+  public function testSelectionHandler(): void {
     // Tests the selection handler.
     $this->assertResults($this->selectionHandler->getReferenceableEntities());
 
@@ -129,10 +141,10 @@ class SelectionTest extends KernelTestBase {
    * If we expect our output to not have the <a> tags, and this matches what's
    * produced by the tag-stripping method, we'll know that it's working.
    */
-  public function testAnchorTagStripping() {
+  public function testAnchorTagStripping(): void {
     $filtered_rendered_results_formatted = [];
     foreach ($this->selectionHandler->getReferenceableEntities() as $subresults) {
-      $filtered_rendered_results_formatted += $subresults;
+      $filtered_rendered_results_formatted += array_map(fn(MarkupInterface $markup): string => (string) $markup, $subresults);
     }
 
     // Note the missing <a> tags.
@@ -142,7 +154,7 @@ class SelectionTest extends KernelTestBase {
       3 => '<span class="views-field views-field-title"><span class="field-content">' . Html::escape($this->nodes[3]->label()) . '</span></span>',
     ];
 
-    $this->assertEqual($filtered_rendered_results_formatted, $expected, 'Anchor tag stripping has failed.');
+    $this->assertSame($expected, $filtered_rendered_results_formatted, 'Anchor tag stripping has failed.');
   }
 
   /**
@@ -150,12 +162,14 @@ class SelectionTest extends KernelTestBase {
    *
    * @param array $result
    *   Query results keyed by node type and nid.
+   *
+   * @internal
    */
-  protected function assertResults(array $result) {
+  protected function assertResults(array $result): void {
     foreach ($result as $node_type => $values) {
       foreach ($values as $nid => $label) {
         $this->assertSame($node_type, $this->nodes[$nid]->bundle());
-        $this->assertSame(trim(strip_tags($label)), Html::escape($this->nodes[$nid]->label()));
+        $this->assertSame(trim(strip_tags((string) $label)), Html::escape($this->nodes[$nid]->label()));
       }
     }
   }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\Core\Config;
 
 use Drupal\Core\Config\MemoryStorage;
@@ -24,11 +26,11 @@ class StorageCopyTraitTest extends UnitTestCase {
    *
    * @dataProvider providerTestReplaceStorageContents
    */
-  public function testReplaceStorageContents($source_collections, $target_collections) {
+  public function testReplaceStorageContents($source_collections, $target_collections): void {
     $source = new MemoryStorage();
     $target = new MemoryStorage();
     // Empty the storage should be the same.
-    $this->assertArrayEquals(self::toArray($source), self::toArray($target));
+    $this->assertEquals(self::toArray($source), self::toArray($target));
 
     // When the source is populated, they are not the same any more.
     $this->generateRandomData($source, $source_collections);
@@ -54,9 +56,9 @@ class StorageCopyTraitTest extends UnitTestCase {
     // After copying they are the same, this asserts that items not present
     // in the source get removed from the target.
     self::replaceStorageContents($source, $target);
-    $this->assertArrayEquals($source_data, self::toArray($target));
+    $this->assertEquals($source_data, self::toArray($target));
     // Assert that the copy method did indeed not change the source.
-    $this->assertArrayEquals($source_data, self::toArray($source));
+    $this->assertEquals($source_data, self::toArray($source));
 
     // Assert that the active collection is the same as the original source.
     $this->assertEquals($source_name, $source->getCollectionName());
@@ -66,7 +68,7 @@ class StorageCopyTraitTest extends UnitTestCase {
   /**
    * Provides data for testCheckRequirements().
    */
-  public function providerTestReplaceStorageContents() {
+  public static function providerTestReplaceStorageContents() {
     $data = [];
     $data[] = [TRUE, TRUE];
     $data[] = [TRUE, FALSE];
@@ -83,11 +85,11 @@ class StorageCopyTraitTest extends UnitTestCase {
    *   The config storage to extract the data from.
    *
    * @return array
+   *   The config data as an array.
    */
   protected static function toArray(MemoryStorage $storage) {
     $reflection = new \ReflectionObject($storage);
     $property = $reflection->getProperty('config');
-    $property->setAccessible(TRUE);
 
     return $property->getValue($storage)->getArrayCopy();
   }
@@ -100,7 +102,7 @@ class StorageCopyTraitTest extends UnitTestCase {
    * @param bool $collections
    *   Add random collections or not.
    */
-  protected function generateRandomData(StorageInterface $storage, $collections = TRUE) {
+  protected function generateRandomData(StorageInterface $storage, $collections = TRUE): void {
     $generator = $this->getRandomGenerator();
     for ($i = 0; $i < rand(2, 10); $i++) {
       $storage->write($this->randomMachineName(), (array) $generator->object());
@@ -120,7 +122,7 @@ class StorageCopyTraitTest extends UnitTestCase {
    *
    * @covers ::replaceStorageContents
    */
-  public function testWithInvalidConfiguration() {
+  public function testWithInvalidConfiguration(): void {
     $source = new TestStorage();
     $this->generateRandomData($source);
 
@@ -154,7 +156,7 @@ class StorageCopyTraitTest extends UnitTestCase {
         $this->assertFalse($target->exists($name));
       }
       else {
-        $this->assertArrayEquals($source->read($name), $target->read($name));
+        $this->assertEquals($source->read($name), $target->read($name));
       }
     }
 
@@ -173,12 +175,12 @@ class StorageCopyTraitTest extends UnitTestCase {
 class TestStorage extends MemoryStorage {
 
   /**
-   * Provides a setter to bypass the array typehint on ::write().
+   * Provides a setter to bypass the array type hint on ::write().
    *
    * This method allows us to create invalid configurations. The method
    * ::write() only allows values of the type array.
    */
-  public function setValue($name, $value) {
+  public function setValue($name, $value): void {
     $this->config[$this->collection][$name] = $value;
   }
 

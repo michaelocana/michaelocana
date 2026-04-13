@@ -4,7 +4,6 @@ namespace Drupal\system;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -28,21 +27,8 @@ class FileDownloadController extends ControllerBase {
    * @param \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface $streamWrapperManager
    *   The stream wrapper manager.
    */
-  public function __construct(StreamWrapperManagerInterface $streamWrapperManager = NULL) {
-    if (!$streamWrapperManager) {
-      @trigger_error('Calling FileDownloadController::__construct() without the $streamWrapperManager argument is deprecated in drupal:8.8.0. The $streamWrapperManager argument will be required in drupal:9.0.0. See https://www.drupal.org/node/3035273', E_USER_DEPRECATED);
-      $streamWrapperManager = \Drupal::service('stream_wrapper_manager');
-    }
+  public function __construct(StreamWrapperManagerInterface $streamWrapperManager) {
     $this->streamWrapperManager = $streamWrapperManager;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('stream_wrapper_manager')
-    );
   }
 
   /**
@@ -54,8 +40,6 @@ class FileDownloadController extends ControllerBase {
    * If a module returns -1 an AccessDeniedHttpException will be thrown. If the
    * file exists but no modules responded an AccessDeniedHttpException will be
    * thrown. If the file does not exist a NotFoundHttpException will be thrown.
-   *
-   * @see hook_file_download()
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The request object.
@@ -69,11 +53,13 @@ class FileDownloadController extends ControllerBase {
    *   Thrown when the requested file does not exist.
    * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
    *   Thrown when the user does not have access to the file.
+   *
+   * @see hook_file_download()
    */
   public function download(Request $request, $scheme = 'private') {
     $target = $request->query->get('file');
     // Merge remaining path arguments into relative file path.
-    $uri = $scheme . '://' . $target;
+    $uri = $this->streamWrapperManager->normalizeUri($scheme . '://' . $target);
 
     if ($this->streamWrapperManager->isValidScheme($scheme) && is_file($uri)) {
       // Let other modules provide headers and controls access to the file.

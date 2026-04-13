@@ -20,7 +20,7 @@ class Tags {
    */
   public static function explode($tags) {
     // This regexp allows the following types of user input:
-    // this, "somecompany, llc", "and ""this"" w,o.rks", foo bar
+    // this, "company, llc", "and ""this"" w,o.rks", foo bar
     $regexp = '%(?:^|,\ *)("(?>[^"]*)(?>""[^"]* )*"|(?: [^",]*))%x';
     preg_match_all($regexp, $tags, $matches);
     $typed_tags = array_unique($matches[1]);
@@ -49,7 +49,7 @@ class Tags {
    *   The encoded string.
    */
   public static function encode($tag) {
-    if (strpos($tag, ',') !== FALSE || strpos($tag, '"') !== FALSE) {
+    if (str_contains($tag, ',') || str_contains($tag, '"')) {
       return '"' . str_replace('"', '""', $tag) . '"';
     }
     return $tag;

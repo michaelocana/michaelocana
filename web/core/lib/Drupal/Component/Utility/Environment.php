@@ -11,10 +11,10 @@ class Environment {
    * Compares the memory required for an operation to the available memory.
    *
    * @param string $required
-   *   The memory required for the operation, expressed as a number of bytes with
-   *   optional SI or IEC binary unit prefix (e.g. 2, 3K, 5MB, 10G, 6GiB, 8bytes,
-   *   9mbytes).
-   * @param $memory_limit
+   *   The memory required for the operation, expressed as a number of bytes
+   *   with optional SI or IEC binary unit prefix (e.g. 2, 3K, 5MB, 10G, 6GiB,
+   *   8bytes, 9mbytes).
+   * @param string|null $memory_limit
    *   (optional) The memory limit for the operation, expressed as a number of
    *   bytes with optional SI or IEC binary unit prefix (e.g. 2, 3K, 5MB, 10G,
    *   6GiB, 8bytes, 9mbytes). If no value is passed, the current PHP
@@ -34,7 +34,7 @@ class Environment {
     // - The memory limit is set to unlimited (-1).
     // - The memory limit is greater than or equal to the memory required for
     //   the operation.
-    return ((!$memory_limit) || ($memory_limit == -1) || (Bytes::toInt($memory_limit) >= Bytes::toInt($required)));
+    return ((!$memory_limit) || ($memory_limit == -1) || (Bytes::toNumber($memory_limit) >= Bytes::toNumber($required)));
   }
 
   /**
@@ -85,11 +85,11 @@ class Environment {
 
     if ($max_size < 0) {
       // Start with post_max_size.
-      $max_size = Bytes::toInt(ini_get('post_max_size'));
+      $max_size = Bytes::toNumber(ini_get('post_max_size'));
 
       // If upload_max_size is less, then reduce. Except if upload_max_size is
       // zero, which indicates no limit.
-      $upload_max = Bytes::toInt(ini_get('upload_max_filesize'));
+      $upload_max = Bytes::toNumber(ini_get('upload_max_filesize'));
       if ($upload_max > 0 && $upload_max < $max_size) {
         $max_size = $upload_max;
       }

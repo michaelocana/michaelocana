@@ -63,7 +63,7 @@ class FileStorage implements StorageInterface {
   }
 
   /**
-   * Returns the file extension used by the file storage for all configuration files.
+   * Gets the extension used by the file storage for all configuration files.
    *
    * @return string
    *   The file extension.
@@ -115,7 +115,7 @@ class FileStorage implements StorageInterface {
       $data = $this->decode($data);
     }
     catch (InvalidDataTypeException $e) {
-      throw new UnsupportedDataTypeConfigException('Invalid data type in config ' . $name . ', found in file' . $filepath . ' : ' . $e->getMessage());
+      throw new UnsupportedDataTypeConfigException('Invalid data type in config ' . $name . ', found in file ' . $filepath . ': ' . $e->getMessage());
     }
     $this->fileCache->set($filepath, $data);
 
@@ -154,10 +154,7 @@ class FileStorage implements StorageInterface {
       $status = @file_put_contents($target, $encoded_data);
     }
     if ($status === FALSE) {
-      throw new StorageException('Failed to write configuration file: ' . $this->getFilePath($name));
-    }
-    else {
-      $this->getFileSystem()->chmod($target);
+      throw new StorageException('Failed to write configuration file: ' . $target);
     }
 
     $this->fileCache->set($target, $data);
@@ -294,12 +291,12 @@ class FileStorage implements StorageInterface {
    *   ./collection/sub/two
    * this function will return:
    * @code
-   *   array(
+   *   [
    *     'another_collection.one',
    *     'another_collection.two',
    *     'collection.sub.one',
    *     'collection.sub.two',
-   *   );
+   *   ];
    * @endcode
    *
    * @param string $directory

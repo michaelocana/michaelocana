@@ -2,6 +2,9 @@
 
 namespace Drupal\Core\Entity\Entity;
 
+use Drupal\Core\Entity\Attribute\ConfigEntityType;
+use Drupal\Core\Entity\Entity\Access\EntityFormDisplayAccessControlHandler;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Entity\EntityConstraintViolationListInterface;
 use Drupal\Core\Entity\EntityDisplayPluginCollection;
 use Drupal\Core\Entity\FieldableEntityInterface;
@@ -13,29 +16,38 @@ use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
 /**
- * Configuration entity that contains widget options for all components of a
- * entity form in a given form mode.
+ * Configuration entity.
  *
- * @ConfigEntityType(
- *   id = "entity_form_display",
- *   label = @Translation("Entity form display"),
- *   entity_keys = {
- *     "id" = "id",
- *     "status" = "status"
- *   },
- *   handlers = {
- *     "access" = "\Drupal\Core\Entity\Entity\Access\EntityFormDisplayAccessControlHandler",
- *   },
- *   config_export = {
- *     "id",
- *     "targetEntityType",
- *     "bundle",
- *     "mode",
- *     "content",
- *     "hidden",
- *   }
- * )
+ * Contains widget options for all components of an entity form in a given
+ * form mode.
  */
+#[ConfigEntityType(
+  id: 'entity_form_display',
+  label: new TranslatableMarkup('Entity form display'),
+  entity_keys: [
+    'id' => 'id',
+    'status' => 'status',
+  ],
+  handlers: [
+    'access' => EntityFormDisplayAccessControlHandler::class,
+  ],
+  constraints: [
+    'ImmutableProperties' => [
+      'id',
+      'targetEntityType',
+      'bundle',
+      'mode',
+    ],
+  ],
+  config_export: [
+    'id',
+    'targetEntityType',
+    'bundle',
+    'mode',
+    'content',
+    'hidden',
+  ],
+  )]
 class EntityFormDisplay extends EntityDisplayBase implements EntityFormDisplayInterface {
 
   /**
@@ -80,6 +92,13 @@ class EntityFormDisplay extends EntityDisplayBase implements EntityFormDisplayIn
   public static function collectRenderDisplay(FieldableEntityInterface $entity, $form_mode, $default_fallback = TRUE) {
     $entity_type = $entity->getEntityTypeId();
     $bundle = $entity->bundle();
+
+    // Allow modules to change the form mode.
+    \Drupal::moduleHandler()->alter(
+      [$entity_type . '_form_mode', 'entity_form_mode'],
+      $form_mode,
+      $entity
+    );
 
     // Check the existence and status of:
     // - the display for the form mode,
@@ -194,6 +213,11 @@ class EntityFormDisplay extends EntityDisplayBase implements EntityFormDisplayIn
     // Associate the cache tags for the form display.
     $this->renderer->addCacheableDependency($form, $this);
 
+    // The form might not have the correct cacheability metadata, so make it
+    // uncacheable by default.
+    // @todo Remove this in https://www.drupal.org/node/3395524.
+    $form['#cache']['max-age'] = 0;
+
     // Add a process callback so we can assign weights and hide extra fields.
     $form['#process'][] = [$this, 'processForm'];
   }
@@ -213,7 +237,7 @@ class EntityFormDisplay extends EntityDisplayBase implements EntityFormDisplayIn
 
     // Hide extra fields.
     $extra_fields = \Drupal::service('entity_field.manager')->getExtraFields($this->targetEntityType, $this->bundle);
-    $extra_fields = isset($extra_fields['form']) ? $extra_fields['form'] : [];
+    $extra_fields = $extra_fields['form'] ?? [];
     foreach ($extra_fields as $extra_field => $info) {
       if (!$this->getComponent($extra_field)) {
         $element[$extra_field]['#access'] = FALSE;

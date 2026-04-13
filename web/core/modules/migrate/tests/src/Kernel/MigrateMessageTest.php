@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\migrate\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
@@ -18,11 +20,9 @@ use Drupal\migrate\Plugin\migrate\id_map\Sql;
 class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterface {
 
   /**
-   * Modules to enable.
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  public static $modules = ['migrate', 'system'];
+  protected static $modules = ['migrate', 'system'];
 
   /**
    * Migration to run.
@@ -41,7 +41,7 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
 
     $this->installConfig(['system']);
@@ -77,7 +77,7 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
   /**
    * Tests migration interruptions.
    */
-  public function testMessagesNotTeed() {
+  public function testMessagesNotTeed(): void {
     // We don't ask for messages to be teed, so don't expect any.
     $executable = new MigrateExecutable($this->migration, $this);
     $executable->import();
@@ -87,14 +87,15 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
   /**
    * Tests migration interruptions.
    */
-  public function testMessagesTeed() {
+  public function testMessagesTeed(): void {
     // Ask to receive any messages sent to the idmap.
     \Drupal::service('event_dispatcher')->addListener(MigrateEvents::IDMAP_MESSAGE,
       [$this, 'mapMessageRecorder']);
     $executable = new MigrateExecutable($this->migration, $this);
     $executable->import();
     $this->assertCount(1, $this->messages);
-    $this->assertIdentical(reset($this->messages), "source_message: 'a message' is not an array");
+    $id = $this->migration->getPluginId();
+    $this->assertSame("source_message: $id:message:concat: 'a message' is not an array", reset($this->messages));
   }
 
   /**
@@ -103,23 +104,24 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
    * This method returns an iterator of StdClass objects. Check that these
    * objects have the expected keys.
    */
-  public function testGetMessages() {
+  public function testGetMessages(): void {
+    $id = $this->migration->getPluginId();
     $expected_message = (object) [
       'src_name' => 'source_message',
       'dest_config_name' => NULL,
       'msgid' => '1',
       Sql::SOURCE_IDS_HASH => '170cde81762e22552d1b1578cf3804c89afefe9efbc7cc835185d7141060b032',
       'level' => '1',
-      'message' => "'a message' is not an array",
+      'message' => "$id:message:concat: 'a message' is not an array",
     ];
     $executable = new MigrateExecutable($this->migration, $this);
     $executable->import();
     $count = 0;
     foreach ($this->migration->getIdMap()->getMessages() as $message) {
       ++$count;
-      $this->assertEqual($message, $expected_message);
+      $this->assertEquals($expected_message, $message);
     }
-    $this->assertEqual($count, 1);
+    $this->assertEquals(1, $count);
   }
 
   /**
@@ -130,7 +132,7 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
    * @param string $name
    *   The event name.
    */
-  public function mapMessageRecorder(MigrateIdMapMessageEvent $event, $name) {
+  public function mapMessageRecorder(MigrateIdMapMessageEvent $event, $name): void {
     if ($event->getLevel() == MigrationInterface::MESSAGE_NOTICE ||
         $event->getLevel() == MigrationInterface::MESSAGE_INFORMATIONAL) {
       $type = 'status';
@@ -145,7 +147,7 @@ class MigrateMessageTest extends KernelTestBase implements MigrateMessageInterfa
   /**
    * {@inheritdoc}
    */
-  public function display($message, $type = 'status') {
+  public function display($message, $type = 'status'): void {
     $this->messages[] = $message;
   }
 

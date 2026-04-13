@@ -5,6 +5,7 @@ namespace Drupal\Core\Menu;
 use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
 
@@ -20,40 +21,23 @@ use Drupal\node\NodeInterface;
 class DefaultMenuLinkTreeManipulators {
 
   /**
-   * The access manager.
-   *
-   * @var \Drupal\Core\Access\AccessManagerInterface
-   */
-  protected $accessManager;
-
-  /**
-   * The current user.
-   *
-   * @var \Drupal\Core\Session\AccountInterface
-   */
-  protected $account;
-
-  /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
    * Constructs a \Drupal\Core\Menu\DefaultMenuLinkTreeManipulators object.
    *
-   * @param \Drupal\Core\Access\AccessManagerInterface $access_manager
+   * @param \Drupal\Core\Access\AccessManagerInterface $accessManager
    *   The access manager.
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The current user.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity type manager.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler.
    */
-  public function __construct(AccessManagerInterface $access_manager, AccountInterface $account, EntityTypeManagerInterface $entity_type_manager) {
-    $this->accessManager = $access_manager;
-    $this->account = $account;
-    $this->entityTypeManager = $entity_type_manager;
+  public function __construct(
+    protected AccessManagerInterface $accessManager,
+    protected AccountInterface $account,
+    protected EntityTypeManagerInterface $entityTypeManager,
+    protected ModuleHandlerInterface $moduleHandler,
+  ) {
   }
 
   /**
@@ -136,6 +120,7 @@ class DefaultMenuLinkTreeManipulators {
       $nids = array_keys($node_links);
 
       $query = $this->entityTypeManager->getStorage('node')->getQuery();
+      $query->accessCheck(TRUE);
       $query->condition('nid', $nids, 'IN');
 
       // Allows admins to view all nodes, by both disabling node_access
@@ -148,7 +133,9 @@ class DefaultMenuLinkTreeManipulators {
       }
       else {
         $access_result->addCacheContexts(['user.node_grants:view']);
-        $query->condition('status', NodeInterface::PUBLISHED);
+        if (!$this->moduleHandler->hasImplementations('node_grants') && !$this->account->hasPermission('view any unpublished content')) {
+          $query->condition('status', NodeInterface::PUBLISHED);
+        }
       }
 
       $nids = $query->execute();
@@ -169,9 +156,6 @@ class DefaultMenuLinkTreeManipulators {
    *   The menu link tree to manipulate.
    * @param array $node_links
    *   Stores references to menu link elements to effectively set access.
-   *
-   * @return \Drupal\Core\Menu\MenuLinkTreeElement[]
-   *   The manipulated menu link tree.
    */
   protected function collectNodeLinks(array &$tree, array &$node_links) {
     foreach ($tree as $key => &$element) {
@@ -197,22 +181,14 @@ class DefaultMenuLinkTreeManipulators {
    *   The access result.
    */
   protected function menuLinkCheckAccess(MenuLinkInterface $instance) {
-    $access_result = NULL;
-    if ($this->account->hasPermission('link to any page')) {
-      $access_result = AccessResult::allowed();
-    }
-    else {
-      $url = $instance->getUrlObject();
+    $url = $instance->getUrlObject();
 
-      // When no route name is specified, this must be an external link.
-      if (!$url->isRouted()) {
-        $access_result = AccessResult::allowed();
-      }
-      else {
-        $access_result = $this->accessManager->checkNamedRoute($url->getRouteName(), $url->getRouteParameters(), $this->account, TRUE);
-      }
+    if ($url->isRouted()) {
+      return $this->accessManager->checkNamedRoute($url->getRouteName(), $url->getRouteParameters(), $this->account, TRUE);
     }
-    return $access_result->cachePerPermissions();
+
+    // Must be an external link.
+    return AccessResult::allowed();
   }
 
   /**

@@ -3,7 +3,6 @@
 namespace Drupal\Core\Display;
 
 use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
@@ -13,12 +12,12 @@ use Drupal\Core\Session\AccountInterface;
 /**
  * Provides an interface for DisplayVariant plugins.
  *
- * @see \Drupal\Core\Display\Annotation\DisplayVariant
+ * @see \Drupal\Core\Display\Attribute\DisplayVariant
  * @see \Drupal\Core\Display\VariantBase
  * @see \Drupal\Core\Display\VariantManager
  * @see plugin_api
  */
-interface VariantInterface extends PluginInspectionInterface, ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginFormInterface, RefinableCacheableDependencyInterface {
+interface VariantInterface extends PluginInspectionInterface, ConfigurableInterface, DependentPluginInterface, PluginFormInterface, RefinableCacheableDependencyInterface {
 
   /**
    * Returns the user-facing display variant label.
@@ -72,7 +71,7 @@ interface VariantInterface extends PluginInspectionInterface, ConfigurableInterf
    * @return bool
    *   TRUE if this display variant is accessible, FALSE otherwise.
    */
-  public function access(AccountInterface $account = NULL);
+  public function access(?AccountInterface $account = NULL);
 
   /**
    * Builds and returns the renderable array for the display variant.

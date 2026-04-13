@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\plugin_test\Plugin\plugin_test\mock_block;
 
 use Drupal\Component\Plugin\PluginBase;
@@ -20,9 +22,12 @@ class MockUserLoginBlock extends PluginBase {
 
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-    $this->title = isset($configuration['title']) ? $configuration['title'] : '';
+    $this->title = $configuration['title'] ?? '';
   }
 
+  /**
+   * Returns the title of the block.
+   */
   public function getTitle() {
     return $this->title;
   }

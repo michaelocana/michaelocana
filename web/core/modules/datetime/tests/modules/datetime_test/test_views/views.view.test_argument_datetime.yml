@@ -2,7 +2,7 @@ langcode: und
 status: true
 dependencies: {  }
 id: test_argument_datetime
-label: ''
+label: test_argument_datetime
 module: views
 description: ''
 tag: ''
@@ -41,7 +41,7 @@ display:
           table: node_field_data
           plugin_id: numeric
     display_plugin: default
-    display_title: Master
+    display_title: Default
     id: default
     position: 0
   embed_1:

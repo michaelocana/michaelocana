@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\comment\Kernel\Migrate\d7;
 
 use Drupal\comment\Entity\Comment;
@@ -17,10 +19,11 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = [
+  protected static $modules = [
     'comment',
     'content_translation',
     'datetime',
+    'datetime_range',
     'filter',
     'image',
     'language',
@@ -35,7 +38,7 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('comment');
     $this->installEntitySchema('taxonomy_term');
@@ -63,12 +66,12 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
   /**
    * Tests the migrated comments.
    */
-  public function testMigration() {
+  public function testMigration(): void {
     $comment = Comment::load(1);
     $this->assertInstanceOf(Comment::class, $comment);
     $this->assertSame('Subject field in English', $comment->getSubject());
     $this->assertSame('1421727536', $comment->getCreatedTime());
-    $this->assertSame('1421727536', $comment->getChangedTime());
+    $this->assertSame(1421727536, $comment->getChangedTime());
     $this->assertTrue($comment->isPublished());
     $this->assertSame('admin', $comment->getAuthorName());
     $this->assertSame('admin@local.host', $comment->getAuthorEmail());
@@ -110,7 +113,7 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
     $this->assertInstanceOf(Comment::class, $comment);
     $this->assertSame('Comment without language', $comment->getSubject());
     $this->assertSame('1426781880', $comment->getCreatedTime());
-    $this->assertSame('1426781880', $comment->getChangedTime());
+    $this->assertSame(1426781880, $comment->getChangedTime());
     $this->assertTrue($comment->isPublished());
     $this->assertSame('Bob', $comment->getAuthorName());
     $this->assertSame('bob@local.host', $comment->getAuthorEmail());
@@ -123,12 +126,8 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
     $node = $comment->getCommentedEntity();
     $this->assertInstanceOf(NodeInterface::class, $node);
     $this->assertSame('1', $node->id());
-  }
 
-  /**
-   * Tests the migration of comment entity translations.
-   */
-  public function testCommentEntityTranslations() {
+    // Tests the migration of comment entity translations.
     $manager = $this->container->get('content_translation.manager');
 
     // Get the comment and its translations.
@@ -150,7 +149,7 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
     $this->assertSame('en', $metadata_fr->getSource());
     $this->assertSame('1', $metadata_fr->getAuthor()->uid->value);
     $this->assertSame('1531837764', $metadata_fr->getCreatedTime());
-    $this->assertSame('1531837764', $metadata_fr->getChangedTime());
+    $this->assertSame(1531837764, $metadata_fr->getChangedTime());
     $this->assertFalse($metadata_fr->isOutdated());
 
     // Test that the Icelandic translation metadata is correctly migrated.
@@ -159,7 +158,7 @@ class MigrateCommentTest extends MigrateDrupal7TestBase {
     $this->assertSame('en', $metadata_is->getSource());
     $this->assertSame('2', $metadata_is->getAuthor()->uid->value);
     $this->assertSame('1531838064', $metadata_is->getCreatedTime());
-    $this->assertSame('1531838064', $metadata_is->getChangedTime());
+    $this->assertSame(1531838064, $metadata_is->getChangedTime());
     $this->assertTrue($metadata_is->isOutdated());
   }
 

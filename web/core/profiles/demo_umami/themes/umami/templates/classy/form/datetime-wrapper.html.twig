@@ -10,7 +10,7 @@
  * - description: Description text for the form element.
  * - required: An indicator for whether the associated form element is required.
  *
- * @see template_preprocess_datetime_wrapper()
+ * @see \Drupal\Core\Datetime\DatePreprocess::preprocessDatetimeWrapper()
  */
 #}
 {%
@@ -25,8 +25,8 @@
 {% endif %}
 {{ content }}
 {% if errors %}
-  <div class="form-item--error-message">
-    <strong>{{ errors }}</strong>
+  <div class="form-item--error-message form-item-errors">
+    {{ errors }}
   </div>
 {% endif %}
 {% if description %}

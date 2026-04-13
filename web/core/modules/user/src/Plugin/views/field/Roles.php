@@ -3,18 +3,19 @@
 namespace Drupal\user\Plugin\views\field;
 
 use Drupal\Core\Database\Connection;
+use Drupal\views\Attribute\ViewsField;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\field\PrerenderList;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\user\Entity\Role;
 
 /**
  * Field handler to provide a list of roles.
  *
  * @ingroup views_field_handlers
- *
- * @ViewsField("user_roles")
  */
+#[ViewsField("user_roles")]
 class Roles extends PrerenderList {
 
   /**
@@ -30,7 +31,7 @@ class Roles extends PrerenderList {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Database\Connection $database
@@ -52,17 +53,23 @@ class Roles extends PrerenderList {
   /**
    * {@inheritdoc}
    */
-  public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
+  public function init(ViewExecutable $view, DisplayPluginBase $display, ?array &$options = NULL) {
     parent::init($view, $display, $options);
 
     $this->additional_fields['uid'] = ['table' => 'users_field_data', 'field' => 'uid'];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function query() {
     $this->addAdditionalFields();
     $this->field_alias = $this->aliases['uid'];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function preRender(&$values) {
     $uids = [];
     $this->items = [];
@@ -72,8 +79,8 @@ class Roles extends PrerenderList {
     }
 
     if ($uids) {
-      $roles = user_roles();
-      $result = $this->database->query('SELECT u.entity_id AS uid, u.roles_target_id AS rid FROM {user__roles} u WHERE u.entity_id IN ( :uids[] ) AND u.roles_target_id IN ( :rids[] )', [':uids[]' => $uids, ':rids[]' => array_keys($roles)]);
+      $roles = Role::loadMultiple();
+      $result = $this->database->query('SELECT [u].[entity_id] AS [uid], [u].[roles_target_id] AS [rid] FROM {user__roles} [u] WHERE [u].[entity_id] IN ( :uids[] ) AND [u].[roles_target_id] IN ( :rids[] )', [':uids[]' => $uids, ':rids[]' => array_keys($roles)]);
       foreach ($result as $role) {
         $this->items[$role->uid][$role->rid]['role'] = $roles[$role->rid]->label();
         $this->items[$role->uid][$role->rid]['rid'] = $role->rid;
@@ -85,20 +92,29 @@ class Roles extends PrerenderList {
         $sorted_keys = array_intersect_key($ordered_roles, $user_roles);
         // Merge with the unsorted array of role information which has the
         // effect of sorting it.
-        $user_roles = array_merge($sorted_keys, $user_roles);
+        $user_roles = array_replace($sorted_keys, $user_roles);
       }
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function render_item($count, $item) {
     return $item['role'];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function documentSelfTokens(&$tokens) {
-    $tokens['{{ ' . $this->options['id'] . '__role' . ' }}'] = $this->t('The name of the role.');
-    $tokens['{{ ' . $this->options['id'] . '__rid' . ' }}'] = $this->t('The role machine-name of the role.');
+    $tokens['{{ ' . $this->options['id'] . '__role }}'] = $this->t('The name of the role.');
+    $tokens['{{ ' . $this->options['id'] . '__rid }}'] = $this->t('The role machine-name of the role.');
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function addSelfTokens(&$tokens, $item) {
     if (!empty($item['role'])) {
       $tokens['{{ ' . $this->options['id'] . '__role }}'] = $item['role'];

@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\jsonapi\Functional;
 
+use Drupal\jsonapi\JsonApiSpec;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Url;
 use Drupal\file\Entity\File;
@@ -22,7 +25,7 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = ['media'];
+  protected static $modules = ['media'];
 
   /**
    * {@inheritdoc}
@@ -61,10 +64,10 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUpAuthorization($method) {
+  protected function setUpAuthorization($method): void {
     switch ($method) {
       case 'GET':
-        $this->grantPermissionsToTestedRole(['view media']);
+        $this->grantPermissionsToTestedRole(['view media', 'view any camelids media revisions']);
         break;
 
       case 'POST':
@@ -86,7 +89,7 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUpRevisionAuthorization($method) {
+  protected function setUpRevisionAuthorization($method): void {
     parent::setUpRevisionAuthorization($method);
     $this->grantPermissionsToTestedRole(['view all media revisions']);
   }
@@ -98,7 +101,7 @@ class MediaTest extends ResourceTestBase {
     if (!MediaType::load('camelids')) {
       // Create a "Camelids" media type.
       $media_type = MediaType::create([
-        'name' => 'Camelids',
+        'label' => 'Camelids',
         'id' => 'camelids',
         'description' => 'Camelids are large, strictly herbivorous animals with slender necks and long legs.',
         'source' => 'file',
@@ -150,7 +153,7 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getExpectedDocument() {
+  protected function getExpectedDocument(): array {
     $file = File::load(1);
     $thumbnail = File::load(3);
     $author = User::load($this->entity->getOwnerId());
@@ -163,10 +166,10 @@ class MediaTest extends ResourceTestBase {
       'jsonapi' => [
         'meta' => [
           'links' => [
-            'self' => ['href' => 'http://jsonapi.org/format/1.0/'],
+            'self' => ['href' => JsonApiSpec::SUPPORTED_SPECIFICATION_PERMALINK],
           ],
         ],
-        'version' => '1.0',
+        'version' => JsonApiSpec::SUPPORTED_SPECIFICATION_VERSION,
       ],
       'links' => [
         'self' => ['href' => $base_url->toString()],
@@ -183,7 +186,7 @@ class MediaTest extends ResourceTestBase {
           'status' => TRUE,
           'created' => '1973-11-29T21:33:09+00:00',
           'changed' => (new \DateTime())->setTimestamp($this->entity->getChangedTime())->setTimezone(new \DateTimeZone('UTC'))->format(\DateTime::RFC3339),
-          'revision_created' => (new \DateTime())->setTimestamp($this->entity->getRevisionCreationTime())->setTimezone(new \DateTimeZone('UTC'))->format(\DateTime::RFC3339),
+          'revision_created' => (new \DateTime())->setTimestamp((int) $this->entity->getRevisionCreationTime())->setTimezone(new \DateTimeZone('UTC'))->format(\DateTime::RFC3339),
           'default_langcode' => TRUE,
           'revision_log_message' => NULL,
           // @todo Attempt to remove this in https://www.drupal.org/project/drupal/issues/2933518.
@@ -198,6 +201,7 @@ class MediaTest extends ResourceTestBase {
               'meta' => [
                 'description' => NULL,
                 'display' => NULL,
+                'drupal_internal__target_id' => (int) $file->id(),
               ],
               'type' => 'file--file',
             ],
@@ -215,6 +219,7 @@ class MediaTest extends ResourceTestBase {
               'id' => $thumbnail->uuid(),
               'meta' => [
                 'alt' => '',
+                'drupal_internal__target_id' => (int) $thumbnail->id(),
                 'width' => 180,
                 'height' => 180,
                 'title' => NULL,
@@ -233,6 +238,9 @@ class MediaTest extends ResourceTestBase {
           'bundle' => [
             'data' => [
               'id' => MediaType::load('camelids')->uuid(),
+              'meta' => [
+                'drupal_internal__target_id' => 'camelids',
+              ],
               'type' => 'media_type--media_type',
             ],
             'links' => [
@@ -248,6 +256,9 @@ class MediaTest extends ResourceTestBase {
             'data' => [
               'id' => $author->uuid(),
               'type' => 'user--user',
+              'meta' => [
+                'drupal_internal__target_id' => (int) $author->id(),
+              ],
             ],
             'links' => [
               'related' => [
@@ -261,6 +272,9 @@ class MediaTest extends ResourceTestBase {
           'revision_user' => [
             'data' => [
               'id' => $author->uuid(),
+              'meta' => [
+                'drupal_internal__target_id' => (int) $author->id(),
+              ],
               'type' => 'user--user',
             ],
             'links' => [
@@ -280,13 +294,13 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getPostDocument() {
+  protected function getPostDocument(): array {
     $file = File::load(2);
     return [
       'data' => [
         'type' => 'media--camelids',
         'attributes' => [
-          'name' => 'Dramallama',
+          'name' => 'Drama llama',
         ],
         'relationships' => [
           'field_media_file' => [
@@ -295,6 +309,7 @@ class MediaTest extends ResourceTestBase {
               'meta' => [
                 'description' => 'This file is better!',
                 'display' => NULL,
+                'drupal_internal__target_id' => (int) $file->id(),
               ],
               'type' => 'file--file',
             ],
@@ -309,7 +324,7 @@ class MediaTest extends ResourceTestBase {
    */
   protected function getExpectedUnauthorizedAccessMessage($method) {
     switch ($method) {
-      case 'GET';
+      case 'GET':
         return "The 'view media' permission is required when the media item is published.";
 
       case 'POST':
@@ -329,7 +344,7 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function getEditorialPermissions() {
+  protected function getEditorialPermissions(): array {
     return array_merge(parent::getEditorialPermissions(), ['view any unpublished content']);
   }
 
@@ -342,21 +357,19 @@ class MediaTest extends ResourceTestBase {
       ->addCacheTags(['media:1']);
   }
 
-  // @codingStandardsIgnoreStart
   /**
    * {@inheritdoc}
    */
-  public function testPostIndividual() {
+  protected function doTestPostIndividual(): void {
     // @todo Mimic \Drupal\Tests\rest\Functional\EntityResource\Media\MediaResourceTestBase::testPost()
     // @todo Later, use https://www.drupal.org/project/drupal/issues/2958554 to upload files rather than the REST module.
-    parent::testPostIndividual();
+    parent::doTestPostIndividual();
   }
-  // @codingStandardsIgnoreEnd
 
   /**
    * {@inheritdoc}
    */
-  protected function getExpectedGetRelationshipDocumentData($relationship_field_name, EntityInterface $entity = NULL) {
+  protected function getExpectedGetRelationshipDocumentData($relationship_field_name, ?EntityInterface $entity = NULL) {
     $data = parent::getExpectedGetRelationshipDocumentData($relationship_field_name, $entity);
     switch ($relationship_field_name) {
       case 'thumbnail':
@@ -365,14 +378,14 @@ class MediaTest extends ResourceTestBase {
           'width' => 180,
           'height' => 180,
           'title' => NULL,
-        ];
+        ] + $data['meta'];
         return $data;
 
       case 'field_media_file':
         $data['meta'] = [
           'description' => NULL,
           'display' => NULL,
-        ];
+        ] + $data['meta'];
         return $data;
 
       default:
@@ -385,7 +398,7 @@ class MediaTest extends ResourceTestBase {
    *
    * @todo Remove this in https://www.drupal.org/node/2824851.
    */
-  protected function doTestRelationshipMutation(array $request_options) {
+  protected function doTestRelationshipMutation(array $request_options): void {
     $this->grantPermissionsToTestedRole(['access content']);
     parent::doTestRelationshipMutation($request_options);
   }
@@ -393,7 +406,7 @@ class MediaTest extends ResourceTestBase {
   /**
    * {@inheritdoc}
    */
-  public function testCollectionFilterAccess() {
+  public function testCollectionFilterAccess(): void {
     $this->doTestCollectionFilterAccessForPublishableEntities('name', 'view media', 'administer media');
   }
 

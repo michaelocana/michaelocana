@@ -2,12 +2,12 @@
 
 namespace Drupal\views\Plugin\views\field;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Routing\RedirectDestinationTrait;
+use Drupal\views\Attribute\ViewsField;
 use Drupal\views\Entity\Render\EntityTranslationRenderTrait;
 use Drupal\views\ResultRow;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -16,19 +16,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Renders all operations links for an entity.
  *
  * @ingroup views_field_handlers
- *
- * @ViewsField("entity_operations")
  */
+#[ViewsField("entity_operations")]
 class EntityOperations extends FieldPluginBase {
 
   use EntityTranslationRenderTrait;
   use RedirectDestinationTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The entity type manager.
@@ -64,26 +57,21 @@ class EntityOperations extends FieldPluginBase {
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
    * @param string $plugin_id
-   *   The plugin_id for the plugin instance.
+   *   The plugin ID for the plugin instance.
    * @param array $plugin_definition
    *   The plugin implementation definition.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity manager.
+   *   The entity type manager.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
    *   The entity repository.
    */
-  public function __construct(array $configuration, $plugin_id, array $plugin_definition, EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, EntityRepositoryInterface $entity_repository = NULL) {
+  public function __construct(array $configuration, $plugin_id, array $plugin_definition, EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, EntityRepositoryInterface $entity_repository) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
     $this->entityTypeManager = $entity_type_manager;
     $this->languageManager = $language_manager;
-
-    if (!$entity_repository) {
-      @trigger_error('Calling EntityOperations::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
     $this->entityRepository = $entity_repository;
   }
 
@@ -139,7 +127,14 @@ class EntityOperations extends FieldPluginBase {
    * {@inheritdoc}
    */
   public function render(ResultRow $values) {
-    $entity = $this->getEntityTranslation($this->getEntity($values), $values);
+    $entity = $this->getEntity($values);
+    // Allow for the case where there is no entity, if we are on a non-required
+    // relationship.
+    if (empty($entity)) {
+      return '';
+    }
+
+    $entity = $this->getEntityTranslationByRelationship($entity, $values);
     $operations = $this->entityTypeManager->getListBuilder($entity->getEntityTypeId())->getOperations($entity);
     if ($this->options['destination']) {
       foreach ($operations as &$operation) {
@@ -152,6 +147,10 @@ class EntityOperations extends FieldPluginBase {
     $build = [
       '#type' => 'operations',
       '#links' => $operations,
+      // Allow links to use modals.
+      '#attached' => [
+        'library' => ['core/drupal.dialog.ajax'],
+      ],
     ];
 
     return $build;
@@ -174,15 +173,6 @@ class EntityOperations extends FieldPluginBase {
    */
   public function getEntityTypeId() {
     return $this->getEntityType();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getEntityManager() {
-    // This relies on DeprecatedServicePropertyTrait to trigger a deprecation
-    // message in case it is accessed.
-    return $this->entityManager;
   }
 
   /**

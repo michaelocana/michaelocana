@@ -27,6 +27,24 @@ final class Settings {
   private static $instance = NULL;
 
   /**
+   * Information about all deprecated settings, keyed by legacy settings name.
+   *
+   * Each entry should be an array that defines the following keys:
+   *   - 'replacement': The new name for the setting.
+   *   - 'message': The deprecation message to use for trigger_error().
+   *
+   * @var array
+   *
+   * @see self::handleDeprecations()
+   */
+  private static $deprecatedSettings = [
+    'state_cache' => [
+      'replacement' => '',
+      'message' => 'The "state_cache" setting is deprecated in drupal:11.0.0. This setting should be removed from the settings file, since its usage has been removed. See https://www.drupal.org/node/3177901.',
+    ],
+  ];
+
+  /**
    * Constructor.
    *
    * @param array $settings
@@ -43,7 +61,7 @@ final class Settings {
    * A singleton is used because this class is used before the container is
    * available.
    *
-   * @return \Drupal\Core\Site\Settings
+   * @return $this
    *
    * @throws \BadMethodCallException
    *   Thrown when the settings instance has not been initialized yet.
@@ -64,7 +82,7 @@ final class Settings {
   /**
    * Prevents settings from being serialized.
    */
-  public function __sleep() {
+  public function __sleep(): array {
     throw new \LogicException('Settings can not be serialized. This probably means you are serializing an object that has an indirect reference to the Settings object. Adjust your code so that is not necessary.');
   }
 
@@ -84,10 +102,13 @@ final class Settings {
    *   The value of the setting, the provided default if not set.
    */
   public static function get($name, $default = NULL) {
-    if ($name === 'install_profile' && isset(self::$instance->storage[$name])) {
-      @trigger_error('To access the install profile in Drupal 8 use \Drupal::installProfile() or inject the install_profile container parameter into your service. See https://www.drupal.org/node/2538996', E_USER_DEPRECATED);
+    // If the caller is asking for the value of a deprecated setting, trigger a
+    // deprecation message about it.
+    if (isset(self::$deprecatedSettings[$name])) {
+      // phpcs:ignore Drupal.Semantics.FunctionTriggerError
+      @trigger_error(self::$deprecatedSettings[$name]['message'], E_USER_DEPRECATED);
     }
-    return isset(self::$instance->storage[$name]) ? self::$instance->storage[$name] : $default;
+    return self::$instance->storage[$name] ?? $default;
   }
 
   /**
@@ -110,13 +131,13 @@ final class Settings {
    * @param \Composer\Autoload\ClassLoader $class_loader
    *   The class loader that is used for this request. Passed by reference and
    *   exposed to the local scope of settings.php, so as to allow it to be
-   *   decorated with Symfony's ApcClassLoader, for example.
+   *   decorated.
    *
    * @see default.settings.php
    */
   public static function initialize($app_root, $site_path, &$class_loader) {
     // Export these settings.php variables to the global namespace.
-    global $config_directories, $config;
+    global $config;
     $settings = [];
     $config = [];
     $databases = [];
@@ -125,31 +146,10 @@ final class Settings {
       require $app_root . '/' . $site_path . '/settings.php';
     }
 
-    // Initialize databases.
-    foreach ($databases as $key => $targets) {
-      foreach ($targets as $target => $info) {
-        Database::addConnectionInfo($key, $target, $info);
-        // If the database driver is provided by a module, then its code may
-        // need to be instantiated prior to when the module's root namespace
-        // is added to the autoloader, because that happens during service
-        // container initialization but the container definition is likely in
-        // the database. Therefore, allow the connection info to specify an
-        // autoload directory for the driver.
-        if (isset($info['autoload'])) {
-          $class_loader->addPsr4($info['namespace'] . '\\', $info['autoload']);
-        }
-      }
-    }
+    self::handleDeprecations($settings);
 
-    // For BC ensure the $config_directories global is set both in the global
-    // and settings.
-    if (!isset($settings['config_sync_directory']) && !empty($config_directories['sync'])) {
-      @trigger_error('$config_directories[\'sync\'] has moved to $settings[\'config_sync_directory\']. See https://www.drupal.org/node/3018145.', E_USER_DEPRECATED);
-      $settings['config_sync_directory'] = $config_directories['sync'];
-    }
-    elseif (isset($settings['config_sync_directory'])) {
-      $config_directories['sync'] = $settings['config_sync_directory'];
-    }
+    // Initialize databases.
+    Database::setMultipleConnectionInfo($databases, $class_loader, $app_root);
 
     // Initialize Settings.
     new Settings($settings);
@@ -188,9 +188,13 @@ final class Settings {
    * module directories setting apcu_ensure_unique_prefix would allow the sites
    * to share APCu cache items.
    *
-   * @param $identifier
+   * @param string $identifier
    *   An identifier for the prefix. For example, 'class_loader' or
    *   'cache_backend'.
+   * @param string $root
+   *   The app root.
+   * @param string $site_path
+   *   (optional) The site path. Defaults to an empty string.
    *
    * @return string
    *   The prefix for APCu user cache keys.
@@ -202,6 +206,30 @@ final class Settings {
       return 'drupal.' . $identifier . '.' . \Drupal::VERSION . '.' . static::get('deployment_identifier') . '.' . hash_hmac('sha256', $identifier, static::get('hash_salt') . '.' . $root . '/' . $site_path);
     }
     return 'drupal.' . $identifier . '.' . \Drupal::VERSION . '.' . static::get('deployment_identifier') . '.' . Crypt::hashBase64($root . '/' . $site_path);
+  }
+
+  /**
+   * Handle deprecated values in the site settings.
+   *
+   * @param array $settings
+   *   The site settings.
+   *
+   * @see self::getDeprecatedSettings()
+   */
+  private static function handleDeprecations(array &$settings): void {
+    foreach (self::$deprecatedSettings as $legacy => $deprecation) {
+      if (!empty($settings[$legacy])) {
+        @trigger_error($deprecation['message'], E_USER_DEPRECATED);
+        // Set the new key if needed.
+        if (!isset($settings[$deprecation['replacement']])) {
+          $settings[$deprecation['replacement']] = $settings[$legacy];
+        }
+      }
+      // Ensure that both keys have the same value.
+      if (isset($settings[$deprecation['replacement']])) {
+        $settings[$legacy] = $settings[$deprecation['replacement']];
+      }
+    }
   }
 
 }

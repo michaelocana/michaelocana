@@ -12,9 +12,7 @@
     "jQuery": true,
     "_": true,
     "matchMedia": true,
-    "Backbone": true,
-    "Modernizr": true,
-    "CKEDITOR": true
+    "Backbone": true
   },
   "rules": {
     "array-bracket-spacing": ["error", "never"],

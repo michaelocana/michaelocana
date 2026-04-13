@@ -9,13 +9,16 @@ use Drupal\Component\Utility\Xss;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Database\Query\PagerSelectExtender;
+use Drupal\Core\Database\Query\SelectInterface;
+use Drupal\Core\Database\Query\TableSortExtender;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Url;
 use Drupal\user\Entity\User;
-use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Drupal\Core\Link;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -32,13 +35,6 @@ class DbLogController extends ControllerBase {
   protected $database;
 
   /**
-   * The module handler service.
-   *
-   * @var \Drupal\Core\Extension\ModuleHandlerInterface
-   */
-  protected $moduleHandler;
-
-  /**
    * The date formatter service.
    *
    * @var \Drupal\Core\Datetime\DateFormatterInterface
@@ -46,30 +42,11 @@ class DbLogController extends ControllerBase {
   protected $dateFormatter;
 
   /**
-   * The form builder service.
-   *
-   * @var \Drupal\Core\Form\FormBuilderInterface
-   */
-  protected $formBuilder;
-
-  /**
    * The user storage.
    *
    * @var \Drupal\user\UserStorageInterface
    */
   protected $userStorage;
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('database'),
-      $container->get('module_handler'),
-      $container->get('date.formatter'),
-      $container->get('form_builder')
-    );
-  }
 
   /**
    * Constructs a DbLogController object.
@@ -116,6 +93,9 @@ class DbLogController extends ControllerBase {
    * Messages are truncated at 56 chars.
    * Full-length messages can be viewed on the message details page.
    *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request.
+   *
    * @return array
    *   A render array as expected by
    *   \Drupal\Core\Render\RendererInterface::render().
@@ -123,16 +103,15 @@ class DbLogController extends ControllerBase {
    * @see Drupal\dblog\Form\DblogClearLogConfirmForm
    * @see Drupal\dblog\Controller\DbLogController::eventDetails()
    */
-  public function overview() {
+  public function overview(Request $request) {
 
-    $filter = $this->buildFilterQuery();
     $rows = [];
 
     $classes = static::getLogLevelClassMap();
 
-    $this->moduleHandler->loadInclude('dblog', 'admin.inc');
+    $this->moduleHandler()->loadInclude('dblog', 'admin.inc');
 
-    $build['dblog_filter_form'] = $this->formBuilder->getForm('Drupal\dblog\Form\DblogFilterForm');
+    $build['dblog_filter_form'] = $this->formBuilder()->getForm('Drupal\dblog\Form\DblogFilterForm');
 
     $header = [
       // Icon column.
@@ -161,8 +140,8 @@ class DbLogController extends ControllerBase {
     ];
 
     $query = $this->database->select('watchdog', 'w')
-      ->extend('\Drupal\Core\Database\Query\PagerSelectExtender')
-      ->extend('\Drupal\Core\Database\Query\TableSortExtender');
+      ->extend(PagerSelectExtender::class)
+      ->extend(TableSortExtender::class);
     $query->fields('w', [
       'wid',
       'uid',
@@ -173,11 +152,10 @@ class DbLogController extends ControllerBase {
       'variables',
       'link',
     ]);
-    $query->leftJoin('users_field_data', 'ufd', 'w.uid = ufd.uid');
+    $query->leftJoin('users_field_data', 'ufd', '[w].[uid] = [ufd].[uid]');
 
-    if (!empty($filter['where'])) {
-      $query->where($filter['where'], $filter['args']);
-    }
+    $this->addFilterToQuery($request, $query);
+
     $result = $query
       ->limit(50)
       ->orderByHeader($header)
@@ -207,6 +185,7 @@ class DbLogController extends ControllerBase {
         'data' => [
           // Cells.
           ['class' => ['icon']],
+          // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
           $this->t($dblog->type),
           $this->dateFormatter->format($dblog->timestamp, 'short'),
           $message,
@@ -248,7 +227,12 @@ class DbLogController extends ControllerBase {
    *   If no event found for the given ID.
    */
   public function eventDetails($event_id) {
-    $dblog = $this->database->query('SELECT w.*, u.uid FROM {watchdog} w LEFT JOIN {users} u ON u.uid = w.uid WHERE w.wid = :id', [':id' => $event_id])->fetchObject();
+    $query = $this->database->select('watchdog', 'w')
+      ->fields('w')
+      ->condition('w.wid', $event_id);
+    $query->leftJoin('users', 'u', '[u].[uid] = [w].[uid]');
+    $query->addField('u', 'uid', 'uid');
+    $dblog = $query->execute()->fetchObject();
 
     if (empty($dblog)) {
       throw new NotFoundHttpException();
@@ -264,6 +248,7 @@ class DbLogController extends ControllerBase {
     $rows = [
       [
         ['data' => $this->t('Type'), 'header' => TRUE],
+        // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
         $this->t($dblog->type),
       ],
       [
@@ -299,6 +284,12 @@ class DbLogController extends ControllerBase {
         ['data' => ['#markup' => $dblog->link]],
       ],
     ];
+    if (isset($dblog->backtrace)) {
+      $rows[] = [
+        ['data' => $this->t('Backtrace'), 'header' => TRUE],
+        $dblog->backtrace,
+      ];
+    }
     $build['dblog_table'] = [
       '#type' => 'table',
       '#rows' => $rows,
@@ -314,37 +305,48 @@ class DbLogController extends ControllerBase {
   /**
    * Builds a query for database log administration filters based on session.
    *
-   * @return array|null
-   *   An associative array with keys 'where' and 'args' or NULL if there were
-   *   no filters set.
+   * This method retrieves the session-based filters from the request and
+   * applies them to the provided query object. If no filters are present, the
+   * query is left unchanged.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request.
+   * @param \Drupal\Core\Database\Query\SelectInterface $query
+   *   The database query.
    */
-  protected function buildFilterQuery() {
-    if (empty($_SESSION['dblog_overview_filter'])) {
+  protected function addFilterToQuery(Request $request, SelectInterface &$query): void {
+    $session_filters = $request->getSession()->get('dblog_overview_filter', []);
+    if (empty($session_filters)) {
       return;
     }
 
-    $this->moduleHandler->loadInclude('dblog', 'admin.inc');
+    $this->moduleHandler()->loadInclude('dblog', 'admin.inc');
 
     $filters = dblog_filters();
 
-    // Build query.
-    $where = $args = [];
-    foreach ($_SESSION['dblog_overview_filter'] as $key => $filter) {
-      $filter_where = [];
+    // Build the condition.
+    $condition_and = $query->getConnection()->condition('AND');
+    $condition_and_used = FALSE;
+    foreach ($session_filters as $key => $filter) {
+      $condition_or = $query->getConnection()->condition('OR');
+      $condition_or_used = FALSE;
       foreach ($filter as $value) {
-        $filter_where[] = $filters[$key]['where'];
-        $args[] = $value;
+        if ($key == 'severity') {
+          $value = (int) $value;
+        }
+        if (in_array($value, array_keys($filters[$key]['options']))) {
+          $condition_or->condition($filters[$key]['field'], $value);
+          $condition_or_used = TRUE;
+        }
       }
-      if (!empty($filter_where)) {
-        $where[] = '(' . implode(' OR ', $filter_where) . ')';
+      if ($condition_or_used) {
+        $condition_and->condition($condition_or);
+        $condition_and_used = TRUE;
       }
     }
-    $where = !empty($where) ? implode(' AND ', $where) : '';
-
-    return [
-      'where' => $where,
-      'args' => $args,
-    ];
+    if ($condition_and_used) {
+      $query->condition($condition_and);
+    }
   }
 
   /**
@@ -353,6 +355,10 @@ class DbLogController extends ControllerBase {
    * @param object $row
    *   The record from the watchdog table. The object properties are: wid, uid,
    *   severity, type, timestamp, message, variables, link, name.
+   *
+   *   If the variables contain a @backtrace_string placeholder which is not
+   *   used in the message, the formatted backtrace will be assigned to a new
+   *   backtrace property on the row object which can be displayed separately.
    *
    * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup|false
    *   The formatted log message or FALSE if the message or variables properties
@@ -376,7 +382,12 @@ class DbLogController extends ControllerBase {
           $variables['@backtrace_string'] = new FormattableMarkup(
             '<pre class="backtrace">@backtrace_string</pre>', $variables
           );
+          // Save a reference so the backtrace can be displayed separately.
+          if (!str_contains($row->message, '@backtrace_string')) {
+            $row->backtrace = $variables['@backtrace_string'];
+          }
         }
+        // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
         $message = $this->t(Xss::filterAdmin($row->message), $variables);
       }
     }
@@ -397,7 +408,7 @@ class DbLogController extends ControllerBase {
    *   empty uri or invalid, fallback to the provided $uri.
    */
   protected function createLink($uri) {
-    if (UrlHelper::isValid($uri, TRUE)) {
+    if ($uri !== NULL && UrlHelper::isValid($uri, TRUE)) {
       return new Link($uri, Url::fromUri($uri));
     }
     return $uri;
@@ -423,13 +434,13 @@ class DbLogController extends ControllerBase {
     ];
 
     $count_query = $this->database->select('watchdog');
-    $count_query->addExpression('COUNT(DISTINCT(message))');
+    $count_query->addExpression('COUNT(DISTINCT([message]))');
     $count_query->condition('type', $type);
 
     $query = $this->database->select('watchdog', 'w')
-      ->extend('\Drupal\Core\Database\Query\PagerSelectExtender')
-      ->extend('\Drupal\Core\Database\Query\TableSortExtender');
-    $query->addExpression('COUNT(wid)', 'count');
+      ->extend(PagerSelectExtender::class)
+      ->extend(TableSortExtender::class);
+    $query->addExpression('COUNT([wid])', 'count');
     $query = $query
       ->fields('w', ['message', 'variables'])
       ->condition('w.type', $type)

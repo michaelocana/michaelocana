@@ -21,7 +21,7 @@ interface ConfigFactoryInterface {
   public function get($name);
 
   /**
-   * Returns an mutable configuration object for a given name.
+   * Returns a mutable configuration object for a given name.
    *
    * Should not be used for config that will have runtime effects. Therefore it
    * is always loaded override free.
@@ -97,14 +97,14 @@ interface ConfigFactoryInterface {
   /**
    * Gets configuration object names starting with a given prefix.
    *
-   * @see \Drupal\Core\Config\StorageInterface::listAll()
-   *
    * @param string $prefix
    *   (optional) The prefix to search for. If omitted, all configuration object
    *   names that exist are returned.
    *
    * @return array
    *   An array containing matching configuration object names.
+   *
+   * @see \Drupal\Core\Config\StorageInterface::listAll()
    */
   public function listAll($prefix = '');
 

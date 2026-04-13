@@ -82,7 +82,7 @@ system.admin_config_regional:
   path: '/admin/config/regional'
   defaults:
     _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
-    _title: 'Regional and language'
+    _title: 'Region and language'
   requirements:
     _permission: 'access administration pages'
 
@@ -143,13 +143,6 @@ system.admin_compact_page:
   requirements:
     _permission: 'access administration pages'
 
-system.machine_name_transliterate:
-  path: '/machine_name/transliterate'
-  defaults:
-    _controller: '\Drupal\system\MachineNameController::transliterate'
-  requirements:
-    _permission: 'access content'
-
 system.site_information_settings:
   path: '/admin/config/system/site-information'
   defaults:
@@ -177,8 +170,16 @@ system.logging_settings:
 system.performance_settings:
   path: '/admin/config/development/performance'
   defaults:
-    _form: '\Drupal\system\Form\PerformanceForm'
+    _controller: '\Drupal\system\Controller\PerformanceController::build'
     _title: 'Performance'
+  requirements:
+    _permission: 'administer site configuration'
+
+system.development_settings:
+  path: '/admin/config/development/settings'
+  defaults:
+    _form: '\Drupal\system\Form\DevelopmentSettingsForm'
+    _title: 'Development settings'
   requirements:
     _permission: 'administer site configuration'
 
@@ -277,15 +278,15 @@ system.modules_list_confirm:
   path: '/admin/modules/list/confirm'
   defaults:
     _form: '\Drupal\system\Form\ModulesListConfirmForm'
-    _title: 'Some required modules must be enabled'
+    _title: 'Some required modules must be installed'
   requirements:
     _permission: 'administer modules'
 
-system.modules_list_experimental_confirm:
-  path: '/admin/modules/list/confirm-experimental'
+system.modules_list_non_stable_confirm:
+  path: '/admin/modules/list/confirm-non-stable'
   defaults:
-    _form: '\Drupal\system\Form\ModulesListExperimentalConfirmForm'
-    _title: 'Experimental modules'
+    _form: '\Drupal\system\Form\ModulesListNonStableConfirmForm'
+    _title: 'Non-stable modules'
   requirements:
     _permission: 'administer modules'
 
@@ -445,6 +446,7 @@ system.prepare_modules_entity_uninstall:
     _title_callback: '\Drupal\system\Form\PrepareModulesEntityUninstallForm::formTitle'
   requirements:
     _permission: 'administer modules'
+    _custom_access: '\Drupal\system\Form\PrepareModulesEntityUninstallForm::checkAccess'
 
 system.timezone:
   path: '/system/timezone/{abbreviation}/{offset}/{is_daylight_saving_time}'
@@ -455,6 +457,9 @@ system.timezone:
     is_daylight_saving_time: NULL
   requirements:
     _access: 'TRUE'
+    abbreviation: '0|([A-Z]{3,5})'
+    offset: '\-?\d+'
+    is_daylight_saving_time: '\-1|0|1'
 
 system.admin_config:
   path: '/admin/config'
@@ -487,7 +492,7 @@ system.batch_page.json:
     _admin_route: TRUE
 
 # Note: This route just exists for generating URLs, the dedicated
-# frontcontroller is used if the URL is accessed.
+# front controller is used if the URL is accessed.
 system.db_update:
   path: '/update.php/{op}'
   defaults:
@@ -501,8 +506,7 @@ system.db_update:
 system.admin_content:
   path: '/admin/content'
   defaults:
-    _controller: '\Drupal\system\Controller\SystemController::overview'
-    link_id: 'system.admin_content'
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
     _title: 'Content'
   requirements:
     _permission: 'access administration pages'
@@ -520,3 +524,15 @@ system.csrftoken:
     _controller: '\Drupal\system\Controller\CsrfTokenController::csrfToken'
   requirements:
     _access: 'TRUE'
+
+system.linkset_settings:
+  path: '/admin/config/services/linkset'
+  defaults:
+    _title: 'Menu Linkset Settings'
+    _form: 'Drupal\system\Form\MenuLinksetSettingsForm'
+  requirements:
+    _permission: 'administer site configuration'
+
+route_callbacks:
+  - '\Drupal\system\Routing\AssetRoutes::routes'
+  - '\Drupal\system\Routing\MenuLinksetRoutes::routes'
