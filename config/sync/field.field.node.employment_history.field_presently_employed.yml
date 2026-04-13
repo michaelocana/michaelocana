@@ -1,0 +1,21 @@
+uuid: 2c31f4d3-be8c-4263-9c6c-df2ee8b0d0ca
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_presently_employed
+    - node.type.employment_history
+id: node.employment_history.field_presently_employed
+field_name: field_presently_employed
+entity_type: node
+bundle: employment_history
+label: 'Presently employed'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

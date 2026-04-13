@@ -1,0 +1,18 @@
+uuid: 613da60d-3cb2-4b68-aa33-17cb46881275
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+name: 'NFC Profile'
+type: nfc_profile
+description: 'NFC Profile Landing page'
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: true

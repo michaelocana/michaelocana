@@ -1,0 +1,20 @@
+uuid: e27a3c3f-2612-4974-a0eb-eb10510bbae3
+langcode: en
+status: true
+dependencies:
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: 03Jl-eNW3zdEf4kyH46w0XK5nnnMyfEa9CVOEUzQTEA
+id: michaelocana_page_title
+theme: michaelocana
+region: header
+weight: 0
+provider: null
+plugin: page_title_block
+settings:
+  id: page_title_block
+  label: 'Page title'
+  label_display: '0'
+  provider: core
+visibility: {  }

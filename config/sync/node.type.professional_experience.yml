@@ -1,0 +1,18 @@
+uuid: 9c6abc27-6531-468e-b7d1-e04136e5d85f
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+name: 'Professional Experience'
+type: professional_experience
+description: 'Represents skills, certifications, or expertise.'
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: true

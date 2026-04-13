@@ -1,0 +1,24 @@
+uuid: 7f527ae9-da7f-43db-a3c2-6c1dfab4fb0e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_body
+    - filter.format.basic_html
+    - node.type.areas_of_practice
+  module:
+    - text
+id: node.areas_of_practice.field_body
+field_name: field_body
+entity_type: node
+bundle: areas_of_practice
+label: Body
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats:
+    - basic_html
+field_type: text_long

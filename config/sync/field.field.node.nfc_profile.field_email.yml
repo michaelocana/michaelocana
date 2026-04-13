@@ -1,0 +1,19 @@
+uuid: 08217e47-a6b0-42f5-9953-a2cd1c67f366
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_email
+    - node.type.nfc_profile
+id: node.nfc_profile.field_email
+field_name: field_email
+entity_type: node
+bundle: nfc_profile
+label: Email
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: email

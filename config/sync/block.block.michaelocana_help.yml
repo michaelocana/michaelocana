@@ -1,0 +1,22 @@
+uuid: 7a5c4833-559e-4f53-b204-a513ced217dc
+langcode: en
+status: true
+dependencies:
+  module:
+    - help
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: LGJGe-DYcbB0SKNDqFWtxewDZGWfXDIvqxKWyYw9S3k
+id: michaelocana_help
+theme: michaelocana
+region: content
+weight: 3
+provider: null
+plugin: help_block
+settings:
+  id: help_block
+  label: Help
+  label_display: '0'
+  provider: help
+visibility: {  }

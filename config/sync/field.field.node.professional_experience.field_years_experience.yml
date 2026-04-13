@@ -1,0 +1,23 @@
+uuid: 3b77e515-5ab7-49de-8ee6-a0d1bce4317c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_years_experience
+    - node.type.professional_experience
+id: node.professional_experience.field_years_experience
+field_name: field_years_experience
+entity_type: node
+bundle: professional_experience
+label: 'Years Experience'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

@@ -1,0 +1,27 @@
+uuid: d5fea9ac-db5e-4c4c-8dd9-503e95c1630f
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+    - user
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: 8_4m4Q7_AeC2OFUGBHCSeYm2_x18skOcMbX2_W-6jmo
+id: michaelocana_userlogin
+theme: michaelocana
+region: header
+weight: 0
+provider: null
+plugin: user_login_block
+settings:
+  id: user_login_block
+  label: 'User login'
+  label_display: '0'
+  provider: user
+visibility:
+  request_path:
+    id: request_path
+    negate: true
+    pages: /user/login

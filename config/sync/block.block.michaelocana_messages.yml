@@ -1,0 +1,22 @@
+uuid: 49d959c1-5921-4f67-bb81-6187e0b3f46c
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: uB1BsjFLYtDfQn84zNrBSUzkEg9ZlxURQpjR5B0XFQA
+id: michaelocana_messages
+theme: michaelocana
+region: header
+weight: -50
+provider: null
+plugin: system_messages_block
+settings:
+  id: system_messages_block
+  label: 'Status messages'
+  label_display: '0'
+  provider: system
+visibility: {  }

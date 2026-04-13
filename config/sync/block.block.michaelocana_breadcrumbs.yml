@@ -1,0 +1,22 @@
+uuid: 3aa36a5f-6c37-41d5-80f3-f34c45fa1a57
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: IJxkoJTRnEKkx3kvJLdscJSikSErRv3irwydbZ27oWM
+id: michaelocana_breadcrumbs
+theme: michaelocana
+region: header
+weight: -100
+provider: null
+plugin: system_breadcrumb_block
+settings:
+  id: system_breadcrumb_block
+  label: Breadcrumbs
+  label_display: '0'
+  provider: system
+visibility: {  }

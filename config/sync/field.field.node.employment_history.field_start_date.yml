@@ -1,0 +1,21 @@
+uuid: b080b4d3-dfa7-4bd4-ac5d-3d372a18e3c2
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_start_date
+    - node.type.employment_history
+  module:
+    - datetime
+id: node.employment_history.field_start_date
+field_name: field_start_date
+entity_type: node
+bundle: employment_history
+label: 'Start Date'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime
