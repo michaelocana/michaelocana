@@ -1,0 +1,10 @@
+{% for group in rows %}
+  <h2 class="skill-group">{{ group.title }}</h2>
+  <div class="grid">
+    {% for row in group.rows %}
+      <div class="card">
+        {{ row.content }}
+      </div>
+    {% endfor %}
+  </div>
+{% endfor %}

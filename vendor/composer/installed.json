@@ -1082,7 +1082,7 @@
                 "source": "https://git.drupalcode.org/project/admin_toolbar",
                 "issues": "https://www.drupal.org/project/issues/admin_toolbar"
             },
-            "install-path": "../../web/modules/contrib/admin_toolbar"
+            "install-path": "../../public_html/modules/contrib/admin_toolbar"
         },
         {
             "name": "drupal/captcha",
@@ -1165,7 +1165,7 @@
                 "source": "https://git.drupalcode.org/project/captcha",
                 "issues": "https://www.drupal.org/project/issues/captcha"
             },
-            "install-path": "../../web/modules/contrib/captcha"
+            "install-path": "../../public_html/modules/contrib/captcha"
         },
         {
             "name": "drupal/core",
@@ -1341,7 +1341,7 @@
             "support": {
                 "source": "https://github.com/drupal/core/tree/11.3.6"
             },
-            "install-path": "../../web/core"
+            "install-path": "../../public_html/core"
         },
         {
             "name": "drupal/core-composer-scaffold",
@@ -1662,7 +1662,7 @@
                 "source": "https://git.drupalcode.org/project/ctools",
                 "issues": "https://www.drupal.org/project/issues/ctools"
             },
-            "install-path": "../../web/modules/contrib/ctools"
+            "install-path": "../../public_html/modules/contrib/ctools"
         },
         {
             "name": "drupal/entity_reference_revisions",
@@ -1727,7 +1727,7 @@
             "support": {
                 "source": "https://git.drupalcode.org/project/entity_reference_revisions"
             },
-            "install-path": "../../web/modules/contrib/entity_reference_revisions"
+            "install-path": "../../public_html/modules/contrib/entity_reference_revisions"
         },
         {
             "name": "drupal/honeypot",
@@ -1800,7 +1800,7 @@
                 "source": "https://git.drupalcode.org/project/honeypot",
                 "issues": "https://www.drupal.org/project/issues/honeypot"
             },
-            "install-path": "../../web/modules/contrib/honeypot"
+            "install-path": "../../public_html/modules/contrib/honeypot"
         },
         {
             "name": "drupal/paragraphs",
@@ -1884,7 +1884,7 @@
             "support": {
                 "source": "https://git.drupalcode.org/project/paragraphs"
             },
-            "install-path": "../../web/modules/contrib/paragraphs"
+            "install-path": "../../public_html/modules/contrib/paragraphs"
         },
         {
             "name": "drupal/pathauto",
@@ -1964,7 +1964,7 @@
                 "issues": "https://www.drupal.org/project/issues/pathauto",
                 "documentation": "https://www.drupal.org/docs/8/modules/pathauto"
             },
-            "install-path": "../../web/modules/contrib/pathauto"
+            "install-path": "../../public_html/modules/contrib/pathauto"
         },
         {
             "name": "drupal/recaptcha",
@@ -2054,7 +2054,7 @@
                 "source": "https://git.drupalcode.org/project/recaptcha.git",
                 "issues": "https://www.drupal.org/project/issues/recaptcha"
             },
-            "install-path": "../../web/modules/contrib/recaptcha"
+            "install-path": "../../public_html/modules/contrib/recaptcha"
         },
         {
             "name": "drupal/solo",
@@ -2103,7 +2103,7 @@
                 "source": "https://git.drupalcode.org/project/solo",
                 "issues": "https://drupal.org/project/issues/solo"
             },
-            "install-path": "../../web/themes/contrib/solo"
+            "install-path": "../../public_html/themes/contrib/solo"
         },
         {
             "name": "drupal/token",
@@ -2178,7 +2178,7 @@
             "support": {
                 "source": "https://git.drupalcode.org/project/token"
             },
-            "install-path": "../../web/modules/contrib/token"
+            "install-path": "../../public_html/modules/contrib/token"
         },
         {
             "name": "drush/drush",

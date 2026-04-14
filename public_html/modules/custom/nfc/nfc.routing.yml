@@ -1,0 +1,6 @@
+nfc_profile.vcard:
+  path: '/vcard/{nid}'
+  defaults:
+    _controller: '\Drupal\nfc\Controller\VcardController::download'
+  requirements:
+    _permission: 'access content'

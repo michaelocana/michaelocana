@@ -1,0 +1,213 @@
+/**
+ * @file
+ * Popup login block styles.
+ *
+ * Maintains backward compatibility with existing classes while
+ * adding necessary styles for functionality.
+ */
+
+/* Alternative selector for ID-based styling */
+.popup-login-block {
+  display: none;
+  position: fixed;
+  z-index: var(--solo-popup-zindex, 10000);
+  padding-block-start: 6.25rem;
+  padding-block-end: 6.25rem;
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, var(--solo-popup-overlay-opacity, 0.5));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* When toggled open */
+.popup-login-block.toggled {
+  opacity: 1;
+}
+
+/* Alternative class-based approach for better compatibility */
+.popup-login-block.solo-popup-visible {
+  display: block !important;
+}
+
+/* Inner container */
+.popup-login-block-inner {
+  color: var(--r-tx);
+  background-color: var(--r-bg);
+  max-width: 900px !important;
+  margin-inline: auto;
+  margin-block: 0;
+  padding: calc(2 * var(--solo-px16));
+  height: auto !important;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+/* Animate inner container when parent is toggled */
+.popup-login-block.toggled .popup-login-block-inner {
+  transform: translateY(0);
+}
+
+/* Close button styles */
+.login-button-close button {
+  color: var(--r-tx-bt);
+  background-color: var(--r-bg-bt);
+  padding: 0 !important;
+}
+
+/* Focus styles for all interactive elements */
+.login-button-close button:focus,
+.login-button-open button:focus,
+.popup-login-block button:focus,
+.popup-login-block input:focus,
+.popup-login-block select:focus,
+.popup-login-block textarea:focus,
+.popup-login-block a:focus {
+  outline: 2px solid var(--r-br, currentColor);
+  outline-offset: 2px;
+}
+
+/* Login block list styles */
+.block-user-login-block .item-list ul {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.block-user-login-block .item-list ul li {
+  margin-block: 5px;
+  margin-inline: auto;
+}
+
+/* Open button container */
+.login-button-open {
+  display: flex;
+  height: 100%;
+  float: inline-end;
+}
+
+/* Open button styles */
+.login-button-open button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-block: 0.563rem;
+  padding-inline: var(--solo-px16);
+  min-width: 5.75rem;
+  color: var(--r-tx-bt);
+  background-color: var(--r-bg-bt);
+  line-height: 1.5;
+  font-size: var(--solo-px16);
+}
+
+/* Login popup trigger (from menu) */
+.login-popup-trigger {
+  cursor: pointer;
+  transition: outline-offset 0.2s ease;
+}
+
+/* Body class when popup is open */
+body.solo-login-popup-open {
+  overflow: hidden;
+}
+
+/* Focus trap visual indicator */
+.popup-login-block:focus-within {
+  outline: none;
+}
+
+/* ARIA live region for announcements */
+#solo-popup-login-live-region {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Animation classes maintained for backward compatibility */
+.solo-animate-opacity {
+  transition: opacity 0.3s ease;
+}
+
+/* Skip color styling for SVG icons - inherit from parent */
+.login-button-close svg,
+.login-button-open svg {
+  fill: currentColor;
+}
+
+/* Responsive adjustments */
+@media (max-width: 48rem) {
+  .popup-login-block-inner {
+    max-width: 95% !important;
+    margin-inline: 2.5%;
+    padding: var(--solo-px16);
+  }
+
+  /* Ensure touch targets are at least 44x44px */
+  .login-button-close button,
+  .login-button-open button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* High contrast mode support - no color changes, just ensure visibility */
+@media (prefers-contrast: high) {
+  .login-button-close button:focus,
+  .login-button-open button:focus,
+  .popup-login-block button:focus,
+  .popup-login-block input:focus,
+  .popup-login-block select:focus,
+  .popup-login-block textarea:focus,
+  .popup-login-block a:focus {
+    outline-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .popup-login-block,
+  .popup-login-block-inner,
+  .solo-animate-opacity {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .popup-login-block,
+  .login-button-open,
+  .login-button-close {
+    display: none !important;
+  }
+}
+
+/* Ensure proper stacking context */
+.popup-login-block-inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keyboard navigation enhancement */
+.popup-login-block [tabindex="-1"] {
+  outline: none;
+}
+
+/* Loading state (optional) */
+.popup-login-block.loading .popup-login-block-inner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: inherit;
+  opacity: 0.7;
+  cursor: wait;
+}

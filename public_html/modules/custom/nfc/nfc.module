@@ -1,0 +1,73 @@
+<?php
+use Drupal\image\Entity\ImageStyle;
+
+/**
+ * @file
+ * Custom module functions.
+ */
+
+/**
+ * Implements hook_preprocess_HOOK() for node templates.
+ */
+function nfc_preprocess_node(&$variables) {
+  $node = $variables['node'];
+
+  if ($node->bundle() == 'nfc_profile') {
+    if ($node->hasField('field_social_links') && !$node->get('field_social_links')->isEmpty()) {
+      $social_items = [];
+      $paragraphs = $node->get('field_social_links')->referencedEntities();
+
+      foreach ($paragraphs as $paragraph) {
+        $icon_url = '';
+        
+        // Handle the Media Entity Reference for the icon
+        if ($paragraph->hasField('field_icon') && !$paragraph->get('field_icon')->isEmpty()) {
+          $media_entity = $paragraph->get('field_icon')->entity;
+          
+          // If it's an Image media type, get the image URL
+          if ($media_entity && $media_entity->hasField('field_media_image')) {
+            $file_entity = $media_entity->get('field_media_image')->entity;
+            if ($file_entity) {
+              // Correct way to get a browser-ready URL from a public:// URI
+              $uri = $file_entity->getFileUri();
+              $icon_url = ImageStyle::load('thumbnail')->buildUrl($uri);
+            }
+          }
+        }
+
+        // Handle the Link field
+        $link = [];
+        if ($paragraph->hasField('field_links') && !$paragraph->get('field_links')->isEmpty()) {
+          $link_field = $paragraph->get('field_links')->first();
+          $link = [
+            'url' => $link_field->getUrl()->toString(),
+            'title' => $link_field->title,
+          ];
+        }
+
+        $social_items[] = [
+          'icon' => $icon_url,
+          'link' => $link,
+        ];
+      }
+
+      $variables['social_links'] = $social_items;
+    }
+    if ($node->hasField('field_profile_photo') && !$node->get('field_profile_photo')->isEmpty()) {
+      $media = $node->get('field_profile_photo')->entity;
+      
+      // Ensure the media has an image field (default is usually field_media_image)
+      if ($media && $media->hasField('field_media_image')) {
+        $file = $media->get('field_media_image')->entity;
+        if ($file) {
+          $uri = $file->getFileUri();
+          
+          // Pass the actual browser URL to Twig
+          $variables['profile_photo_url'] = \Drupal::service('file_url_generator')->generateString($uri);
+        }
+      }
+    }
+    $variables['#attached']['library'][] = 'nfc/social-links-styling';
+  }
+
+}

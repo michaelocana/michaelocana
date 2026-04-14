@@ -1,0 +1,7 @@
+name: NFC Custom Module
+type: module
+description: Provides custom code for NFC content type.
+core_version_requirement: ^10.3 || ^11
+
+version: '8.x-0.0'
+project: 'custom'
