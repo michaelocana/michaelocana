@@ -1,0 +1,22 @@
+uuid: a3c8ed2a-91ef-425d-8362-e2d73a0c6578
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.nfc_profile
+id: node.nfc_profile.promote
+field_name: promote
+entity_type: node
+bundle: nfc_profile
+label: 'Promoted to front page'
+description: ''
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

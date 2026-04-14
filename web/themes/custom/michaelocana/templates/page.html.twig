@@ -12,7 +12,17 @@
         {{ page.primary_menu }}
       </nav>
     </header>
-
+    {# --- BEGIN THE HERO BANNER --- #}
+    {# We inline the background image so we can use the Twig directory path token #}
+    <div class="hero-banner" style="background-image: url('/{{ active_theme_path() }}/images/me_presentation.png');">
+      <div class="hero-banner__overlay">
+        <div class="hero-banner__content-wrapper">
+          <h1 class="hero-banner__title">Michael Ocana</h1>
+          <p class="hero-banner__subtitle">Technical Lead & Drupal Specialist</p>
+        </div>
+      </div>
+    </div>
+    {# --- END THE HERO BANNER --- #}
     <main class="container">
       {{ page.content }}
     </main>

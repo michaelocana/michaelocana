@@ -25,7 +25,7 @@
       <div class="flex flex-col justify-center items-center zoom-block">
         <div class="flex items-center justify-center relative w-full h-[138px] -z-10 duration-500" id="color_palette" style="background-color: rgb(82, 122, 201); height: 167px;"></div>
         <div class="flex flex-col items-center justify-center bg-white relative -mt-[10px] w-full max-w-[700px] px-[16px] rounded-t-[10px] shadow-[1px_6px_30px_rgba(0,31,14,0.05)]">
-          <img src="{{ profile_photo_url }}" class="w-[120px] border-[14px] mb-0 xs:mb-[15px] bg-white border-white mt-[-89px] rounded-full" alt="Michael Ocana" style="margin-top: -89px;">
+          <img src="{{ profile_photo_url }}" class="w-[170px] border-[14px] mb-0 xs:mb-[15px] bg-white border-white mt-[-89px] rounded-full" alt="Michael Ocana" style="margin-top: -89px;">
           <div id="list_title" class=" text-[#131D29] pb-[7px] xs:pb-[14px] border-b-[1px] border-black/[.05]">
             <h1 class=" text-xl xs:text-2xl mb-[5px] xs:mb-[9px] font-bold" style="font-family: &quot;GT Walsheim Pro&quot;;">{{ node.field_full_name.value }}</h1>
             <h2 class="text-sm xs:text-base text-[#767C83] px-[10px] xs:px-[27px]" style="font-family: &quot;GT Walsheim Pro&quot;; overflow-wrap: anywhere;">{{ node.field_tag_line.processed }}</h2>
@@ -51,18 +51,18 @@
               {% endif %}
             {% endfor %}
           </div>
-          <div class="mt-[10px] xs:mt-[25px] mb-[10px] xs:mb-[25px] w-full flex flex-col  text-white items-start justify-center">
-            <p class="font-medium text-lg xs:text-xl text-[#131D29] xxxs:mb-[0px] xs:mb-[10px]" style="font-family: &quot;GT Walsheim Pro&quot;;">Find me on</p>
+          <div class="mt-[10px] xs:mt-[25px] mb-[10px] xs:mb-[25px] w-full flex flex-col  text-white justify-center">
+            <p class="font-bold text-center xs:text-xl text-[#131D29] xxxs:mb-[0px] xs:mb-[10px]">LET'S CONNECT</p>
             <div class="w-full space-y-[8px] xs:space-y-[15px]">
               {% if social_links %}
                 {% for item in social_links %}
-                  <a href="{{ item.link.url }}" target="_blank" class="flex flex-col w-full rounded-full cursor-pointer hover:opacity-80 hover:scale-[1.01] shadow-[1px_6px_30px_rgba(0,31,14,0.05)]" rel="noreferrer" id="list_text_1" style="background-color: rgb(247, 247, 247);">
+                  <a href="{{ item.link.url }}" target="_blank" class="social-links-row flex flex-col w-full rounded-full cursor-pointer hover:opacity-80 hover:scale-[1.01] shadow-[1px_6px_30px_rgba(0,31,14,0.05)]" rel="noreferrer" id="list_text_1">
                     <div class="flex flex-row w-full justify-between items-center p-[5px] xs:p-[10px]">
                       <div class="space-x-[7px] xs:space-x-[10px] sm:space-x-[22px] flex flex-row items-center break-all">
                         <span class="w-10 h-10 overflow-hidden rtl:mr-2 ml-2" alt="{{ item.link.title }}">
                           <img src="{{ item.icon }}" width="84" height="84" class="w-full h-full object-cover object-top" alt="{{ item.link.title }}">
                         </span>
-                        <p class="text-[13px] xs:text-[calc(330/100*1.5vw)] sm:text-xl text-left text-black font-medium rtl:text-base rtl:leading-4 rtl:text-right ml-[4px] rtl:mr-[4px]" style="color: rgb(126, 192, 159); font-family: &quot;GT Walsheim Pro&quot;;">{{ item.link.title }}
+                        <p class="text-[13px] xs:text-[calc(330/100*1.5vw)] sm:text-xl text-left text-black font-medium rtl:text-base rtl:leading-4 rtl:text-right ml-[4px] rtl:mr-[4px]" style="font-family: &quot;GT Walsheim Pro&quot;;">{{ item.link.title }}
                         </p>
                       </div>
                       <svg class="min-w-[20px] rtl:rotate-180 ml-[4px] rtl:mr-[4px]" width="20" height="20" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
