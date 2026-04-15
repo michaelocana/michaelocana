@@ -96,7 +96,7 @@ footer {
 /* --- The Hero Banner --- */
 .hero-banner {
   width: 100vw; /* Full viewport width */
-  height: 60vh; /* Banner takes up 60% of vertical screen space */
+  height: 42vh; /* Banner takes up 60% of vertical screen space */
   background-size: cover; /* Image fills the container */
   background-position: center 20%; /* Centers and adjusts image vertical focus */
   background-repeat: no-repeat;
