@@ -30,7 +30,7 @@ display:
     display_plugin: default
     position: 0
     display_options:
-      title: 'Skills Page'
+      title: Home
       fields:
         field_presently_employed:
           id: field_presently_employed

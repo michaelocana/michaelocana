@@ -5,6 +5,7 @@ dependencies:
   config:
     - system.menu.main
   module:
+    - node
     - system
   theme:
     - michaelocana
@@ -22,6 +23,13 @@ settings:
   label_display: '0'
   provider: system
   level: 1
-  depth: 0
+  depth: null
   expand_all_items: true
-visibility: {  }
+visibility:
+  'entity_bundle:node':
+    id: 'entity_bundle:node'
+    negate: false
+    context_mapping:
+      node: '@node.node_route_context:node'
+    bundles:
+      employment_history: employment_history
