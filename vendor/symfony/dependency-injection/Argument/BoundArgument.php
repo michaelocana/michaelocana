@@ -16,31 +16,47 @@ namespace Symfony\Component\DependencyInjection\Argument;
  */
 final class BoundArgument implements ArgumentInterface
 {
-    private static $sequence = 0;
+    use ArgumentTrait;
 
-    private $value;
-    private $identifier;
-    private $used;
+    public const SERVICE_BINDING = 0;
+    public const DEFAULTS_BINDING = 1;
+    public const INSTANCEOF_BINDING = 2;
 
-    public function __construct($value)
-    {
+    private static int $sequence = 0;
+
+    private mixed $value = null;
+    private ?int $identifier = null;
+    private ?bool $used = null;
+    private int $type = 0;
+    private ?string $file = null;
+
+    public function __construct(
+        mixed $value,
+        bool $trackUsage = true,
+        int $type = 0,
+        ?string $file = null,
+    ) {
         $this->value = $value;
-        $this->identifier = ++self::$sequence;
+        $this->type = $type;
+        $this->file = $file;
+        if ($trackUsage) {
+            $this->identifier = ++self::$sequence;
+        } else {
+            $this->used = true;
+        }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getValues()
+    public function getValues(): array
     {
-        return [$this->value, $this->identifier, $this->used];
+        return [$this->value, $this->identifier, $this->used, $this->type, $this->file];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function setValues(array $values)
+    public function setValues(array $values): void
     {
-        list($this->value, $this->identifier, $this->used) = $values;
+        if (5 === \count($values)) {
+            [$this->value, $this->identifier, $this->used, $this->type, $this->file] = $values;
+        } else {
+            [$this->value, $this->identifier, $this->used] = $values;
+        }
     }
 }

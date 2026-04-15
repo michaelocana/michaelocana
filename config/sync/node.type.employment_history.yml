@@ -1,0 +1,18 @@
+uuid: 62eca327-0e56-44be-9e9d-c48202575f70
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+name: 'Employment History'
+type: employment_history
+description: 'Timeline of your career.'
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: true

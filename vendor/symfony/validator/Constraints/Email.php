@@ -11,28 +11,78 @@
 
 namespace Symfony\Component\Validator\Constraints;
 
+use Egulias\EmailValidator\EmailValidator as StrictEmailValidator;
+use Symfony\Component\Validator\Attribute\HasNamedArguments;
 use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\Exception\InvalidArgumentException;
+use Symfony\Component\Validator\Exception\LogicException;
 
 /**
- * @Annotation
- * @Target({"PROPERTY", "METHOD", "ANNOTATION"})
+ * Validates that a value is a valid email address.
  *
  * @author Bernhard Schussek <bschussek@gmail.com>
  */
+#[\Attribute(\Attribute::TARGET_PROPERTY | \Attribute::TARGET_METHOD | \Attribute::IS_REPEATABLE)]
 class Email extends Constraint
 {
-    const INVALID_FORMAT_ERROR = 'bd79c0ab-ddba-46cc-a703-a7a4b08de310';
-    const MX_CHECK_FAILED_ERROR = 'bf447c1c-0266-4e10-9c6c-573df282e413';
-    const HOST_CHECK_FAILED_ERROR = '7da53a8b-56f3-4288-bb3e-ee9ede4ef9a1';
+    public const VALIDATION_MODE_HTML5_ALLOW_NO_TLD = 'html5-allow-no-tld';
+    public const VALIDATION_MODE_HTML5 = 'html5';
+    public const VALIDATION_MODE_STRICT = 'strict';
 
-    protected static $errorNames = [
-        self::INVALID_FORMAT_ERROR => 'STRICT_CHECK_FAILED_ERROR',
-        self::MX_CHECK_FAILED_ERROR => 'MX_CHECK_FAILED_ERROR',
-        self::HOST_CHECK_FAILED_ERROR => 'HOST_CHECK_FAILED_ERROR',
+    public const INVALID_FORMAT_ERROR = 'bd79c0ab-ddba-46cc-a703-a7a4b08de310';
+
+    public const VALIDATION_MODES = [
+        self::VALIDATION_MODE_HTML5_ALLOW_NO_TLD,
+        self::VALIDATION_MODE_HTML5,
+        self::VALIDATION_MODE_STRICT,
     ];
 
-    public $message = 'This value is not a valid email address.';
-    public $checkMX = false;
-    public $checkHost = false;
-    public $strict;
+    protected const ERROR_NAMES = [
+        self::INVALID_FORMAT_ERROR => 'INVALID_FORMAT_ERROR',
+    ];
+
+    public string $message = 'This value is not a valid email address.';
+    public ?string $mode = null;
+    /** @var callable|null */
+    public $normalizer;
+
+    /**
+     * @param self::VALIDATION_MODE_*|null $mode   The pattern used to validate the email address; pass null to use the default mode configured for the EmailValidator
+     * @param string[]|null                $groups
+     */
+    #[HasNamedArguments]
+    public function __construct(
+        ?array $options = null,
+        ?string $message = null,
+        ?string $mode = null,
+        ?callable $normalizer = null,
+        ?array $groups = null,
+        mixed $payload = null,
+    ) {
+        if (\is_array($options) && \array_key_exists('mode', $options) && !\in_array($options['mode'], self::VALIDATION_MODES, true)) {
+            throw new InvalidArgumentException('The "mode" parameter value is not valid.');
+        }
+
+        if (null !== $mode && !\in_array($mode, self::VALIDATION_MODES, true)) {
+            throw new InvalidArgumentException('The "mode" parameter value is not valid.');
+        }
+
+        if (\is_array($options)) {
+            trigger_deprecation('symfony/validator', '7.3', 'Passing an array of options to configure the "%s" constraint is deprecated, use named arguments instead.', static::class);
+        }
+
+        parent::__construct($options, $groups, $payload);
+
+        $this->message = $message ?? $this->message;
+        $this->mode = $mode ?? $this->mode;
+        $this->normalizer = $normalizer ?? $this->normalizer;
+
+        if (self::VALIDATION_MODE_STRICT === $this->mode && !class_exists(StrictEmailValidator::class)) {
+            throw new LogicException(\sprintf('The "egulias/email-validator" component is required to use the "%s" constraint in strict mode. Try running "composer require egulias/email-validator".', __CLASS__));
+        }
+
+        if (null !== $this->normalizer && !\is_callable($this->normalizer)) {
+            throw new InvalidArgumentException(\sprintf('The "normalizer" option must be a valid callable ("%s" given).', get_debug_type($this->normalizer)));
+        }
+    }
 }

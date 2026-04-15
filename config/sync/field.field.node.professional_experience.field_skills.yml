@@ -1,0 +1,29 @@
+uuid: 127188e8-8eca-4084-bff6-5603fd379c94
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_skills
+    - node.type.professional_experience
+    - taxonomy.vocabulary.skills
+id: node.professional_experience.field_skills
+field_name: field_skills
+entity_type: node
+bundle: professional_experience
+label: Skills
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      skills: skills
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

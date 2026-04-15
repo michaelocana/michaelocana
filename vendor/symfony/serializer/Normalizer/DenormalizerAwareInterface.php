@@ -12,8 +12,6 @@
 namespace Symfony\Component\Serializer\Normalizer;
 
 /**
- * Class accepting a denormalizer.
- *
  * @author Joel Wurtz <joel.wurtz@gmail.com>
  */
 interface DenormalizerAwareInterface
@@ -21,5 +19,5 @@ interface DenormalizerAwareInterface
     /**
      * Sets the owning Denormalizer object.
      */
-    public function setDenormalizer(DenormalizerInterface $denormalizer);
+    public function setDenormalizer(DenormalizerInterface $denormalizer): void;
 }

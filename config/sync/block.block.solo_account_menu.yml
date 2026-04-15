@@ -1,0 +1,27 @@
+uuid: 52b9a085-2057-4961-924c-5042fc852cd4
+langcode: en
+status: true
+dependencies:
+  config:
+    - system.menu.account
+  module:
+    - system
+  theme:
+    - solo
+_core:
+  default_config_hash: p9zWu5Y5b1mqxzlbudFVPOWGtyO0RnsDWN-OPq7faog
+id: solo_account_menu
+theme: solo
+region: header
+weight: 0
+provider: null
+plugin: 'system_menu_block:account'
+settings:
+  id: 'system_menu_block:account'
+  label: 'User account menu'
+  label_display: '0'
+  provider: system
+  level: 1
+  depth: 2
+  expand_all_items: false
+visibility: {  }

@@ -1,0 +1,29 @@
+uuid: 38d7664c-9880-4977-9a72-3fbae4d5753c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_related_skills
+    - node.type.areas_of_practice
+    - node.type.professional_experience
+id: node.areas_of_practice.field_related_skills
+field_name: field_related_skills
+entity_type: node
+bundle: areas_of_practice
+label: 'Related Skills'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      professional_experience: professional_experience
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

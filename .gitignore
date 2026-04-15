@@ -21,3 +21,8 @@
 # Ignore testing related files
 /sites/simpletest
 
+.DS_Store
+# Ignore Drupal's generated assets
+/public_html/sites/default/files/css
+/public_html/sites/default/files/js
+/public_html/sites/default/files/styles/thumbnail

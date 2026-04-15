@@ -12,6 +12,7 @@
 namespace Symfony\Component\Validator\Mapping;
 
 use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\Constraints\Composite;
 use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
 
 /**
@@ -28,142 +29,117 @@ use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
  */
 abstract class MemberMetadata extends GenericMetadata implements PropertyMetadataInterface
 {
-    /**
-     * @internal This property is public in order to reduce the size of the
-     *           class' serialized representation. Do not access it. Use
-     *           {@link getClassName()} instead.
-     */
-    public $class;
-
-    /**
-     * @internal This property is public in order to reduce the size of the
-     *           class' serialized representation. Do not access it. Use
-     *           {@link getName()} instead.
-     */
-    public $name;
-
-    /**
-     * @internal This property is public in order to reduce the size of the
-     *           class' serialized representation. Do not access it. Use
-     *           {@link getPropertyName()} instead.
-     */
-    public $property;
+    private string $class;
+    private string $name;
+    private string $property;
 
     /**
      * @var \ReflectionMethod[]|\ReflectionProperty[]
      */
-    private $reflMember = [];
+    private array $reflMember = [];
 
     /**
      * @param string $class    The name of the class this member is defined on
      * @param string $name     The name of the member
      * @param string $property The property the member belongs to
      */
-    public function __construct($class, $name, $property)
+    public function __construct(string $class, string $name, string $property)
     {
         $this->class = $class;
         $this->name = $name;
         $this->property = $property;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function addConstraint(Constraint $constraint)
+    public function addConstraint(Constraint $constraint): static
     {
-        if (!\in_array(Constraint::PROPERTY_CONSTRAINT, (array) $constraint->getTargets())) {
-            throw new ConstraintDefinitionException(sprintf('The constraint "%s" cannot be put on properties or getters.', \get_class($constraint)));
-        }
+        $this->checkConstraint($constraint);
 
         parent::addConstraint($constraint);
 
         return $this;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function __sleep()
+    public function __serialize(): array
     {
-        return array_merge(parent::__sleep(), [
-            'class',
-            'name',
-            'property',
-        ]);
+        if (self::class === (new \ReflectionMethod($this, '__sleep'))->class || self::class !== (new \ReflectionMethod($this, '__serialize'))->class) {
+            return parent::__serialize() + [
+                'class' => $this->class,
+                'name' => $this->name,
+                'property' => $this->property,
+            ];
+        }
+
+        trigger_deprecation('symfony/validator', '7.4', 'Implementing "%s::__sleep()" is deprecated, use "__serialize()" instead.', get_debug_type($this));
+
+        $data = [];
+        foreach ($this->__sleep() as $key) {
+            try {
+                if (($r = new \ReflectionProperty($this, $key))->isInitialized($this)) {
+                    $data[$key] = $r->getValue($this);
+                }
+            } catch (\ReflectionException) {
+                $data[$key] = $this->$key;
+            }
+        }
+
+        return $data;
     }
 
     /**
-     * Returns the name of the member.
-     *
-     * @return string
+     * @deprecated since Symfony 7.4, will be replaced by `__serialize()` in 8.0
      */
-    public function getName()
+    public function __sleep(): array
+    {
+        trigger_deprecation('symfony/validator', '7.4', 'Calling "%s::__sleep()" is deprecated, use "__serialize()" instead.', get_debug_type($this));
+
+        return [
+            'constraints',
+            'constraintsByGroup',
+            'cascadingStrategy',
+            'traversalStrategy',
+            'autoMappingStrategy',
+            'class',
+            'name',
+            'property',
+        ];
+    }
+
+    /**
+     * Returns the name of the property or its getter.
+     */
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getClassName()
+    public function getClassName(): string
     {
         return $this->class;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getPropertyName()
+    public function getPropertyName(): string
     {
         return $this->property;
     }
 
-    /**
-     * Returns whether this member is public.
-     *
-     * @param object|string $objectOrClassName The object or the class name
-     *
-     * @return bool
-     */
-    public function isPublic($objectOrClassName)
+    public function isPublic(object|string $objectOrClassName): bool
     {
         return $this->getReflectionMember($objectOrClassName)->isPublic();
     }
 
-    /**
-     * Returns whether this member is protected.
-     *
-     * @param object|string $objectOrClassName The object or the class name
-     *
-     * @return bool
-     */
-    public function isProtected($objectOrClassName)
+    public function isProtected(object|string $objectOrClassName): bool
     {
         return $this->getReflectionMember($objectOrClassName)->isProtected();
     }
 
-    /**
-     * Returns whether this member is private.
-     *
-     * @param object|string $objectOrClassName The object or the class name
-     *
-     * @return bool
-     */
-    public function isPrivate($objectOrClassName)
+    public function isPrivate(object|string $objectOrClassName): bool
     {
         return $this->getReflectionMember($objectOrClassName)->isPrivate();
     }
 
-    /**
-     * Returns the reflection instance for accessing the member's value.
-     *
-     * @param object|string $objectOrClassName The object or the class name
-     *
-     * @return \ReflectionMethod|\ReflectionProperty The reflection instance
-     */
-    public function getReflectionMember($objectOrClassName)
+    public function getReflectionMember(object|string $objectOrClassName): \ReflectionMethod|\ReflectionProperty
     {
-        $className = \is_string($objectOrClassName) ? $objectOrClassName : \get_class($objectOrClassName);
+        $className = \is_string($objectOrClassName) ? $objectOrClassName : $objectOrClassName::class;
         if (!isset($this->reflMember[$className])) {
             $this->reflMember[$className] = $this->newReflectionMember($objectOrClassName);
         }
@@ -173,12 +149,19 @@ abstract class MemberMetadata extends GenericMetadata implements PropertyMetadat
 
     /**
      * Creates a new reflection instance for accessing the member's value.
-     *
-     * Must be implemented by subclasses.
-     *
-     * @param object|string $objectOrClassName The object or the class name
-     *
-     * @return \ReflectionMethod|\ReflectionProperty The reflection instance
      */
-    abstract protected function newReflectionMember($objectOrClassName);
+    abstract protected function newReflectionMember(object|string $objectOrClassName): \ReflectionMethod|\ReflectionProperty;
+
+    private function checkConstraint(Constraint $constraint): void
+    {
+        if (!\in_array(Constraint::PROPERTY_CONSTRAINT, (array) $constraint->getTargets(), true)) {
+            throw new ConstraintDefinitionException(\sprintf('The constraint "%s" cannot be put on properties or getters.', get_debug_type($constraint)));
+        }
+
+        if ($constraint instanceof Composite) {
+            foreach ($constraint->getNestedConstraints() as $nestedConstraint) {
+                $this->checkConstraint($nestedConstraint);
+            }
+        }
+    }
 }

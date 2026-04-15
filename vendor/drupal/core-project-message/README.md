@@ -10,7 +10,7 @@ You can get the full Drupal repo here:
 https://www.drupal.org/project/drupal/git-instructions
 
 You can browse the full Drupal repo here:
-http://cgit.drupalcode.org/drupal
+https://git.drupalcode.org/project/drupal
 
 What does it do?
 ----------------
@@ -89,7 +89,7 @@ each line:
       "drupal-core-project-message": {
         "post-create-project-cmd-message": [
           "Thanks for installing this project.",
-          "Please visit our documentation here: http://example.com/docs"
+          "Read our documentation here: http://example.com/docs"
         ]
       }
     }

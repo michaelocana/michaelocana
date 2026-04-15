@@ -1,0 +1,10 @@
+<article class="card">
+  {% if content.field_images %}
+    {{ content.field_images }}
+  {% endif %}
+
+  <div class="card-content">
+    <h3>{{ label }}</h3>
+    {{ content.body }}
+  </div>
+</article>

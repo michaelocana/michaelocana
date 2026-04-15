@@ -1,0 +1,29 @@
+uuid: 454780f4-0140-41b0-9985-930a5b3d29f1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_employment_skills
+    - node.type.employment_history
+    - taxonomy.vocabulary.skills
+id: node.employment_history.field_employment_skills
+field_name: field_employment_skills
+entity_type: node
+bundle: employment_history
+label: Skills
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      skills: skills
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

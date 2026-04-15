@@ -1,0 +1,23 @@
+uuid: e12595a3-bee0-4ec1-ac65-315eb29aa983
+langcode: en
+status: true
+dependencies:
+  module:
+    - search
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: HQHQcZ2a8OaRqIizdtos5DLw951jmglxOVXqd_AP4vY
+id: michaelocana_searchform
+theme: michaelocana
+region: header
+weight: -15
+provider: null
+plugin: search_form_block
+settings:
+  id: search_form_block
+  label: 'Search form'
+  label_display: '0'
+  provider: search
+  page_id: null
+visibility: {  }

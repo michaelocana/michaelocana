@@ -1,0 +1,25 @@
+uuid: 086850de-a0c6-4430-b845-4fa819a336d1
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - solo
+_core:
+  default_config_hash: aNWw1Z3BbSMCtXWftEgknVywAIUpMCGSfHY1Uf-CS8I
+id: solo_branding
+theme: solo
+region: header
+weight: 1
+provider: null
+plugin: system_branding_block
+settings:
+  id: system_branding_block
+  label: 'Site branding'
+  label_display: '0'
+  provider: system
+  use_site_logo: true
+  use_site_name: true
+  use_site_slogan: true
+visibility: {  }

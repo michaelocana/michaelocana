@@ -12,18 +12,18 @@
 namespace Symfony\Component\DependencyInjection\Compiler;
 
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
- * Looks for definitions with autowiring enabled and registers their corresponding "@required" methods as setters.
+ * Looks for definitions with autowiring enabled and registers their corresponding "#[Required]" methods as setters.
  *
  * @author Nicolas Grekas <p@tchwork.com>
  */
 class AutowireRequiredMethodsPass extends AbstractRecursivePass
 {
-    /**
-     * {@inheritdoc}
-     */
-    protected function processValue($value, $isRoot = false)
+    protected bool $skipScalars = true;
+
+    protected function processValue(mixed $value, bool $isRoot = false): mixed
     {
         $value = parent::processValue($value, $isRoot);
 
@@ -35,8 +35,9 @@ class AutowireRequiredMethodsPass extends AbstractRecursivePass
         }
 
         $alreadyCalledMethods = [];
+        $withers = [];
 
-        foreach ($value->getMethodCalls() as list($method)) {
+        foreach ($value->getMethodCalls() as [$method]) {
             $alreadyCalledMethods[strtolower($method)] = true;
         }
 
@@ -48,23 +49,46 @@ class AutowireRequiredMethodsPass extends AbstractRecursivePass
             }
 
             while (true) {
-                if (false !== $doc = $r->getDocComment()) {
-                    if (false !== stripos($doc, '@required') && preg_match('#(?:^/\*\*|\n\s*+\*)\s*+@required(?:\s|\*/$)#i', $doc)) {
-                        $value->addMethodCall($reflectionMethod->name);
-                        break;
+                if ($r->getAttributes(Required::class)) {
+                    if ($this->isWither($r, $r->getDocComment() ?: '')) {
+                        $withers[] = [$r->name, [], true];
+                    } else {
+                        $value->addMethodCall($r->name, []);
                     }
-                    if (false === stripos($doc, '@inheritdoc') || !preg_match('#(?:^/\*\*|\n\s*+\*)\s*+(?:\{@inheritdoc\}|@inheritdoc)(?:\s|\*/$)#i', $doc)) {
-                        break;
-                    }
+                    break;
                 }
-                try {
-                    $r = $r->getPrototype();
-                } catch (\ReflectionException $e) {
-                    break; // method has no prototype
+                if (!$r->hasPrototype()) {
+                    break;
                 }
+                $r = $r->getPrototype();
+            }
+        }
+
+        if ($withers) {
+            // Prepend withers to prevent creating circular loops
+            $setters = $value->getMethodCalls();
+            $value->setMethodCalls($withers);
+            foreach ($setters as $call) {
+                $value->addMethodCall($call[0], $call[1], $call[2] ?? false);
             }
         }
 
         return $value;
+    }
+
+    private function isWither(\ReflectionMethod $reflectionMethod, string $doc): bool
+    {
+        $match = preg_match('#(?:^/\*\*|\n\s*+\*)\s*+@return\s++(static|\$this)[\s\*]#i', $doc, $matches);
+        if ($match && 'static' === $matches[1]) {
+            return true;
+        }
+
+        if ($match && '$this' === $matches[1]) {
+            return false;
+        }
+
+        $reflectionType = $reflectionMethod->hasReturnType() ? $reflectionMethod->getReturnType() : null;
+
+        return $reflectionType instanceof \ReflectionNamedType && 'static' === $reflectionType->getName();
     }
 }

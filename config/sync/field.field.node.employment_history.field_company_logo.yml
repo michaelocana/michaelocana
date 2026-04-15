@@ -1,0 +1,29 @@
+uuid: b69fe3b2-bb7a-4ccf-9e39-423b8d343ad6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_company_logo
+    - media.type.image
+    - node.type.employment_history
+id: node.employment_history.field_company_logo
+field_name: field_company_logo
+entity_type: node
+bundle: employment_history
+label: 'Company Logo'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:media'
+  handler_settings:
+    target_bundles:
+      image: image
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

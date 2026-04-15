@@ -1,0 +1,22 @@
+uuid: 611e3251-785c-452c-8691-4e27350553fd
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: experience
+label: Experience
+type: 'canonical_entities:node'
+pattern: '/experience/[node:title]'
+selection_criteria:
+  a9e4797e-1028-45bb-9299-f6c24ba5cdbd:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: a9e4797e-1028-45bb-9299-f6c24ba5cdbd
+    context_mapping:
+      node: node
+    bundles:
+      professional_experience: professional_experience
+selection_logic: and
+weight: -5
+relationships: {  }

@@ -1,0 +1,22 @@
+uuid: c7e05eda-1cc0-4cdc-82d4-68dbf84cb2dc
+langcode: en
+status: true
+dependencies:
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: 7Wjb9MBb1i56mlePS6_1ZgU-5iuMNys3CfWTsaqqpfo
+id: michaelocana_local_tasks
+theme: michaelocana
+region: content
+weight: 0
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: Tabs
+  label_display: '0'
+  provider: core
+  primary: true
+  secondary: true
+visibility: {  }

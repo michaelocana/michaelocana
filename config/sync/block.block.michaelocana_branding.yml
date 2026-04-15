@@ -1,0 +1,25 @@
+uuid: 2cc2a790-74c9-4c06-9999-669a870514cf
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: aNWw1Z3BbSMCtXWftEgknVywAIUpMCGSfHY1Uf-CS8I
+id: michaelocana_branding
+theme: michaelocana
+region: header
+weight: 1
+provider: null
+plugin: system_branding_block
+settings:
+  id: system_branding_block
+  label: 'Site branding'
+  label_display: '0'
+  provider: system
+  use_site_logo: true
+  use_site_name: true
+  use_site_slogan: true
+visibility: {  }

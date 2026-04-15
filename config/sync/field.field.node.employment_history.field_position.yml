@@ -1,0 +1,19 @@
+uuid: 9c17bb74-b5a7-492e-8a46-66ad707ef981
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_position
+    - node.type.employment_history
+id: node.employment_history.field_position
+field_name: field_position
+entity_type: node
+bundle: employment_history
+label: Position
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

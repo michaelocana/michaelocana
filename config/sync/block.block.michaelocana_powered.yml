@@ -1,0 +1,22 @@
+uuid: cb555c94-b114-478b-95e7-47908a4e1dab
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: XZfrZZug8_A3wO-LPS0D3Ewr_IPBYJ7fMbJB50tfO68
+id: michaelocana_powered
+theme: michaelocana
+region: header
+weight: 0
+provider: null
+plugin: system_powered_by_block
+settings:
+  id: system_powered_by_block
+  label: 'Powered by Drupal'
+  label_display: '0'
+  provider: system
+visibility: {  }

@@ -17,61 +17,38 @@ use Symfony\Component\DependencyInjection\Extension\Extension as BaseExtension;
  * Allow adding classes to the class cache.
  *
  * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @internal since Symfony 7.1, to be deprecated in 8.1; use Symfony\Component\DependencyInjection\Extension\Extension instead
  */
 abstract class Extension extends BaseExtension
 {
-    private $classes = [];
-    private $annotatedClasses = [];
-
-    /**
-     * Gets the classes to cache.
-     *
-     * @return array An array of classes
-     *
-     * @deprecated since version 3.3, to be removed in 4.0.
-     */
-    public function getClassesToCompile()
-    {
-        if (\PHP_VERSION_ID >= 70000) {
-            @trigger_error(__METHOD__.'() is deprecated since Symfony 3.3, to be removed in 4.0.', E_USER_DEPRECATED);
-        }
-
-        return $this->classes;
-    }
+    private array $annotatedClasses = [];
 
     /**
      * Gets the annotated classes to cache.
      *
-     * @return array An array of classes
+     * @return string[]
+     *
+     * @deprecated since Symfony 7.1, to be removed in 8.0
      */
-    public function getAnnotatedClassesToCompile()
+    public function getAnnotatedClassesToCompile(): array
     {
+        trigger_deprecation('symfony/http-kernel', '7.1', 'The "%s()" method is deprecated since Symfony 7.1 and will be removed in 8.0.', __METHOD__);
+
         return $this->annotatedClasses;
-    }
-
-    /**
-     * Adds classes to the class cache.
-     *
-     * @param array $classes An array of class patterns
-     *
-     * @deprecated since version 3.3, to be removed in 4.0.
-     */
-    public function addClassesToCompile(array $classes)
-    {
-        if (\PHP_VERSION_ID >= 70000) {
-            @trigger_error(__METHOD__.'() is deprecated since Symfony 3.3, to be removed in 4.0.', E_USER_DEPRECATED);
-        }
-
-        $this->classes = array_merge($this->classes, $classes);
     }
 
     /**
      * Adds annotated classes to the class cache.
      *
-     * @param array $annotatedClasses An array of class patterns
+     * @param string[] $annotatedClasses An array of class patterns
+     *
+     * @deprecated since Symfony 7.1, to be removed in 8.0
      */
-    public function addAnnotatedClassesToCompile(array $annotatedClasses)
+    public function addAnnotatedClassesToCompile(array $annotatedClasses): void
     {
+        trigger_deprecation('symfony/http-kernel', '7.1', 'The "%s()" method is deprecated since Symfony 7.1 and will be removed in 8.0.', __METHOD__);
+
         $this->annotatedClasses = array_merge($this->annotatedClasses, $annotatedClasses);
     }
 }

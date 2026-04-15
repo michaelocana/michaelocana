@@ -1,0 +1,29 @@
+uuid: ea715e71-3533-4a01-9586-abafb0de79b9
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_portfolio
+    - media.type.image
+    - node.type.nfc_profile
+id: node.nfc_profile.field_portfolio
+field_name: field_portfolio
+entity_type: node
+bundle: nfc_profile
+label: Portfolio
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:media'
+  handler_settings:
+    target_bundles:
+      image: image
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

@@ -1,0 +1,22 @@
+uuid: 7e718484-56ae-42a9-b41a-17ab133203c6
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: q4vhRqioFTSLqZkh7D3wOdDR-TNVl1FMFav5tlQPACc
+id: michaelocana_content
+theme: michaelocana
+region: content
+weight: 4
+provider: null
+plugin: system_main_block
+settings:
+  id: system_main_block
+  label: 'Main page content'
+  label_display: '0'
+  provider: system
+visibility: {  }

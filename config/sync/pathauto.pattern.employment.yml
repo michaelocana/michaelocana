@@ -1,0 +1,22 @@
+uuid: e5a8c189-c86b-40c3-bcd5-0dfbdccce71d
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: employment
+label: Employment
+type: 'canonical_entities:node'
+pattern: '/employment/[node:title]'
+selection_criteria:
+  d6f40264-c225-4f7f-a268-d6e256427479:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: d6f40264-c225-4f7f-a268-d6e256427479
+    context_mapping:
+      node: node
+    bundles:
+      employment_history: employment_history
+selection_logic: and
+weight: -5
+relationships: {  }

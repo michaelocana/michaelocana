@@ -1,0 +1,94 @@
+uuid: 1ed320cb-8079-43ed-8ccc-5aadbe8a6b2e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.nfc_profile.field_email
+    - field.field.node.nfc_profile.field_full_name
+    - field.field.node.nfc_profile.field_nfc_company
+    - field.field.node.nfc_profile.field_phone
+    - field.field.node.nfc_profile.field_portfolio
+    - field.field.node.nfc_profile.field_profile_photo
+    - field.field.node.nfc_profile.field_social_links
+    - field.field.node.nfc_profile.field_tag_line
+    - node.type.nfc_profile
+  module:
+    - entity_reference_revisions
+    - text
+    - user
+id: node.nfc_profile.default
+targetEntityType: node
+bundle: nfc_profile
+mode: default
+content:
+  field_email:
+    type: basic_string
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 105
+    region: content
+  field_full_name:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 102
+    region: content
+  field_nfc_company:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 107
+    region: content
+  field_phone:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 104
+    region: content
+  field_portfolio:
+    type: entity_reference_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: false
+    third_party_settings: {  }
+    weight: 108
+    region: content
+  field_profile_photo:
+    type: entity_reference_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: false
+    third_party_settings: {  }
+    weight: 101
+    region: content
+  field_social_links:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 106
+    region: content
+  field_tag_line:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 103
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden: {  }

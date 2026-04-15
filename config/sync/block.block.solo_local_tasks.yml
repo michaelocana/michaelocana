@@ -1,0 +1,22 @@
+uuid: 56a05d7e-f952-49a6-b941-b5dbff373c8f
+langcode: en
+status: true
+dependencies:
+  theme:
+    - solo
+_core:
+  default_config_hash: 7Wjb9MBb1i56mlePS6_1ZgU-5iuMNys3CfWTsaqqpfo
+id: solo_local_tasks
+theme: solo
+region: content
+weight: 0
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: Tabs
+  label_display: '0'
+  provider: core
+  primary: true
+  secondary: true
+visibility: {  }

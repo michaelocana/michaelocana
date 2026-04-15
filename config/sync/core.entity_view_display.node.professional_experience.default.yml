@@ -1,0 +1,57 @@
+uuid: e3eb486b-b0a0-45cf-864d-6e2bfa41d278
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.professional_experience.field_description
+    - field.field.node.professional_experience.field_icon
+    - field.field.node.professional_experience.field_skills
+    - field.field.node.professional_experience.field_years_experience
+    - node.type.professional_experience
+  module:
+    - text
+    - user
+id: node.professional_experience.default
+targetEntityType: node
+bundle: professional_experience
+mode: default
+content:
+  field_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 101
+    region: content
+  field_icon:
+    type: entity_reference_entity_view
+    label: above
+    settings:
+      view_mode: default
+      link: false
+    third_party_settings: {  }
+    weight: 104
+    region: content
+  field_skills:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 103
+    region: content
+  field_years_experience:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 102
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden: {  }

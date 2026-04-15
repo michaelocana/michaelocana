@@ -1,0 +1,20 @@
+uuid: 2092d852-0e54-4c2e-9ced-466ab2cc1c2e
+langcode: en
+status: true
+dependencies:
+  theme:
+    - solo
+_core:
+  default_config_hash: jprAVAggmwD_7Z0y1rt23wsqRGv53UBC2JJxkEcDM4U
+id: solo_local_actions
+theme: solo
+region: content
+weight: 1
+provider: null
+plugin: local_actions_block
+settings:
+  id: local_actions_block
+  label: 'Primary admin actions'
+  label_display: '0'
+  provider: core
+visibility: {  }

@@ -1,0 +1,88 @@
+<script>
+    (function(w,d){})(window,document)
+</script>
+
+<style id="_goober">
+    .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}
+</style>
+<script>
+    (function(w,d){;w.zarazData.executed.push("Pageview");})(window,document)
+</script>
+<script>
+    (function(w,d){})(window,document)
+</script>
+<style data-emotion="css" data-s=""></style>
+<!-- <script src="assets/script.js" defer="" data-sdkn="@vercel/speed-insights/react" data-sdkv="1.0.10"></script> -->
+<link rel="stylesheet" href="assets/css" media="all">
+<!-- <script src="assets/script(1).js" defer="" data-sdkn="@vercel/analytics/react" data-sdkv="1.2.2"></script> -->
+ 
+{% set total = node.field_portfolio|length %}
+{% set max = 20 %}
+
+<div class="nfc-landing">
+  <div id="root">
+    <div class="App">
+      <div class="flex flex-col justify-center items-center zoom-block">
+        <div class="flex items-center justify-center relative w-full h-[138px] -z-10 duration-500" id="color_palette" style="background-color: rgb(82, 122, 201); height: 167px;"></div>
+        <div class="flex flex-col items-center justify-center bg-white relative -mt-[10px] w-full max-w-[700px] px-[16px] rounded-t-[10px] shadow-[1px_6px_30px_rgba(0,31,14,0.05)]">
+          <img src="{{ profile_photo_url }}" class="w-[170px] border-[14px] mb-0 xs:mb-[15px] bg-white border-white mt-[-89px] rounded-full" alt="Michael Ocana" style="margin-top: -89px;">
+          <div id="list_title" class=" text-[#131D29] pb-[7px] xs:pb-[14px] border-b-[1px] border-black/[.05]">
+            <h1 class=" text-xl xs:text-2xl mb-[5px] xs:mb-[9px] font-bold" style="font-family: &quot;GT Walsheim Pro&quot;;">{{ node.field_full_name.value }}</h1>
+            <h2 class="text-sm xs:text-base text-[#767C83] px-[10px] xs:px-[27px]" style="font-family: &quot;GT Walsheim Pro&quot;; overflow-wrap: anywhere;">{{ node.field_tag_line.processed }}</h2>
+          </div>
+          <div class="nfc-gallery">
+            {% for item in node.field_portfolio|slice(0, max) %}
+              {% set media = item.entity %}
+              {% if media and media.field_media_image.entity %}
+                <div class="nfc-gallery-item">
+                  {% if loop.last and total > max %}
+                    <div class="more-overlay">
+                      +{{ total - max }}
+                    </div>
+                  {% endif %}
+                  <a href="{{ file_url(media.field_media_image.entity.fileuri) }}">
+                    <img
+                      src="{{ file_url(media.field_media_image.entity.fileuri) }}"
+                      alt=""
+                      loading="lazy"
+                    />
+                  </a>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="mt-[10px] xs:mt-[25px] mb-[10px] xs:mb-[25px] w-full flex flex-col  text-white justify-center">
+            <p class="font-bold text-center xs:text-xl text-[#131D29] xxxs:mb-[0px] xs:mb-[10px]">LET'S CONNECT</p>
+            <div class="w-full space-y-[8px] xs:space-y-[15px]">
+              {% if social_links %}
+                {% for item in social_links %}
+                  <a href="{{ item.link.url }}" target="_blank" class="social-links-row flex flex-col w-full rounded-full cursor-pointer hover:opacity-80 hover:scale-[1.01] shadow-[1px_6px_30px_rgba(0,31,14,0.05)]" rel="noreferrer" id="list_text_1">
+                    <div class="flex flex-row w-full justify-between items-center p-[5px] xs:p-[10px]">
+                      <div class="space-x-[7px] xs:space-x-[10px] sm:space-x-[22px] flex flex-row items-center break-all">
+                        <span class="w-10 h-10 overflow-hidden rtl:mr-2 ml-2" alt="{{ item.link.title }}">
+                          <img src="{{ item.icon }}" width="84" height="84" class="w-full h-full object-cover object-top" alt="{{ item.link.title }}">
+                        </span>
+                        <p class="text-[13px] xs:text-[calc(330/100*1.5vw)] sm:text-xl text-left text-black font-medium rtl:text-base rtl:leading-4 rtl:text-right ml-[4px] rtl:mr-[4px]" style="font-family: &quot;GT Walsheim Pro&quot;;">{{ item.link.title }}
+                        </p>
+                      </div>
+                      <svg class="min-w-[20px] rtl:rotate-180 ml-[4px] rtl:mr-[4px]" width="20" height="20" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 11.7547C4 11.3741 4.28215 11.0595 4.64823 11.0098L4.75 11.0029H19.75C20.1642 11.0029 20.5 11.3395 20.5 11.7547C20.5 12.1354 20.2178 12.4499 19.8518 12.4997L19.75 12.5066L4.75 12.5066C4.33579 12.5066 4 12.17 4 11.7547Z"
+                          fill="#7ec09f" class="duration-500"></path>
+                          <path d="M13.171 6.2482C12.8775 5.95522 12.8765 5.47917 13.1687 5.18493C13.4344 4.91743 13.851 4.89226 14.1451 5.11002L14.2294 5.18264L20.2794 11.2215C20.547 11.4887 20.5714 11.9078 20.3524 12.2026L20.2794 12.287L14.2294 18.3269C13.9359 18.6199 13.4611 18.6189 13.1688 18.3247C12.9031 18.0572 12.8797 17.6395 13.0982 17.3456L13.171 17.2614L18.687 11.754L13.171 6.2482Z"
+                          fill="#7ec09f" class="duration-500"></path>
+                      </svg>
+                    </div>
+                  </a>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+          <div class="nfc-cta-primary">
+            <a href="/vcard/{{ node.id }}" class="btn btn-primary">Save Contact</a>
+            <a href="tel:{{ node.field_phone.value }}" class="btn btn-secondary">Call</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

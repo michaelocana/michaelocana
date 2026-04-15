@@ -1,0 +1,19 @@
+uuid: 5a71d320-b569-4342-961a-5da03092d4b1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_full_name
+    - node.type.nfc_profile
+id: node.nfc_profile.field_full_name
+field_name: field_full_name
+entity_type: node
+bundle: nfc_profile
+label: 'Full name'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

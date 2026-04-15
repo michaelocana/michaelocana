@@ -1,0 +1,21 @@
+uuid: ced993fa-70f5-446b-9c4b-371cae888f9e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_featured
+    - node.type.portfolio
+id: node.portfolio.field_featured
+field_name: field_featured
+entity_type: node
+bundle: portfolio
+label: featured
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

@@ -1,0 +1,27 @@
+uuid: e3e64c39-25f1-4182-876a-cba231b4bc79
+langcode: en
+status: true
+dependencies:
+  config:
+    - system.menu.account
+  module:
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: p9zWu5Y5b1mqxzlbudFVPOWGtyO0RnsDWN-OPq7faog
+id: michaelocana_account_menu
+theme: michaelocana
+region: header
+weight: 0
+provider: null
+plugin: 'system_menu_block:account'
+settings:
+  id: 'system_menu_block:account'
+  label: 'User account menu'
+  label_display: '0'
+  provider: system
+  level: 1
+  depth: 2
+  expand_all_items: false
+visibility: {  }

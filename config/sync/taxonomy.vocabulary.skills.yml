@@ -1,0 +1,9 @@
+uuid: fcc6f1d0-40d0-459e-a33a-16e3cbed0400
+langcode: en
+status: true
+dependencies: {  }
+name: Skills
+vid: skills
+description: null
+weight: 0
+new_revision: false

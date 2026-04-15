@@ -13,36 +13,46 @@ namespace Symfony\Component\Validator\Constraints;
 
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
-use Symfony\Component\Validator\Exception\InvalidOptionsException;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
+use Symfony\Component\Validator\Exception\UnexpectedValueException;
 
 /**
  * @author Bernhard Schussek <bschussek@gmail.com>
  */
 class UrlValidator extends ConstraintValidator
 {
-    const PATTERN = '~^
+    public const PATTERN = <<<'REGEX'
+        {^
             (%s)://                                 # protocol
-            (((?:[\_\.\pL\pN-]|%%[0-9A-Fa-f]{2})+:)?((?:[\_\.\pL\pN-]|%%[0-9A-Fa-f]{2})+)@)?  # basic auth
+            ((?:[\pL\pN\-._~!$&'()*+,;=]|%%[0-9A-Fa-f]{2})++(?::(?:[:\pL\pN\-._~!$&'()*+,;=]|%%[0-9A-Fa-f]{2})*+)?@)?  # basic auth
             (
-                ([\pL\pN\pS\-\_\.])+(\.?([\pL\pN]|xn\-\-[\pL\pN-]+)+\.?) # a domain name
-                    |                                                 # or
-                \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}                    # an IP address
-                    |                                                 # or
+                (?:
+                    (?:
+                        (?:[\pL\pN\pS\pM\-\_]++\.)+
+                        (?:
+                            (?:xn--[a-z0-9-]++)     # punycode in tld
+                            |
+                            (?:[\pL\pN\pM]++)       # no punycode in tld
+                        )
+                    )                               # a multi-level domain name
+                        |
+                    [a-z0-9\-\_]++                  # a single-level domain name
+                )\.?
+                    |                               # or
+                \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}  # an IP address
+                    |                               # or
                 \[
                     (?:(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){6})(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:::(?:(?:(?:[0-9a-f]{1,4})):){5})(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:[0-9a-f]{1,4})))?::(?:(?:(?:[0-9a-f]{1,4})):){4})(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,1}(?:(?:[0-9a-f]{1,4})))?::(?:(?:(?:[0-9a-f]{1,4})):){3})(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,2}(?:(?:[0-9a-f]{1,4})))?::(?:(?:(?:[0-9a-f]{1,4})):){2})(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,3}(?:(?:[0-9a-f]{1,4})))?::(?:(?:[0-9a-f]{1,4})):)(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,4}(?:(?:[0-9a-f]{1,4})))?::)(?:(?:(?:(?:(?:[0-9a-f]{1,4})):(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9]))\.){3}(?:(?:25[0-5]|(?:[1-9]|1[0-9]|2[0-4])?[0-9])))))))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,5}(?:(?:[0-9a-f]{1,4})))?::)(?:(?:[0-9a-f]{1,4})))|(?:(?:(?:(?:(?:(?:[0-9a-f]{1,4})):){0,6}(?:(?:[0-9a-f]{1,4})))?::))))
                 \]  # an IPv6 address
             )
             (:[0-9]+)?                              # a port (optional)
-            (?:/ (?:[\pL\pN\-._\~!$&\'()*+,;=:@]|%%[0-9A-Fa-f]{2})* )*      # a path
-            (?:\? (?:[\pL\pN\-._\~!$&\'()*+,;=:@/?]|%%[0-9A-Fa-f]{2})* )?   # a query (optional)
-            (?:\# (?:[\pL\pN\-._\~!$&\'()*+,;=:@/?]|%%[0-9A-Fa-f]{2})* )?   # a fragment (optional)
-        $~ixu';
+            (?:/ (?:[\pL\pN\pS\pM\-._~!$&'()*+,;=:@]|%%[0-9A-Fa-f]{2})* )*  # a path
+            (?:\? (?:[\pL\pN\-._~!$&'()*+,;=:@/?[\]]|%%[0-9A-Fa-f]{2})* )?  # a query (optional)
+            (?:\# (?:[\pL\pN\-._~!$&'()*+,;=:@/?]|%%[0-9A-Fa-f]{2})* )?     # a fragment (optional)
+        $}ixuD
+        REGEX;
 
-    /**
-     * {@inheritdoc}
-     */
-    public function validate($value, Constraint $constraint)
+    public function validate(mixed $value, Constraint $constraint): void
     {
         if (!$constraint instanceof Url) {
             throw new UnexpectedTypeException($constraint, Url::class);
@@ -52,8 +62,8 @@ class UrlValidator extends ConstraintValidator
             return;
         }
 
-        if (!is_scalar($value) && !(\is_object($value) && method_exists($value, '__toString'))) {
-            throw new UnexpectedTypeException($value, 'string');
+        if (!\is_scalar($value) && !$value instanceof \Stringable) {
+            throw new UnexpectedValueException($value, 'string');
         }
 
         $value = (string) $value;
@@ -61,7 +71,19 @@ class UrlValidator extends ConstraintValidator
             return;
         }
 
-        $pattern = sprintf(static::PATTERN, implode('|', $constraint->protocols));
+        if (null !== $constraint->normalizer) {
+            $value = ($constraint->normalizer)($value);
+        }
+
+        if (['*'] === $constraint->protocols) {
+            // Use RFC 3986 compliant scheme pattern: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+            $protocols = '[a-zA-Z][a-zA-Z0-9+.-]*';
+        } else {
+            $protocols = implode('|', $constraint->protocols);
+        }
+
+        $pattern = $constraint->relativeProtocol ? str_replace('(%s):', '(?:(%s):)?', static::PATTERN) : static::PATTERN;
+        $pattern = sprintf($pattern, $protocols);
 
         if (!preg_match($pattern, $value)) {
             $this->context->buildViolation($constraint->message)
@@ -72,36 +94,13 @@ class UrlValidator extends ConstraintValidator
             return;
         }
 
-        if ($constraint->checkDNS) {
-            // backwards compatibility
-            if (true === $constraint->checkDNS) {
-                $constraint->checkDNS = Url::CHECK_DNS_TYPE_ANY;
-                @trigger_error(sprintf('Use of the boolean TRUE for the "checkDNS" option in %s is deprecated.  Use Url::CHECK_DNS_TYPE_ANY instead.', Url::class), E_USER_DEPRECATED);
-            }
-
-            if (!\in_array($constraint->checkDNS, [
-                Url::CHECK_DNS_TYPE_ANY,
-                Url::CHECK_DNS_TYPE_A,
-                Url::CHECK_DNS_TYPE_A6,
-                Url::CHECK_DNS_TYPE_AAAA,
-                Url::CHECK_DNS_TYPE_CNAME,
-                Url::CHECK_DNS_TYPE_MX,
-                Url::CHECK_DNS_TYPE_NAPTR,
-                Url::CHECK_DNS_TYPE_NS,
-                Url::CHECK_DNS_TYPE_PTR,
-                Url::CHECK_DNS_TYPE_SOA,
-                Url::CHECK_DNS_TYPE_SRV,
-                Url::CHECK_DNS_TYPE_TXT,
-            ], true)) {
-                throw new InvalidOptionsException(sprintf('Invalid value for option "checkDNS" in constraint "%s".', \get_class($constraint)), ['checkDNS']);
-            }
-
-            $host = parse_url($value, PHP_URL_HOST);
-
-            if (!\is_string($host) || !checkdnsrr($host, $constraint->checkDNS)) {
-                $this->context->buildViolation($constraint->dnsMessage)
-                    ->setParameter('{{ value }}', $this->formatValue($host))
-                    ->setCode(Url::INVALID_URL_ERROR)
+        if ($constraint->requireTld) {
+            $urlHost = parse_url($value, \PHP_URL_HOST);
+            // the host of URLs with a TLD must include at least a '.' (but it can't be an IP address like '127.0.0.1')
+            if (!str_contains($urlHost, '.') || filter_var($urlHost, \FILTER_VALIDATE_IP)) {
+                $this->context->buildViolation($constraint->tldMessage)
+                    ->setParameter('{{ value }}', $this->formatValue($value))
+                    ->setCode(Url::MISSING_TLD_ERROR)
                     ->addViolation();
             }
         }

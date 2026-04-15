@@ -73,11 +73,13 @@ class Message {
               $this->messageText[] = '  * Name: ' . $homepage;
             }
             break;
+
           case 'description':
             if ($homepage = $this->rootPackage->getDescription()) {
               $this->messageText[] = '  * Description: ' . $homepage;
             }
             break;
+
           case 'homepage':
             if ($homepage = $this->rootPackage->getHomepage()) {
               $this->messageText[] = '  * Homepage: ' . $homepage;
@@ -106,6 +108,7 @@ class Message {
    *   The file to read. Relative paths are relative to the project directory.
    *
    * @return string[]
+   *   The message text.
    */
   protected function getMessageFromFile($file) {
     return file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : [];

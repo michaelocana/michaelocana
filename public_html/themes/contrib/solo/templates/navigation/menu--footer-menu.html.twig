@@ -1,0 +1,117 @@
+{#
+/**
+ * @file
+ * Override of system/menu.html.twig for a sidebar menu.
+ *
+ * @see template_preprocess_menu()
+ * @see solo_preprocess_menu()
+ */
+#}
+{% import _self as menus %}
+{#
+  Macro to recursively render a hierarchical menu structure. Each level of the
+  menu can potentially contain sublevels, distinguished by CSS classes and
+  ARIA roles.
+#}
+{{ menus.menu_links(items, attributes, 0) }}
+{% macro menu_links(items, attributes, menu_level) %}
+    {% import _self as menus %}
+    {% if items %}
+        <ul {% if menu_level == 0 %} class="solo-footer-menu" role="menubar" aria-label="{{ 'Footer menu'|t }}" data-menu-level="{{ menu_level }}" aria-orientation="horizontal" {% else %} class="solo-footer-menu__sublist" role="menu" data-menu-level="{{ menu_level }}" aria-orientation="vertical" {% endif %}>
+            {% for item in items %}
+                {# Determine the system path for the link #}
+                {% set system_path = item.url.isRouted() ? item.url.getInternalPath() : item.url.toString() %}
+                {% if system_path == '' %}
+                    {% set system_path = "<front>" %}
+                {% endif %}
+
+                {# Link type detection - Following Drupal core Olivero pattern #}
+                {% if item.url.isRouted and item.url.routeName == '<nolink>' %}
+                    {% set link_type = 'nolink' %}
+                {% elseif item.url.isRouted and item.url.routeName == '<button>' %}
+                    {% set link_type = 'button' %}
+                {% else %}
+                    {% set link_type = 'link' %}
+                {% endif %}
+
+                {# Determine if this is an external link for additional handling #}
+                {% set is_external = item.url.isExternal() %}
+                {% set url_string = item.url.toString() %}
+                {% set is_linkable = link_type != 'nolink' and url_string != '' %}
+
+                {# Build item classes with link type detection #}
+                {% set classes = [
+                    'solo-footer-menu__item',
+                    item.is_expanded ? 'expanded' : null,
+                    item.is_collapsed ? 'collapsed' : null,
+                    item.in_active_trail ? 'is-active' : null,
+                    is_linkable ? 'link-only' : null,
+                    link_type == 'nolink' ? 'no-link' : null,
+                    link_type == 'button' ? 'keyboard-button' : null,
+                    is_external ? 'external-link' : null,
+                ] %}
+
+                {% set is_current_page = item.in_active_trail and item.url and item.url.toString() == path('<current>') %}
+
+                {# Get additional attributes if they exist - with null safety #}
+                {% set additional_classes = '' %}
+                {% if item.url and item.url.getOption('attributes') and item.url.getOption('attributes').class %}
+                    {% set additional_classes = item.url.getOption('attributes').class %}
+                {% endif %}
+                {% set class_list = additional_classes is iterable ? additional_classes|join(' ') : additional_classes %}
+
+                <li {{ item.attributes.addClass(classes) | default(attributes) }}
+                    role="none"
+                    data-menu-item="true"
+                    data-link-type="{{ link_type }}">
+
+                    {% if link_type == 'nolink' %}
+                        {# Display as text only #}
+                        <span class="solo-footer-menu__nolink {{ class_list }}"
+                              role="menuitem"
+                              tabindex="{{ menu_level == 0 ? '0' : '-1' }}"
+                              {%- if item.url and item.url.getOption('attributes') and item.url.getOption('attributes').title %} title="{{ item.url.getOption('attributes').title }}" {% endif -%}>
+                            {{ item.title }}
+                        </span>
+                    {% elseif link_type == 'button' %}
+                        {# Display as keyboard-accessible button #}
+                        <button class="solo-footer-menu__button {{ class_list }}"
+                                role="menuitem"
+                                tabindex="{{ menu_level == 0 ? '0' : '-1' }}"
+                                type="button"
+                                {%- if item.url and item.url.getOption('attributes') and item.url.getOption('attributes').title %} title="{{ item.url.getOption('attributes').title }}" {% endif -%}>
+                            {{ item.title }}
+                        </button>
+                    {% else %}
+                        {# All links (internal and external) #}
+                        {% if is_external %}
+                            <a href="{{ item.url }}"
+                               class="solo-footer-menu__link {{ class_list }}"
+                               role="menuitem"
+                               tabindex="{{ menu_level == 0 ? '0' : '-1' }}"
+                               target="_blank"
+                               rel="noopener"
+                               data-drupal-link-system-path="{{ system_path }}"
+                               {%- if item.url and item.url.getOption('attributes') and item.url.getOption('attributes').title %} title="{{ item.url.getOption('attributes').title }}" {% endif -%}
+                               {%- if is_current_page %} aria-current="page"{% endif -%}>
+                                {{ item.title }}
+                                <span class="visually-hidden">{{ '(opens in new tab)'|t }}</span>
+                            </a>
+                        {% else %}
+                            {# Use Drupal's link function for internal links #}
+                            {{ link(item.title, item.url, {
+                                'class': class_list ? [class_list] : [],
+                                'role': 'menuitem',
+                                'tabindex': menu_level == 0 ? '0' : '-1',
+                                'data-drupal-link-system-path': system_path,
+                                'aria-current': is_current_page ? 'page' : null,
+                            }) }}
+                        {% endif %}
+                    {% endif %}
+
+                    {% if item.below %}{{ menus.menu_links(item.below, attributes, menu_level + 1) }}{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endmacro %}

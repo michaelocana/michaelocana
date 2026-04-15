@@ -1,0 +1,35 @@
+uuid: 9cb1104e-8d9b-4287-80bb-d1f08cb71ab9
+langcode: en
+status: true
+dependencies:
+  config:
+    - system.menu.main
+  module:
+    - node
+    - system
+  theme:
+    - michaelocana
+_core:
+  default_config_hash: f86Vh2pAgpE6Ta7hTxB6PmJVGofFAlFBR7j8Qcs48WA
+id: michaelocana_main_menu
+theme: michaelocana
+region: primary_menu
+weight: 10
+provider: null
+plugin: 'system_menu_block:main'
+settings:
+  id: 'system_menu_block:main'
+  label: 'Main navigation'
+  label_display: '0'
+  provider: system
+  level: 1
+  depth: null
+  expand_all_items: true
+visibility:
+  'entity_bundle:node':
+    id: 'entity_bundle:node'
+    negate: false
+    context_mapping:
+      node: '@node.node_route_context:node'
+    bundles:
+      employment_history: employment_history

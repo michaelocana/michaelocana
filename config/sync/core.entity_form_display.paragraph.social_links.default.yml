@@ -1,0 +1,36 @@
+uuid: 57bfbcd4-02b6-4c51-9625-e4a352908a37
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.social_links.field_icon
+    - field.field.paragraph.social_links.field_links
+    - paragraphs.paragraphs_type.social_links
+  module:
+    - link
+id: paragraph.social_links.default
+targetEntityType: paragraph
+bundle: social_links
+mode: default
+content:
+  field_icon:
+    type: entity_reference_autocomplete
+    weight: 0
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_links:
+    type: link_default
+    weight: 1
+    region: content
+    settings:
+      placeholder_url: ''
+      placeholder_title: ''
+    third_party_settings: {  }
+hidden:
+  created: true
+  status: true

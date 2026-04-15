@@ -1,0 +1,24 @@
+uuid: ae321e0d-093c-403a-8d40-c9fe690423ac
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_tag_line
+    - filter.format.basic_html
+    - node.type.nfc_profile
+  module:
+    - text
+id: node.nfc_profile.field_tag_line
+field_name: field_tag_line
+entity_type: node
+bundle: nfc_profile
+label: 'Tag Line'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats:
+    - basic_html
+field_type: text_long

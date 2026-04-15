@@ -1,0 +1,19 @@
+uuid: ff77f4ea-84ec-484e-ae3b-edce5b8873b2
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_tag_line
+field_name: field_tag_line
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

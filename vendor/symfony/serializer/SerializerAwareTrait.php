@@ -12,23 +12,13 @@
 namespace Symfony\Component\Serializer;
 
 /**
- * SerializerAware trait.
- *
  * @author Joel Wurtz <joel.wurtz@gmail.com>
  */
 trait SerializerAwareTrait
 {
-    /**
-     * @var SerializerInterface
-     */
-    protected $serializer;
+    protected ?SerializerInterface $serializer = null;
 
-    /**
-     * Sets the serializer.
-     *
-     * @param SerializerInterface $serializer A SerializerInterface instance
-     */
-    public function setSerializer(SerializerInterface $serializer)
+    public function setSerializer(SerializerInterface $serializer): void
     {
         $this->serializer = $serializer;
     }
