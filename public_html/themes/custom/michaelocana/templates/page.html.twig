@@ -8,10 +8,6 @@
   </head>
   <body>
     <header class="container">
-      <nav>
-        {{ page.primary_menu }}
-      </nav>
-    </header>
     {% if node.bundle != 'nfc_profile' %}
     {# --- BEGIN THE HERO BANNER --- #}
     {# We inline the background image so we can use the Twig directory path token #}
@@ -25,7 +21,13 @@
     </div>
     {# --- END THE HERO BANNER --- #}
     {% endif %}
+    </header>
     <main class="container">
+      <div class="primary-breadcrumbs">
+        <nav>
+          {{ page.primary_menu }}
+        </nav>
+      </div>
       {{ page.content }}
     </main>
 

@@ -207,3 +207,29 @@ footer {
     line-height: 1.5;
     color: #444;
 }
+
+.primary-nav__menu-item:not(:last-child)::after {
+  content: ">";
+  /*margin: 0 10px; /* Spacing around the separator */*/
+  color: #666;    /* Style the color of the > */
+  font-weight: bold;
+}
+
+.primary-nav__menu-item--level-1 {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: 12.5rem;
+  margin-block:0;margin-inline-start:0;margin-inline-end:0;&:not(:last-child) {
+      margin-inline-end: revert !important;
+  }
+}
+
+.page-node-type-article .field--name-field-image {
+  margin-inline-start: unset;
+}
+
+article.node--type-article header {
+  display: block;
+}

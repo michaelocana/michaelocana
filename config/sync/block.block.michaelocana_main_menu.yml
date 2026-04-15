@@ -5,7 +5,6 @@ dependencies:
   config:
     - system.menu.main
   module:
-    - node
     - system
   theme:
     - michaelocana
@@ -26,10 +25,7 @@ settings:
   depth: null
   expand_all_items: true
 visibility:
-  'entity_bundle:node':
-    id: 'entity_bundle:node'
+  request_path:
+    id: request_path
     negate: false
-    context_mapping:
-      node: '@node.node_route_context:node'
-    bundles:
-      employment_history: employment_history
+    pages: "/articles\r\n/article/*\r\n<front>"
