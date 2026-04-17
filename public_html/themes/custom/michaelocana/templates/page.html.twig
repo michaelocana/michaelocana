@@ -7,8 +7,9 @@
     <js-placeholder token="{{ placeholder_token }}">
   </head>
   <body>
-    <header class="container">
+
     {% if node.bundle != 'nfc_profile' %}
+    <header class="container">
     {# --- BEGIN THE HERO BANNER --- #}
     {# We inline the background image so we can use the Twig directory path token #}
     <div class="hero-banner" style="background-image: url('/{{ active_theme_path() }}/images/me_presentation.png');">
@@ -20,8 +21,9 @@
       </div>
     </div>
     {# --- END THE HERO BANNER --- #}
-    {% endif %}
     </header>
+    {% endif %}
+
     <main class="container">
       <div class="primary-breadcrumbs">
         <nav>

@@ -181,6 +181,10 @@
   font-weight: bold;
 }
 
+.nova-tap-logo img {
+  margin-bottom: 0;
+}
+
 @media (max-width: 480px) {
   .nfc-gallery {
     gap: 4px;
