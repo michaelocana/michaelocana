@@ -27,6 +27,7 @@
         "drupal/pathauto": "^1.14",
         "drupal/recaptcha": "^3.4",
         "drupal/solo": "^1.0",
+        "drupal/statistics": "^1.0",
         "drupal/token": "^1.17",
         "drush/drush": "^13.6"
     },
